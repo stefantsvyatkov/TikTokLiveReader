@@ -1,0 +1,125 @@
+﻿<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>TikTok Live Reader</title>
+<style>
+body {
+    font-family: Verdana, sans-serif;
+    font-size: 1.2rem;
+    line-height: 1.8;
+    color: #000;
+    max-width: 1000px;
+    margin: 40px auto;
+    padding: 20px;
+}
+ul {
+    margin-bottom: 20px;
+}
+li {
+    margin-bottom: 10px;
+}
+</style>
+</head>
+<body>
+
+<h1 align="center">TikTok Live Reader</h1>
+
+This add-on connects to TikTok Live streams and extracts information in real-time. It uses the TikTokLive Python library to access a specific live stream. The following features are supported:
+
+<ul>
+<li>Logging extracted data into text files created in the Documents\TikTok live folder.</li>
+<li>Tracking events: comments, new followers, gifts, likes, shares, and visitors.</li>
+<li>An events file that can record multiple types of data simultaneously.</li>
+<li>Audio notifications for selected events, such as new comments, gifts, etc.</li>
+<li>Stream statistics: displays current viewers, total session visitors, total likes, new followers, and diamonds collected.</li>
+<li>Top Gifters leaderboard: ranks users from most active to least active based on diamonds sent.</li>
+<li>Top Likers leaderboard: ranks users based on their total likes during the stream.</li>
+</ul>
+
+TikTok Live Reader allows hosts or viewers to monitor essential stream data without external tools. Data is saved in text files in Documents\Tiktok live and can be reviewed later. The add-on extracts the following data types into separate files:
+
+<ul>
+<li>comments.txt - Records all comments detected during the live stream with timestamps.</li>
+<li>followers.txt - Registers all new users who followed the live creator during the current session.</li>
+<li>gifts.txt - Logs all received gifts, reporting the user, gift type, quantity, and timestamp.</li>
+<li>likes.txt - Shows who liked the stream, when, and how many times.</li>
+<li>shares.txt - Records the users who shared the live stream along with the timestamp.</li>
+<li>stats.txt - Shows current viewers, new followers, total likes, total session visitors, and total diamonds received.</li>
+<li>top gifts.txt - A leaderboard of users who sent gifts, ranked from most to least active.</li>
+<li>top likes.txt - A leaderboard of users ranked by their total likes.</li>
+<li>visitors.txt - Records all visitors who entered the stream during the current session with timestamps.</li>
+<li>events.txt - A combined chronological log for various events (comments, followers, gifts, etc.). They can be defined by the user.</li>
+</ul>
+
+<h2 align="center">Settings</h2>
+
+TikTok Live Reader has its own settings window. It can be opened with keyboard shortcut NVDA+Shift+Control+L. The settings window contains 3 tabs:
+
+<h3 align="center">General</h3>
+
+This section includes the following settings:
+
+<ul>
+<li>Username - Enter TikTok live host's username without @ symbol.</li>
+<li>Clear text files on startup - Removes the content of text files when the add-on starts.</li>
+<li>Clean usernames - Removes emojis and Unicode symbols from usernames. This ensures better compatibility with screen readers. When the option is enabled, the usernames contain only letters, numbers and punctuation.</li>
+<li>Connection retry count - Defines how many times the add-on should try to connect to the live stream.</li>
+</ul>
+
+<h3 align="center">Events</h3>
+
+These check boxes determine which data types are recorded in the Events file. Options include Comments, Followers, Gifts, Likes, Shares and Visitors. Additional options:
+
+<ul>
+<li>Play sounds for the selected events - Plays a specific short sound when a registered event occurs.</li>
+<li>Audio volume - Adjusts the notification sound level.</li>
+<li>Learn sounds - Plays a description of the different sounds so the user can familiarize themselves with them.</li>
+</ul>
+
+<h3 align="center">Auto speak</h3>
+
+This section defines which events are announced when the Auto speak function is enabled. Activate it via keyboard shortcut NVDA+Shift+Control+S. When a selected event occurs, it is read automatically (e.g., "New follower: Username" or "Username shared the live").
+
+Announcements and sounds are played with a one second pause between them. They are stored in a temporary files to ensure they are reported in order during live streams with high traffic. Audio notifications and Auto speak functions work independently.
+
+<h2 align="center">How to use the add-on</h2>
+
+Once configured, press NVDA+Shift+Control+T to connect. Connection status is announced automatically. The following hotkeys work only during an active session:
+
+<ul>
+<li>Control+Shift+Right Arrow - Next file (e.g., Comments, Events, Followers, Gifts, etc.).</li>
+<li>Control+Shift+Left Arrow - Previous file.</li>
+<li>Control+Shift+Down Arrow - Next item in the current file (e.g., comment, like, share).</li>
+<li>Control+Shift+Up Arrow - Previous item in the current file.</li>
+<li>Control+Shift+Home - Moves focus to the first item in the current file.</li>
+<li>Control+Shift+End - Moves focus to the last item in the current file.</li>
+<li>NVDA+Shift+Control+V - Reports the current viewer count.</li>
+<li>NVDA+Shift+Control+S - Toggles the auto speak function on or off.</li>
+<li>NVDA+Shift+Control+R - Manually clears the content of text files.</li>
+</ul>
+
+Press NVDA+Shift+Control+T to terminate the current session. Data remains available in the Documents\TikTok live folder.
+
+<h2 align="center">Notes</h2>
+
+<ul>
+<li>Opening settings terminates the active connection to ensure stability when applying changes.</li>
+<li>If "Clear files on startup" is disabled, new data is appended to the existing logs. Use NVDA+Shift+Control+R to clear them manually.</li>
+<li>The add-on remembers your last position in the files if they are not cleared automatically.</li>
+</ul>
+
+<h2 align="center">Limitations</h2>
+
+<ul>
+<li>The add-on cannot show a list of all current viewers because the TikTokLive library does not report when a user leaves the stream.</li>
+<li>A leaderboard based on watch time cannot be created due to the lack of user leave events.</li>
+<li>During the translation of the add-on in Bulgarian, which is my native language, it was determined that TikTok gifts are too numerous and frequently updated by the social network. Maintaining a manual translation for all of them is not viable. therefore, gift names will be reported in English.</li>
+</ul>
+
+<h2 align="center">Final Clarifications</h2>
+
+This add-on was developed with the assistance of language models ChatGPT, Google Gemini and Claude OPUS 4.6 Thinking. It is distributed under the GNU General Public License 2.0.
+
+</body>
+</html>

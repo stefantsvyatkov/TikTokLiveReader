@@ -1,0 +1,266 @@
+# TikTok Live Reader NVDA Addon - Bulgarian Translation
+# Copyright (C) 2026 Stefan Tsvyatkov
+# This file is distributed under the same license as the TikTok Live Reader package.
+#
+msgid ""
+msgstr ""
+"Project-Id-Version: TikTok Live Reader 1.0\n"
+"Report-Msgid-Bugs-To: \n"
+"POT-Creation-Date: 2026-02-14 01:00+0200\n"
+"PO-Revision-Date: 2026-02-16 01:34+0200\n"
+"Last-Translator: Stefan Tsvyatkov\n"
+"Language-Team: Bulgarian\n"
+"Language: bg\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Plural-Forms: nplurals=2; plural=(n != 1);\n"
+"X-Generator: Poedit 3.8\n"
+
+#. Translators: File name shown when navigating files.
+msgid "Comments"
+msgstr "Коментари"
+
+#. Translators: File name shown when navigating files.
+msgid "Followers"
+msgstr "Последователи"
+
+#. Translators: File name shown when navigating files.
+msgid "Gifts"
+msgstr "Гифтове"
+
+#. Translators: File name shown when navigating files.
+msgid "Likes"
+msgstr "Харесвания"
+
+#. Translators: File name shown when navigating files.
+msgid "Stats"
+msgstr "Статистики"
+
+#. Translators: File name shown when navigating files.
+msgid "Top gifters"
+msgstr "Топ гифтъри"
+
+#. Translators: File name shown when navigating files.
+msgid "Top likes"
+msgstr "Топ харесвания"
+
+#. Translators: File name shown when navigating files.
+msgid "Visitors"
+msgstr "Посетители"
+
+#. Translators: Announced when navigating items. {item} is the content, {num} is current position, {total} is total count.
+msgid "{item} ({num} of {total})"
+msgstr "{item} ({num} от {total})"
+
+#. Translators: Announced when there are no entries.
+msgid "No entries"
+msgstr "Няма записи"
+
+#. Translators: Announced when a new follower joins. {name} is their display name.
+msgid "New follower: {name}"
+msgstr "Нов последовател: {name}"
+
+#. Translators: Announced when a new visitor joins the live. {name} is their display name.
+msgid "{name} joined"
+msgstr "{name} се присъедини"
+
+#. Translators: Description shown in NVDA Input Gestures dialog.
+msgid "Toggle TikTok Live Reader on or off"
+msgstr "Включва или изключва TikTok Live Reader"
+
+#. Translators: Category name in NVDA Input Gestures dialog.
+msgid "TikTok Live Reader"
+msgstr "TikTok Live Reader"
+
+#. Translators: Announced when the addon is turned on.
+msgid "TikTok Live Reader On"
+msgstr "TikTok Live Reader е включен"
+
+#. Translators: Announced when the addon is turned off.
+msgid "TikTok Live Reader Off"
+msgstr "TikTok Live Reader е изключен"
+
+#. Translators: Announced when successfully connected to a TikTok live. {username} is the streamer name.
+msgid "Connected to user: {username}"
+msgstr "Свързан с потребител: {username}"
+
+#. Translators: Announced when attempting to reconnect.
+msgid "Attempting to connect..."
+msgstr "Опит за свързване..."
+
+#. Translators: Announced when connection fails after all retries.
+msgid "Connection unsuccessful."
+msgstr "Връзката е неуспешна."
+
+#. Translators: Description shown in NVDA Input Gestures dialog.
+msgid "Toggle automatic speaking of new events"
+msgstr "Включва или изключва автоматичното изговаряне на събития"
+
+#. Translators: Announced when auto speak is enabled.
+msgid "Auto speak On"
+msgstr "Автоматичното изговаряне е включено"
+
+#. Translators: Announced when auto speak is disabled.
+msgid "Auto speak Off"
+msgstr "Автоматичното изговаряне е изключено"
+
+#. Translators: Description shown in NVDA Input Gestures dialog.
+msgid "Open TikTok Live Reader settings"
+msgstr "Отваря настройките на TikTok Live Reader"
+
+#. Translators: Title of the settings dialog.
+msgid "TikTok Live Reader Settings"
+msgstr "Настройки на TikTok Live Reader"
+
+#. Translators: Label for the username text field in settings.
+msgid "User name"
+msgstr "Име на потребител"
+
+#. Translators: Checkbox label in settings.
+msgid "Clear text files on startup"
+msgstr "Изчистване на файловете при стартиране"
+
+#. Translators: Checkbox label in settings.
+msgid "Clean user names"
+msgstr "Подкастряне на потребителските имена"
+
+#. Translators: Label for the retry count spinner in settings.
+msgid "Connection retry count"
+msgstr "Брой опити за свързване"
+
+#. Translators: Tab name in settings dialog.
+msgid "General"
+msgstr "Общи"
+
+#. Translators: Tab name in settings dialog.
+msgid "Auto speak"
+msgstr "Автоматично изговаряне"
+
+#. Translators: OK button label in the settings dialog.
+msgid "OK"
+msgstr "OK"
+
+#. Translators: Cancel button label in the settings dialog.
+msgid "Cancel"
+msgstr "Отказ"
+
+#. Translators: Description shown in NVDA Input Gestures dialog.
+msgid "Next item"
+msgstr "Следващ запис"
+
+#. Translators: Description shown in NVDA Input Gestures dialog.
+msgid "Previous item"
+msgstr "Предишен запис"
+
+#. Translators: Description shown in NVDA Input Gestures dialog.
+msgid "First item"
+msgstr "Първи запис"
+
+#. Translators: Description shown in NVDA Input Gestures dialog.
+msgid "Last item"
+msgstr "Последен запис"
+
+#. Translators: Description shown in NVDA Input Gestures dialog.
+msgid "Previous file"
+msgstr "Предишен файл"
+
+#. Translators: Description shown in NVDA Input Gestures dialog.
+msgid "Next file"
+msgstr "Следващ файл"
+
+#. Translators: Description shown in NVDA Input Gestures dialog.
+msgid "Clear all log files and reset positions"
+msgstr "Изчиства всички файлове и нулира позициите"
+
+#. Translators: Announced after clearing all log files.
+msgid "All files cleared."
+msgstr "Всички файлове са изчистени."
+
+#. Translators: Description shown in NVDA Input Gestures dialog.
+msgid "Report the current number of live viewers"
+msgstr "Докладва текущия брой зрители"
+
+#. Translators: Announced when trying to use a feature while the addon is off.
+msgid "Addon is not active."
+msgstr "Добавката не е активна."
+
+#. Translators: Announced when reporting viewer count. {count} is the number.
+msgid "{count} viewers"
+msgstr "{count} зрители"
+
+#. Translators: Stats file line showing current viewer count.
+msgid "Viewers: {count}"
+msgstr "Зрители: {count}"
+
+#. Translators: Stats file line showing total visitor count.
+msgid "Visitors: {count}"
+msgstr "Посетители: {count}"
+
+#. Translators: Stats file line showing total likes.
+msgid "Likes: {count}"
+msgstr "Харесвания: {count}"
+
+#. Translators: Stats file line showing total followers.
+msgid "Followers: {count}"
+msgstr "Последователи: {count}"
+
+#. Translators: Stats file line showing total diamonds.
+msgid "Diamonds: {count}"
+msgstr "Диаманти: {count}"
+
+#. Translators: Singular form - used in likes file when a user has exactly 1 like.
+msgid "like"
+msgstr "харесване"
+
+#. Translators: Plural form - used in likes file when a user has 0 or more than 1 likes.
+msgid "likes"
+msgstr "харесвания"
+
+#. Translators: File name shown when navigating files.
+msgid "Events"
+msgstr "Събития"
+
+#. Translators: File name shown when navigating files.
+msgid "Shares"
+msgstr "Споделяния"
+
+#. Translators: Announced when a user shares the live. {name} is their display name.
+msgid "{name} shared the live"
+msgstr "{name} сподели лайфа"
+
+#. Translators: Button to learn sounds.
+msgid "Learn sounds"
+msgstr "Научаване на звуците"
+
+#. Translators: Checkbox to enable playing sounds for selected events.
+msgid "Play sounds for the selected events"
+msgstr "Възпроизвеждане на звуци за избраните събития"
+
+#. Translators: Label for volume slider.
+msgid "Audio volume"
+msgstr "Сила на звука"
+
+#. Translators: Sound label.
+msgid "Comment"
+msgstr "Коментар"
+
+#. Translators: Sound label.
+msgid "Follower"
+msgstr "Последовател"
+
+#. Translators: Sound label.
+msgid "Gift"
+msgstr "Гифт"
+
+#. Translators: Sound label.
+msgid "Like"
+msgstr "Харесване"
+
+#. Translators: Sound label.
+msgid "Sharing"
+msgstr "Споделяне"
+
+#. Translators: Sound label.
+msgid "Visitor"
+msgstr "Посетител"

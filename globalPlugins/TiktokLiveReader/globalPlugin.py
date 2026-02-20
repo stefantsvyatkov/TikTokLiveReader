@@ -1,14 +1,20 @@
 from pathlib import Path
+import configparser
+import datetime
+import json
+import threading
+import time
+
+from . import client
 from globalPluginHandler import GlobalPlugin as NVDA_GlobalPlugin
 from scriptHandler import script
 import addonHandler
-import ui, threading, time, wx, gui, configparser, json
-import datetime
-from pathlib import Path
+import gui
+import ui
+import wx
 
 addonHandler.initTranslation()
 
-from . import client
 client._cached_translate = _
 
 ADDON_DIR = Path(__file__).resolve().parent
@@ -131,7 +137,7 @@ class SpeechManager:
                                 time.sleep(float(self.plugin.autoSpeakDelay))
                         except Exception as e:
                             _log_debug(f"Speech error: {e}")
-            except Exception as e:
+            except Exception:
                 pass
             
             time.sleep(0.5)
@@ -330,6 +336,10 @@ class GlobalPlugin(NVDA_GlobalPlugin):
         if self.active:
             self._bind_nav()
             self.index = self.filePositions.get(self.currentFileIndex, -1) if not self.clearOnStart else -1
+            if self.autoSpeak:
+                self.speech_manager.start()
+            else:
+                self.speech_manager.stop()
             # Translators: Announced when the addon is turned on.
             ui.message(_("TikTok Live Reader On"))
 
@@ -346,14 +356,12 @@ class GlobalPlugin(NVDA_GlobalPlugin):
                 ui.message(_("Connection unsuccessful."))
                 self.active = False
                 self._unbind_nav()
-                self.autoSpeak = False
                 self.speech_manager.stop()
                 self._cleanup_temp_files()
 
             client.connect(username=self.username, on_connect=on_conn, on_retry=on_retry, on_fail=on_fail, retry_count=self.retryCount)
         else:
             self._unbind_nav()
-            self.autoSpeak = False
             # Translators: Announced when the addon is turned off.
             ui.message(_("TikTok Live Reader Off"))
             client.disconnect()
@@ -572,7 +580,7 @@ class GlobalPlugin(NVDA_GlobalPlugin):
 
                          time.sleep(0.5)
                  
-                 except Exception as e:
+                 except Exception:
                      pass
                  finally:
                      wx.CallAfter(btn_learn.SetLabel, _("Learn sounds"))

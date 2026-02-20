@@ -1,4 +1,3 @@
-import sys
 from pathlib import Path
 import datetime
 import configparser
@@ -21,14 +20,19 @@ if not hasattr(winsound, "SND_PURGE"):
     winsound.SND_PURGE = 0x0040
 import wave
 import array
-import asyncio
 import queue
 try:
     import audioop
 except ImportError:
     audioop = None
 
-_cached_translate = lambda s: s
+from .vendor_loader import load_runtime, runtime_scope
+
+def _identity(text):
+    return text
+
+
+_cached_translate = _identity
 
 def _t(msg):
     return _cached_translate(msg)
@@ -38,8 +42,7 @@ def _nt(singular, plural, n):
 
 BASE_DIR = Path(__file__).resolve().parent
 LIB_DIR = BASE_DIR / "lib"
-if str(LIB_DIR) not in sys.path:
-    sys.path.insert(0, str(LIB_DIR))
+_RUNTIME = load_runtime(str(LIB_DIR))
 
 CONFIG_PATH = BASE_DIR / "config.ini"
 LOG_DIR = Path.home() / "Documents" / "TikTok live"
@@ -121,7 +124,10 @@ class LikeManager:
             _log_debug(f"_handle: {event_key}, sound={sound_enabled}, speech={speech_enabled}")
             cb = None
             if speech_enabled:
-                cb = lambda: _speak_text(speak_line)
+                def _on_complete():
+                    _speak_text(speak_line)
+
+                cb = _on_complete
 
             sound_manager.play(event_key, play_file=sound_enabled, on_complete=cb)
 
@@ -246,8 +252,10 @@ class SoundManager:
                     
                     for i in range(len(samples)):
                         val = int(samples[i] * factor)
-                        if val > 32767: val = 32767
-                        if val < -32768: val = -32768
+                        if val > 32767:
+                            val = 32767
+                        if val < -32768:
+                            val = -32768
                         samples[i] = val
                         
                     data = samples.tobytes()
@@ -460,6 +468,32 @@ def _speak_text(text):
     except Exception:
         pass
 
+def _extract_comment_payload(event):
+    user = getattr(event, "user", None)
+    nickname = getattr(user, "nickname", None) or getattr(user, "unique_id", None) or "someone"
+    nickname = _sanitize_name(nickname)
+
+    comment_text = (
+        getattr(event, "comment", None)
+        or getattr(event, "content", None)
+        or getattr(event, "text", None)
+        or getattr(event, "msg", None)
+        or getattr(event, "message", None)
+    )
+    if not comment_text:
+        comments_attr = getattr(event, "comments", None)
+        if isinstance(comments_attr, (list, tuple)) and comments_attr:
+            comment_text = " ".join(str(x) for x in comments_attr if x is not None).strip()
+
+    if not comment_text:
+        display_text = getattr(event, "display_text", None)
+        comment_text = getattr(display_text, "default_pattern", None) or getattr(display_text, "key", None)
+
+    if not comment_text:
+        return None
+
+    return nickname, str(comment_text)
+
 def _handle_speech_and_sound(event_key, speak_text):
     """
     Handles sound playing and speech queuing with delay.
@@ -479,7 +513,10 @@ def _handle_speech_and_sound(event_key, speak_text):
         _log_debug(f"_handle: {event_key}, sound={sound_enabled}, speech={speech_enabled}")
         cb = None
         if speech_enabled:
-            cb = lambda: _speak_text(speak_text)
+            def _on_complete():
+                _speak_text(speak_text)
+
+            cb = _on_complete
             
         sound_manager.play(event_key, play_file=sound_enabled, on_complete=cb)
     else:
@@ -516,7 +553,11 @@ async def on_comment(event):
         return
     if _is_processed(event):
         return
-    user_comment = f"{_sanitize_name(event.user.nickname)}: {event.comment}"
+    payload = _extract_comment_payload(event)
+    if not payload:
+        return
+    display_name, comment_text = payload
+    user_comment = f"{display_name}: {comment_text}"
     if user_comment in _known_comments:
         if _console_mode:
             print(f"Skipped duplicate: {user_comment}")
@@ -525,7 +566,8 @@ async def on_comment(event):
     log_line = f"{user_comment}  {datetime.datetime.now().strftime('%H:%M:%S')}"
     with open(COMMENTS_FILE, "a", encoding="utf-8") as f:
         f.write(log_line + "\n")
-        print(log_line.strip())
+        if _console_mode:
+            print(log_line.strip())
     if PREFS.get("comments", True):
         _log_to_events(log_line)
         
@@ -680,29 +722,37 @@ def _runner(username, on_connect_cb, on_retry_cb, on_fail_cb, max_attempts=3):
     connected_once = False
 
     try:
-        from TikTokLive import TikTokLiveClient
-        from TikTokLive.events import CommentEvent, FollowEvent, GiftEvent, LikeEvent, DiggEvent, JoinEvent, ConnectEvent
-        try:
-            from TikTokLive.events import ViewerUpdateEvent, RoomUserSeqEvent
-        except ImportError:
+        with runtime_scope(_RUNTIME):
+            from TikTokLive import TikTokLiveClient
+            from TikTokLive.events import CommentEvent, FollowEvent, GiftEvent, LikeEvent, DiggEvent, JoinEvent, ConnectEvent
             try:
-                from TikTokLive.events import RoomUserSeqEvent
-                ViewerUpdateEvent = None
+                from TikTokLive.events import CommentsEvent
             except ImportError:
-                RoomUserSeqEvent = None
-                ViewerUpdateEvent = None
+                CommentsEvent = None
+            try:
+                from TikTokLive.events import EmoteChatEvent, ScreenChatEvent
+            except ImportError:
+                EmoteChatEvent = None
+                ScreenChatEvent = None
+            try:
+                from TikTokLive.events import ViewerUpdateEvent, RoomUserSeqEvent
+            except ImportError:
+                try:
+                    from TikTokLive.events import RoomUserSeqEvent
+                    ViewerUpdateEvent = None
+                except ImportError:
+                    RoomUserSeqEvent = None
+                    ViewerUpdateEvent = None
+                    
+            try:
+                from TikTokLive.events import ShareEvent
+            except ImportError:
+                ShareEvent = None
                 
-        try:
-            from TikTokLive.events import ShareEvent
-        except ImportError:
-            ShareEvent = None
-            
-        try:
-            from TikTokLive.events import SocialEvent
-        except ImportError:
-            SocialEvent = None
-
-
+            try:
+                from TikTokLive.events import SocialEvent
+            except ImportError:
+                SocialEvent = None
     except Exception as e:
         if _console_mode:
             print(f"Import error: {e}")
@@ -712,44 +762,55 @@ def _runner(username, on_connect_cb, on_retry_cb, on_fail_cb, max_attempts=3):
 
     while _should_run:
         try:
-            client = TikTokLiveClient(unique_id=username)
-            client.add_listener(CommentEvent, on_comment)
-            client.add_listener(FollowEvent, on_follow)
-            client.add_listener(GiftEvent, on_gift)
-            client.add_listener(LikeEvent, on_like)
-            client.add_listener(DiggEvent, on_digg)
-            client.add_listener(JoinEvent, on_join)
-            if ShareEvent:
-                try:
-                    client.add_listener(ShareEvent, on_share)
-                except Exception:
-                    pass
-            if SocialEvent:
-                try:
-                    client.add_listener(SocialEvent, on_social)
-                except Exception:
-                    pass
-            if ViewerUpdateEvent:
-                client.add_listener(ViewerUpdateEvent, on_viewer_update)
-            if RoomUserSeqEvent:
-                client.add_listener(RoomUserSeqEvent, on_viewer_update)
-            
-
-            async def on_connected(event):
-                nonlocal attempts, connected_once
-                global _connection_time
-                attempts = 0
-                connected_once = True
-                _connection_time = time.time()
-                if on_connect_cb:
-                    on_connect_cb()
-                    
-            client.add_listener(ConnectEvent, on_connected)
-            
-            if _console_mode:
-                print(f"Connecting to @{username} (attempt {attempts + 1})...")
+            with runtime_scope(_RUNTIME):
+                client = TikTokLiveClient(unique_id=username)
+                client.add_listener(CommentEvent, on_comment)
+                client.add_listener("CommentEvent", on_comment)
+                if CommentsEvent:
+                    client.add_listener(CommentsEvent, on_comment)
+                    client.add_listener("CommentsEvent", on_comment)
+                if EmoteChatEvent:
+                    client.add_listener(EmoteChatEvent, on_comment)
+                    client.add_listener("EmoteChatEvent", on_comment)
+                if ScreenChatEvent:
+                    client.add_listener(ScreenChatEvent, on_comment)
+                    client.add_listener("ScreenChatEvent", on_comment)
+                client.add_listener(FollowEvent, on_follow)
+                client.add_listener(GiftEvent, on_gift)
+                client.add_listener(LikeEvent, on_like)
+                client.add_listener(DiggEvent, on_digg)
+                client.add_listener(JoinEvent, on_join)
+                if ShareEvent:
+                    try:
+                        client.add_listener(ShareEvent, on_share)
+                    except Exception:
+                        pass
+                if SocialEvent:
+                    try:
+                        client.add_listener(SocialEvent, on_social)
+                    except Exception:
+                        pass
+                if ViewerUpdateEvent:
+                    client.add_listener(ViewerUpdateEvent, on_viewer_update)
+                if RoomUserSeqEvent:
+                    client.add_listener(RoomUserSeqEvent, on_viewer_update)
                 
-            client.run()
+
+                async def on_connected(event):
+                    nonlocal attempts, connected_once
+                    global _connection_time
+                    attempts = 0
+                    connected_once = True
+                    _connection_time = time.time()
+                    if on_connect_cb:
+                        on_connect_cb()
+                        
+                client.add_listener(ConnectEvent, on_connected)
+                
+                if _console_mode:
+                    print(f"Connecting to @{username} (attempt {attempts + 1})...")
+                    
+                client.run()
             
         except Exception as e:
             if _console_mode:
@@ -769,7 +830,8 @@ def _runner(username, on_connect_cb, on_retry_cb, on_fail_cb, max_attempts=3):
             break
 
 def connect(username=None, on_connect=None, on_retry=None, on_fail=None, retry_count=3):
-    global _top_thread_started, USERNAME, CLEAN_USERNAMES, _thread, _should_run, _stats_thread, _known_comments, _known_followers, PREFS, AUTO_SPEAK_PREFS, PLAY_SOUNDS, SOUND_VOLUME
+    global _top_thread_started, USERNAME, CLEAN_USERNAMES, _thread, _should_run, _stats_thread, _known_comments
+    global _known_followers, PREFS, AUTO_SPEAK_PREFS, PLAY_SOUNDS, SOUND_VOLUME, _processed_ids, _connection_time
     
     USERNAME, clear_on_start, CLEAN_USERNAMES, PREFS, AUTO_SPEAK_PREFS, PLAY_SOUNDS, SOUND_VOLUME = _load_config()
     sound_manager.set_volume(SOUND_VOLUME)

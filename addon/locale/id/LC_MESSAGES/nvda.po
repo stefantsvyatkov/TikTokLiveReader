@@ -1,0 +1,272 @@
+# TikTok Live Reader NVDA Addon - Indonesian Translation
+# Copyright (C) 2026 Stefan Tsvyatkov
+# This file is distributed under the same license as the TikTok Live Reader package.
+#
+msgid ""
+msgstr ""
+"Project-Id-Version: TikTok Live Reader 1.0\n"
+"Report-Msgid-Bugs-To: \n"
+"POT-Creation-Date: 2026-02-14 01:00+0200\n"
+"PO-Revision-Date: 2026-02-20 13:27+0700\n"
+"Last-Translator: Muhammad\n"
+"Language-Team: Indonesian\n"
+"Language: id\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Plural-Forms: nplurals=1; plural=0;\n"
+"X-Generator: Poedit 3.8\n"
+
+#. Translators: File name shown when navigating files.
+msgid "Comments"
+msgstr "Komentar"
+
+#. Translators: File name shown when navigating files.
+msgid "Followers"
+msgstr "Pengikut"
+
+#. Translators: File name shown when navigating files.
+msgid "Gifts"
+msgstr "Hadiah"
+
+#. Translators: File name shown when navigating files.
+msgid "Likes"
+msgstr "Suka"
+
+#. Translators: File name shown when navigating files.
+msgid "Stats"
+msgstr "Statistik"
+
+#. Translators: File name shown when navigating files.
+msgid "Top gifters"
+msgstr "Pemberi hadiah teratas"
+
+#. Translators: File name shown when navigating files.
+msgid "Top likes"
+msgstr "Penyuka teratas"
+
+#. Translators: File name shown when navigating files.
+msgid "Visitors"
+msgstr "Pengunjung"
+
+#. Translators: Announced when navigating items. {item} is the content, {num} is current position, {total} is total count.
+msgid "{item} ({num} of {total})"
+msgstr "{item} ({num} dari {total})"
+
+#. Translators: Announced when there are no entries.
+msgid "No entries"
+msgstr "Tidak ada entri"
+
+#. Translators: Announced when a new follower joins. {name} is their display name.
+msgid "New follower: {name}"
+msgstr "Pengikut baru: {name}"
+
+#. Translators: Announced when a new visitor joins the live. {name} is their display name.
+msgid "{name} joined"
+msgstr "{name} bergabung"
+
+#. Translators: Description shown in NVDA Input Gestures dialog.
+msgid "Toggle TikTok Live Reader on or off"
+msgstr "Aktif/nonaktifkan TikTok Live Reader"
+
+#. Translators: Category name in NVDA Input Gestures dialog.
+msgid "TikTok Live Reader"
+msgstr "TikTok Live Reader"
+
+#. Translators: Announced when the addon is turned on.
+msgid "TikTok Live Reader On"
+msgstr "TikTok Live Reader aktif"
+
+#. Translators: Announced when the addon is turned off.
+msgid "TikTok Live Reader Off"
+msgstr "TikTok Live Reader nonaktif"
+
+#. Translators: Announced when successfully connected to a TikTok live. {username} is the streamer name.
+msgid "Connected to user: {username}"
+msgstr "Terhubung ke pengguna: {username}"
+
+#. Translators: Announced when attempting to reconnect.
+msgid "Attempting to connect..."
+msgstr "Mencoba terhubung..."
+
+#. Translators: Announced when connection fails after all retries.
+msgid "Connection unsuccessful."
+msgstr "Koneksi tidak berhasil."
+
+#. Translators: Description shown in NVDA Input Gestures dialog.
+msgid "Toggle automatic speaking of new events"
+msgstr "Aktif/nonaktifkan pembacaan otomatis untuk peristiwa baru"
+
+#. Translators: Announced when auto speak is enabled.
+msgid "Auto speak On"
+msgstr "Bicara otomatis aktif"
+
+#. Translators: Announced when auto speak is disabled.
+msgid "Auto speak Off"
+msgstr "Bicara otomatis nonaktif"
+
+#. Translators: Description shown in NVDA Input Gestures dialog.
+msgid "Open TikTok Live Reader settings"
+msgstr "Buka pengaturan TikTok Live Reader"
+
+#. Translators: Title of the settings dialog.
+msgid "TikTok Live Reader Settings"
+msgstr "Pengaturan TikTok Live Reader"
+
+#. Translators: Label for the username text field in settings.
+msgid "User name"
+msgstr "Nama pengguna"
+
+#. Translators: Checkbox label in settings.
+msgid "Clear text files on startup"
+msgstr "Bersihkan file teks saat startup"
+
+#. Translators: Checkbox label in settings.
+msgid "Clean user names"
+msgstr "Bersihkan nama pengguna"
+
+#. Translators: Label for the retry count spinner in settings.
+msgid "Connection retry count"
+msgstr "Jumlah percobaan koneksi"
+
+#. Translators: Tab name in settings dialog.
+msgid "General"
+msgstr "Umum"
+
+#. Translators: Tab name in settings dialog.
+msgid "Auto speak"
+msgstr "Bicara otomatis"
+
+#. Translators: OK button label in the settings dialog.
+msgid "OK"
+msgstr "OK"
+
+#. Translators: Cancel button label in the settings dialog.
+msgid "Cancel"
+msgstr "Batal"
+
+#. Translators: Description shown in NVDA Input Gestures dialog.
+msgid "Next item"
+msgstr "Item berikutnya"
+
+#. Translators: Description shown in NVDA Input Gestures dialog.
+msgid "Previous item"
+msgstr "Item sebelumnya"
+
+#. Translators: Description shown in NVDA Input Gestures dialog.
+msgid "First item"
+msgstr "Item pertama"
+
+#. Translators: Description shown in NVDA Input Gestures dialog.
+msgid "Last item"
+msgstr "Item terakhir"
+
+#. Translators: Description shown in NVDA Input Gestures dialog.
+msgid "Previous file"
+msgstr "File sebelumnya"
+
+#. Translators: Description shown in NVDA Input Gestures dialog.
+msgid "Next file"
+msgstr "File berikutnya"
+
+#. Translators: Description shown in NVDA Input Gestures dialog.
+msgid "Clear all log files and reset positions"
+msgstr "Bersihkan semua file log dan reset posisi"
+
+#. Translators: Announced after clearing all log files.
+msgid "All files cleared."
+msgstr "Semua file dibersihkan."
+
+#. Translators: Description shown in NVDA Input Gestures dialog.
+msgid "Report the current number of live viewers"
+msgstr "Laporkan jumlah penonton live saat ini"
+
+#. Translators: Announced when trying to use a feature while the addon is off.
+msgid "Addon is not active."
+msgstr "Add-on tidak aktif."
+
+#. Translators: Announced when reporting viewer count. {count} is the number.
+msgid "{count} viewers"
+msgstr "{count} penonton"
+
+#. Translators: Stats file line showing current viewer count.
+msgid "Viewers: {count}"
+msgstr "Penonton: {count}"
+
+#. Translators: Stats file line showing total visitor count.
+msgid "Visitors: {count}"
+msgstr "Pengunjung: {count}"
+
+#. Translators: Stats file line showing total likes.
+msgid "Likes: {count}"
+msgstr "Suka: {count}"
+
+#. Translators: Stats file line showing total followers.
+msgid "Followers: {count}"
+msgstr "Pengikut: {count}"
+
+#. Translators: Stats file line showing total diamonds.
+msgid "Diamonds: {count}"
+msgstr "Diamond: {count}"
+
+#. Translators: Singular form - used in likes file when a user has exactly 1 like.
+msgid "like"
+msgstr "suka"
+
+#. Translators: Plural form - used in likes file when a user has 0 or more than 1 likes.
+msgid "likes"
+msgstr "suka"
+
+#. Translators: File name shown when navigating files.
+msgid "Events"
+msgstr "Peristiwa"
+
+#. Translators: File name shown when navigating files.
+msgid "Shares"
+msgstr "Bagikan"
+
+#. Translators: Announced when a user shares the live. {name} is their display name.
+msgid "{name} shared the live"
+msgstr "{name} membagikan live"
+
+#. Translators: Button to learn sounds.
+msgid "Learn sounds"
+msgstr "Pelajari suara"
+
+#. Translators: Checkbox to enable playing sounds for selected events.
+msgid "Play sounds for the selected events"
+msgstr "Putar suara untuk peristiwa yang dipilih"
+
+#. Translators: Label for volume slider.
+msgid "Audio volume"
+msgstr "Volume audio"
+
+#. Translators: Sound label.
+msgid "Comment"
+msgstr "Komentar"
+
+#. Translators: Sound label.
+msgid "Follower"
+msgstr "Pengikut"
+
+#. Translators: Sound label.
+msgid "Gift"
+msgstr "Hadiah"
+
+#. Translators: Sound label.
+msgid "Like"
+msgstr "Suka"
+
+#. Translators: Sound label.
+msgid "Sharing"
+msgstr "Berbagi"
+
+#. Translators: Sound label.
+msgid "Visitor"
+msgstr "Pengunjung"
+
+#~ msgid "Automatically speak:"
+#~ msgstr "Ucapkan otomatis:"
+
+#~ msgid "Stop"
+#~ msgstr "Berhenti"

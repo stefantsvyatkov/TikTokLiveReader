@@ -1,1 +1,1 @@
-from .globalPlugin import GlobalPlugin
+from .globalPlugin import GlobalPlugin as GlobalPlugin

@@ -56,6 +56,7 @@ NAV_GESTURES = {
     "kb:NVDA+control+shift+s": "toggleAutoSpeak",
     "kb:NVDA+control+shift+r": "clearTextFiles",
     "kb:NVDA+control+shift+v": "reportViewers",
+    "kb:NVDA+shift+control+p": "togglePlaySounds",
 }
 
 
@@ -405,6 +406,38 @@ class GlobalPlugin(NVDA_GlobalPlugin):
             # Translators: Announced when auto speak is disabled.
             ui.message(_("Auto speak Off"))
             self.speech_manager.stop()
+
+    # Translators: Description shown in NVDA Input Gestures dialog.
+    @script(
+        description=_("Toggle sound playback for selected events"),
+        category=_("TikTok Live Reader")
+    )
+    def script_togglePlaySounds(self, gesture):
+        if not self.active:
+            gesture.send()
+            return
+
+        self.playSounds = not self.playSounds
+        
+        self._save_config(
+            self.username, 
+            self.prefs, 
+            self.auto_speak_prefs,
+            self.clearOnStart, 
+            self.cleanUsernames, 
+            self.retryCount, 
+            self.playSounds,
+            self.soundVolume
+        )
+        
+        client.update_config(self.username, self.prefs, self.auto_speak_prefs, self.playSounds, self.soundVolume, self.clearOnStart, self.cleanUsernames)
+        
+        if self.playSounds:
+            # Translators: Announced when sounds are enabled.
+            ui.message(_("Sounds On"))
+        else:
+            # Translators: Announced when sounds are disabled.
+            ui.message(_("Sounds Off"))
 
     # Translators: Description shown in NVDA Input Gestures dialog.
     @script(description=_("Open TikTok Live Reader settings"), category=_("TikTok Live Reader"))

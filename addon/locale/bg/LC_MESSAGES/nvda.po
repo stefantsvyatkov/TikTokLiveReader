@@ -7,7 +7,7 @@ msgstr ""
 "Project-Id-Version: TikTok Live Reader 1.0\n"
 "Report-Msgid-Bugs-To: \n"
 "POT-Creation-Date: 2026-02-14 01:00+0200\n"
-"PO-Revision-Date: 2026-02-23 23:47+0200\n"
+"PO-Revision-Date: 2026-02-24 00:45+0200\n"
 "Last-Translator: Stefan Tsvyatkov\n"
 "Language-Team: Bulgarian\n"
 "Language: bg\n"
@@ -268,3 +268,15 @@ msgstr "Посетител"
 #. Translators: Checkbox to enable automatic speaking for selected events.
 msgid "Auto speak selected events"
 msgstr "Автоматично изговаряне на избраните събития"
+
+#. Translators: Description shown in NVDA Input Gestures dialog.
+msgid "Toggle sound playback for selected events"
+msgstr "Превключва възпроизвеждането на звуци за избраните събития"
+
+#. Translators: Announced when sounds are enabled.
+msgid "Sounds On"
+msgstr "Звуците са включени"
+
+#. Translators: Announced when sounds are disabled.
+msgid "Sounds Off"
+msgstr "Звуците са изключени"

@@ -384,6 +384,14 @@ except Exception:
 
 def update_config(username, prefs, auto_speak_prefs, play_sounds, volume, clear_on_start, clean_usernames):
     global USERNAME, PREFS, AUTO_SPEAK_PREFS, PLAY_SOUNDS, SOUND_VOLUME, _clear_on_start, CLEAN_USERNAMES
+    
+    if getattr(globals(), 'PLAY_SOUNDS', False) and not play_sounds:
+        try:
+            with sound_manager._queue.mutex:
+                sound_manager._queue.queue.clear()
+        except Exception:
+            pass
+
     USERNAME = username
     PREFS = prefs
     AUTO_SPEAK_PREFS = auto_speak_prefs

@@ -70,6 +70,7 @@ client = None
 _thread = None
 _stats_thread = None
 _run_lock = threading.Lock()
+_client_loop = None
 _stop_event = threading.Event()
 _top_thread_started = False
 _should_run = False
@@ -509,10 +510,17 @@ def _handle_speech_and_sound(event_key, speak_text):
     sound_enabled = PLAY_SOUNDS and PREFS.get(event_key, False)
     speech_enabled = AUTO_SPEAK_PREFS.get(event_key, False)
     
-    if sound_enabled and _connection_time > 0:
-        if (time.time() - _connection_time) < 10.0:
+    if _connection_time == 0:
+        sound_enabled = False
+        speech_enabled = False
+        _log_debug(f"Suppressed sound/speech (not connected): {event_key}")
+    elif (time.time() - _connection_time) < 10.0:
+        if sound_enabled:
             _log_debug(f"Suppressed sound (startup delay): {event_key}")
             sound_enabled = False
+        if speech_enabled:
+            _log_debug(f"Suppressed speech (startup delay): {event_key}")
+            speech_enabled = False
 
     if sound_enabled or speech_enabled:
         _log_debug(f"_handle: {event_key}, sound={sound_enabled}, speech={speech_enabled}")
@@ -810,10 +818,20 @@ def _runner(username, on_connect_cb, on_retry_cb, on_fail_cb, max_attempts=3):
                         
                 client.add_listener(ConnectEvent, on_connected)
                 
+                global _client_loop
+                import asyncio
+                try:
+                    _client_loop = asyncio.get_event_loop()
+                except RuntimeError:
+                    _client_loop = asyncio.new_event_loop()
+                    asyncio.set_event_loop(_client_loop)
+                
                 client.run()
             
         except Exception as e:
-            pass
+            _log_debug(f"Runner exception: {e}")
+            import traceback
+            _log_debug(traceback.format_exc())
         
         if not _should_run:
             break
@@ -887,7 +905,11 @@ def disconnect():
     with _run_lock:
         if client:
             try:
-                client.stop()
+                if '_client_loop' in globals() and _client_loop is not None and getattr(client, "connected", False):
+                    if _client_loop.is_running():
+                        _client_loop.call_soon_threadsafe(client.stop)
+                else:
+                    client.stop()
             except Exception:
                 pass
         

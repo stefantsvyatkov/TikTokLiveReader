@@ -356,6 +356,7 @@ class GlobalPlugin(NVDA_GlobalPlugin):
                 ui.message(_("Connection unsuccessful."))
                 self.active = False
                 self._unbind_nav()
+                client.disconnect()
                 self.speech_manager.stop()
                 self._cleanup_temp_files()
 
@@ -592,6 +593,13 @@ class GlobalPlugin(NVDA_GlobalPlugin):
         p_events.SetSizer(s_events)
 
         s_autospeak = wx.BoxSizer(wx.VERTICAL)
+        # Translators: Checkbox to enable automatic speaking for selected events.
+        chk_auto_speak = wx.CheckBox(p_autospeak, label=_("Auto speak selected events"))
+        chk_auto_speak.SetValue(self.autoSpeak)
+        s_autospeak.Add(chk_auto_speak, flag=wx.ALL, border=5)
+        
+        s_autospeak.Add(wx.StaticLine(p_autospeak), flag=wx.EXPAND|wx.ALL, border=5)
+
         # Translators: Section description or label
         lbl_as_desc = wx.StaticText(p_autospeak, label=_("Automatically speak:"))
         s_autospeak.Add(lbl_as_desc, flag=wx.ALL, border=5)
@@ -643,6 +651,14 @@ class GlobalPlugin(NVDA_GlobalPlugin):
         txt_user.SetInsertionPointEnd()
 
         if dlg.ShowModal() == wx.ID_OK:
+            self.autoSpeak = chk_auto_speak.IsChecked()
+            
+            if self.active:
+                if self.autoSpeak:
+                    self.speech_manager.start()
+                else:
+                    self.speech_manager.stop()
+                    
             prefs = {
                 "comments": chk_ev_comments.IsChecked(),
                 "followers": chk_ev_followers.IsChecked(),

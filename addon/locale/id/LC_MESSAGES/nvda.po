@@ -7,7 +7,7 @@ msgstr ""
 "Project-Id-Version: TikTok Live Reader 1.0\n"
 "Report-Msgid-Bugs-To: \n"
 "POT-Creation-Date: 2026-02-14 01:00+0200\n"
-"PO-Revision-Date: 2026-02-20 13:27+0700\n"
+"PO-Revision-Date: 2026-02-23 23:47+0200\n"
 "Last-Translator: Muhammad\n"
 "Language-Team: Indonesian\n"
 "Language: id\n"
@@ -264,6 +264,10 @@ msgstr "Berbagi"
 #. Translators: Sound label.
 msgid "Visitor"
 msgstr "Pengunjung"
+
+#. Translators: Checkbox to enable automatic speaking for selected events.
+msgid "Auto speak selected events"
+msgstr "Bicara otomatis peristiwa yang dipilih"
 
 #~ msgid "Automatically speak:"
 #~ msgstr "Ucapkan otomatis:"

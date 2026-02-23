@@ -292,6 +292,7 @@ viewer_count = 0
 total_viewers = 0
 _known_comments = set()
 _known_followers = set()
+_known_shares = {}
 _processed_ids = set()
 _connection_time = 0
 
@@ -303,7 +304,11 @@ def _is_processed(event):
     uid = getattr(event, "msgId", None)
     if not uid:
         uid = getattr(event, "id", None)
-    
+    if not uid:
+        base_msg = getattr(event, "base_message", None)
+        if base_msg:
+            uid = getattr(base_msg, "msg_id", None)
+            
     if uid:
         if uid in _processed_ids:
             return True
@@ -545,9 +550,6 @@ def _apply_like_event(ev):
     
     like_manager.add_like(user_name, increment)
 
-    if _console_mode:
-        print(f"{user_name} liked (total likes: {total_likes}, user total: {top_likers[user_name]})")
-
 async def on_comment(event):
     if not _should_run:
         return
@@ -559,15 +561,11 @@ async def on_comment(event):
     display_name, comment_text = payload
     user_comment = f"{display_name}: {comment_text}"
     if user_comment in _known_comments:
-        if _console_mode:
-            print(f"Skipped duplicate: {user_comment}")
         return
     _known_comments.add(user_comment)
     log_line = f"{user_comment}  {datetime.datetime.now().strftime('%H:%M:%S')}"
     with open(COMMENTS_FILE, "a", encoding="utf-8") as f:
         f.write(log_line + "\n")
-        if _console_mode:
-            print(log_line.strip())
     if PREFS.get("comments", True):
         _log_to_events(log_line)
         
@@ -647,6 +645,15 @@ async def on_share(event):
         return
     
     display_name = _sanitize_name(event.user.nickname)
+
+    current_time = time.time()
+    last_share_time = _known_shares.get(display_name, 0)
+    
+    if current_time - last_share_time < 1.0:
+        return
+        
+    _known_shares[display_name] = current_time
+
     log_line = f"{display_name}  {datetime.datetime.now().strftime('%H:%M:%S')}"
     
     with open(SHARES_FILE, "a", encoding="utf-8") as f:
@@ -664,17 +671,17 @@ async def on_social(event):
     if not _should_run:
         return
     
+    action = getattr(event, "action", None)
     key = getattr(getattr(event, "display_text", None), "key", "").lower()
-    default_fmt = getattr(getattr(event, "display_text", None), "default_pattern", "").lower()
     
-    if "share" in key or "share" in default_fmt or "сподели" in default_fmt:
-        if "share" not in key: # If it WAS caught by ShareEvent, we skip. But if key is weird, maybe we handle it.
-             pass
-        await on_share(event)
+    if action == 3:
+        if "share" not in key:
+            await on_share(event)
         return
 
-    if "follow" in key or "follow" in default_fmt or "последва" in default_fmt:
-        await on_follow(event)
+    if action == 1:
+        if "follow" not in key:
+            await on_follow(event)
         return
 
 async def on_join(event):
@@ -709,8 +716,6 @@ async def on_viewer_update(event):
     elif hasattr(event, "viewer_count"):
         viewer_count = event.viewer_count
     update_stats_file()
-    if _console_mode:
-        print(f"Viewer count update: {viewer_count}, Total: {total_viewers}")
 
 def setup():
     _ensure_files_exist()
@@ -754,8 +759,6 @@ def _runner(username, on_connect_cb, on_retry_cb, on_fail_cb, max_attempts=3):
             except ImportError:
                 SocialEvent = None
     except Exception as e:
-        if _console_mode:
-            print(f"Import error: {e}")
         if on_fail_cb:
             on_fail_cb()
         return
@@ -807,14 +810,10 @@ def _runner(username, on_connect_cb, on_retry_cb, on_fail_cb, max_attempts=3):
                         
                 client.add_listener(ConnectEvent, on_connected)
                 
-                if _console_mode:
-                    print(f"Connecting to @{username} (attempt {attempts + 1})...")
-                    
                 client.run()
             
         except Exception as e:
-            if _console_mode:
-                print(f"Connection error: {e}")
+            pass
         
         if not _should_run:
             break
@@ -831,7 +830,7 @@ def _runner(username, on_connect_cb, on_retry_cb, on_fail_cb, max_attempts=3):
 
 def connect(username=None, on_connect=None, on_retry=None, on_fail=None, retry_count=3):
     global _top_thread_started, USERNAME, CLEAN_USERNAMES, _thread, _should_run, _stats_thread, _known_comments
-    global _known_followers, PREFS, AUTO_SPEAK_PREFS, PLAY_SOUNDS, SOUND_VOLUME, _processed_ids, _connection_time
+    global _known_followers, _known_shares, PREFS, AUTO_SPEAK_PREFS, PLAY_SOUNDS, SOUND_VOLUME, _processed_ids, _connection_time
     
     USERNAME, clear_on_start, CLEAN_USERNAMES, PREFS, AUTO_SPEAK_PREFS, PLAY_SOUNDS, SOUND_VOLUME = _load_config()
     sound_manager.set_volume(SOUND_VOLUME)
@@ -840,6 +839,7 @@ def connect(username=None, on_connect=None, on_retry=None, on_fail=None, retry_c
     _processed_ids = set()
     _connection_time = 0
     _known_followers = set()
+    _known_shares = {}
     if not clear_on_start:
         try:
             for ln in COMMENTS_FILE.read_text(encoding="utf-8").splitlines():
@@ -901,7 +901,7 @@ def disconnect():
 
 if __name__ == "__main__":
     setup()
-    connect(on_connect=lambda: print("Connected!"), on_retry=lambda: print("Retrying..."), on_fail=lambda: print("Failed!"))
+    connect()
     try:
         while True:
             time.sleep(1)

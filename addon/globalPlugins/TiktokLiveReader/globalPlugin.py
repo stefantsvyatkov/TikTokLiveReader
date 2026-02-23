@@ -598,7 +598,8 @@ class GlobalPlugin(NVDA_GlobalPlugin):
         chk_auto_speak.SetValue(self.autoSpeak)
         s_autospeak.Add(chk_auto_speak, flag=wx.ALL, border=5)
         
-        s_autospeak.Add(wx.StaticLine(p_autospeak), flag=wx.EXPAND|wx.ALL, border=5)
+        sl_as1 = wx.StaticLine(p_autospeak)
+        s_autospeak.Add(sl_as1, flag=wx.EXPAND|wx.ALL, border=5)
 
         # Translators: Section description or label
         lbl_as_desc = wx.StaticText(p_autospeak, label=_("Automatically speak:"))
@@ -618,11 +619,24 @@ class GlobalPlugin(NVDA_GlobalPlugin):
         chk_as_shares.SetValue(self.auto_speak_prefs.get("shares", False))
         chk_as_visitors.SetValue(self.auto_speak_prefs.get("visitors", False))
 
-        for chk in [chk_as_comments, chk_as_followers, chk_as_gifts, chk_as_likes, chk_as_shares, chk_as_visitors]:
+        sub_chks = [chk_as_comments, chk_as_followers, chk_as_gifts, chk_as_likes, chk_as_shares, chk_as_visitors]
+        for chk in sub_chks:
             s_autospeak.Add(chk, flag=wx.ALL, border=5)
 
-        s_autospeak.Add(wx.StaticLine(p_autospeak), flag=wx.EXPAND|wx.ALL, border=5)
+        sl_as2 = wx.StaticLine(p_autospeak)
+        s_autospeak.Add(sl_as2, flag=wx.EXPAND|wx.ALL, border=5)
 
+        def on_toggle_auto_speak(evt):
+            is_checked = chk_auto_speak.IsChecked()
+            sl_as1.Show(is_checked)
+            lbl_as_desc.Show(is_checked)
+            for chk in sub_chks:
+                chk.Show(is_checked)
+            sl_as2.Show(is_checked)
+            p_autospeak.Layout()
+
+        chk_auto_speak.Bind(wx.EVT_CHECKBOX, on_toggle_auto_speak)
+        on_toggle_auto_speak(None)
         
         p_autospeak.SetSizer(s_autospeak)
 

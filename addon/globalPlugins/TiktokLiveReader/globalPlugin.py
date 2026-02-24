@@ -39,6 +39,7 @@ FILES = [
     ("Followers", "followers.txt"),
     ("Gifts", "gifts.txt"),
     ("Likes", "likes.txt"),
+    ("Requests", "requests.txt"),
     ("Shares", "shares.txt"),
     ("Stats", "stats.txt"),
     ("Top gifters", "top gifters.txt"),
@@ -60,7 +61,7 @@ NAV_GESTURES = {
 }
 
 
-TRACKED_KEYS = {"comments", "followers", "gifts", "likes", "visitors"}
+TRACKED_KEYS = {"comments", "followers", "gifts", "likes", "visitors", "shares", "requests"}
 
 
 def _filename_key_map():
@@ -499,17 +500,19 @@ class GlobalPlugin(NVDA_GlobalPlugin):
         chk_ev_followers = wx.CheckBox(p_events, label=_("&Followers"))
         chk_ev_gifts = wx.CheckBox(p_events, label=_("&Gifts"))
         chk_ev_likes = wx.CheckBox(p_events, label=_("&Likes"))
+        chk_ev_requests = wx.CheckBox(p_events, label=_("&Requests"))
         chk_ev_shares = wx.CheckBox(p_events, label=_("&Shares"))
         chk_ev_visitors = wx.CheckBox(p_events, label=_("&Visitors"))
 
         chk_ev_comments.SetValue(self.prefs.get("comments", True))
+        chk_ev_requests.SetValue(self.prefs.get("requests", True))
         chk_ev_followers.SetValue(self.prefs.get("followers", False))
         chk_ev_gifts.SetValue(self.prefs.get("gifts", False))
         chk_ev_likes.SetValue(self.prefs.get("likes", False))
         chk_ev_shares.SetValue(self.prefs.get("shares", False))
         chk_ev_visitors.SetValue(self.prefs.get("visitors", False))
 
-        for chk in [chk_ev_comments, chk_ev_followers, chk_ev_gifts, chk_ev_likes, chk_ev_shares, chk_ev_visitors]:
+        for chk in [chk_ev_comments, chk_ev_followers, chk_ev_gifts, chk_ev_likes, chk_ev_requests, chk_ev_shares, chk_ev_visitors]:
             s_events.Add(chk, flag=wx.ALL, border=5)
 
         s_events.Add(wx.StaticLine(p_events), flag=wx.EXPAND|wx.ALL, border=5)
@@ -577,6 +580,7 @@ class GlobalPlugin(NVDA_GlobalPlugin):
                          (_("Follower"), "followers"),
                          (_("Gift"), "gifts"),
                          (_("Like"), "likes"),
+                         (_("Guest request"), "requests"),
                          (_("Sharing"), "shares"),
                          (_("Visitor"), "visitors"),
                      ]
@@ -641,17 +645,19 @@ class GlobalPlugin(NVDA_GlobalPlugin):
         chk_as_followers = wx.CheckBox(p_autospeak, label=_("&Followers"))
         chk_as_gifts = wx.CheckBox(p_autospeak, label=_("&Gifts"))
         chk_as_likes = wx.CheckBox(p_autospeak, label=_("&Likes"))
+        chk_as_requests = wx.CheckBox(p_autospeak, label=_("&Requests"))
         chk_as_shares = wx.CheckBox(p_autospeak, label=_("&Shares"))
         chk_as_visitors = wx.CheckBox(p_autospeak, label=_("&Visitors"))
 
         chk_as_comments.SetValue(self.auto_speak_prefs.get("comments", True))
+        chk_as_requests.SetValue(self.auto_speak_prefs.get("requests", True))
         chk_as_followers.SetValue(self.auto_speak_prefs.get("followers", False))
         chk_as_gifts.SetValue(self.auto_speak_prefs.get("gifts", False))
         chk_as_likes.SetValue(self.auto_speak_prefs.get("likes", False))
         chk_as_shares.SetValue(self.auto_speak_prefs.get("shares", False))
         chk_as_visitors.SetValue(self.auto_speak_prefs.get("visitors", False))
 
-        sub_chks = [chk_as_comments, chk_as_followers, chk_as_gifts, chk_as_likes, chk_as_shares, chk_as_visitors]
+        sub_chks = [chk_as_comments, chk_as_followers, chk_as_gifts, chk_as_likes, chk_as_requests, chk_as_shares, chk_as_visitors]
         for chk in sub_chks:
             s_autospeak.Add(chk, flag=wx.ALL, border=5)
 
@@ -712,6 +718,7 @@ class GlobalPlugin(NVDA_GlobalPlugin):
                 "followers": chk_ev_followers.IsChecked(),
                 "gifts": chk_ev_gifts.IsChecked(),
                 "likes": chk_ev_likes.IsChecked(),
+                "requests": chk_ev_requests.IsChecked(),
                 "shares": chk_ev_shares.IsChecked(),
                 "visitors": chk_ev_visitors.IsChecked(),
             }
@@ -720,6 +727,7 @@ class GlobalPlugin(NVDA_GlobalPlugin):
                 "followers": chk_as_followers.IsChecked(),
                 "gifts": chk_as_gifts.IsChecked(),
                 "likes": chk_as_likes.IsChecked(),
+                "requests": chk_as_requests.IsChecked(),
                 "shares": chk_as_shares.IsChecked(),
                 "visitors": chk_as_visitors.IsChecked(),
             }

@@ -7,7 +7,7 @@ msgstr ""
 "Project-Id-Version: TikTok Live Reader 1.2\n"
 "Report-Msgid-Bugs-To: \n"
 "POT-Creation-Date: 2026-02-14 01:00+0200\n"
-"PO-Revision-Date: 2026-02-24 05:24+0200\n"
+"PO-Revision-Date: 2026-02-24 08:59+0200\n"
 "Last-Translator: Stefan Tsvyatkov\n"
 "Language-Team: Bulgarian\n"
 "Language: bg\n"
@@ -312,3 +312,19 @@ msgstr "Сп&иране"
 #. Translators: Section description.
 msgid "Automatically speak:"
 msgstr "Автоматично изговаряне:"
+
+#. Translators: Settings checkbox and file name label.
+msgid "&Requests"
+msgstr "&Заявки"
+
+#. Translators: Announced when someone requests to join the live.
+msgid "Guest request: {name}"
+msgstr "Заявка за присъединяване: {name}"
+
+#. Translators: Sound label.
+msgid "Guest request"
+msgstr "Заявка"
+
+#. Translators: File name shown when navigating files.
+msgid "Requests"
+msgstr "Заявки"

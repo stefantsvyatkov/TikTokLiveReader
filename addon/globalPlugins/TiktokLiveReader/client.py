@@ -55,6 +55,7 @@ TOP_GIFTERS_FILE = LOG_DIR / "top gifters.txt"
 TOP_LIKES_FILE = LOG_DIR / "top likes.txt"
 VISITORS_FILE = LOG_DIR / "visitors.txt"
 SHARES_FILE = LOG_DIR / "shares.txt"
+REQUESTS_FILE = LOG_DIR / "requests.txt"
 EVENTS_FILE = LOG_DIR / "events.txt"
 SPEECH_BUFFER_FILE = LOG_DIR / "speechbuffer.json"
 DEBUG_LOG = LOG_DIR / "debug.log"
@@ -178,7 +179,8 @@ class SoundManager:
             "gifts": "gift.wav",
             "likes": "like.wav",
             "shares": "share.wav",
-            "visitors": "visitor.wav"
+            "visitors": "visitor.wav",
+            "requests": "request.wav"
         }
         
         fname = mapping.get(event_name, f"{event_name}.wav")
@@ -294,7 +296,10 @@ total_diamonds = 0
 visitors = set()
 viewer_count = 0
 total_viewers = 0
+_known_processed_ids = set()
 _known_comments = set()
+_requests_log = {}
+_known_users = {}
 _known_followers = set()
 _known_shares = {}
 _processed_ids = set()
@@ -346,13 +351,13 @@ def _load_config():
     if "events" not in config:
         config["events"] = {
             "comments": "true", "followers": "false", "gifts": "false",
-            "likes": "false", "shares": "false", "visitors": "false",
+            "likes": "false", "shares": "false", "visitors": "false", "requests": "true",
         }
         
     if "auto_speak" not in config:
         config["auto_speak"] = {
             "comments": "true", "followers": "false", "gifts": "false",
-            "likes": "false", "shares": "false", "visitors": "false",
+            "likes": "false", "shares": "false", "visitors": "false", "requests": "true",
         }
         
     prefs = {
@@ -362,6 +367,7 @@ def _load_config():
         "likes": config.getboolean("events", "likes", fallback=False),
         "shares": config.getboolean("events", "shares", fallback=False),
         "visitors": config.getboolean("events", "visitors", fallback=False),
+        "requests": config.getboolean("events", "requests", fallback=True),
     }
     
     auto_speak_prefs = {
@@ -371,6 +377,7 @@ def _load_config():
         "likes": config.getboolean("auto_speak", "likes", fallback=False),
         "shares": config.getboolean("auto_speak", "shares", fallback=False),
         "visitors": config.getboolean("auto_speak", "visitors", fallback=False),
+        "requests": config.getboolean("auto_speak", "requests", fallback=True),
     }
     
     play_sounds = config.getboolean("sounds", "play_sounds", fallback=False)
@@ -428,7 +435,7 @@ def _sanitize_name(name):
 def _clear_all_text_files():
     for file in [
         COMMENTS_FILE, FOLLOWERS_FILE, GIFTS_FILE, TOP_GIFTERS_FILE,
-        STATS_FILE, TOP_LIKES_FILE, LIKES_FILE, VISITORS_FILE, EVENTS_FILE, SHARES_FILE
+        STATS_FILE, TOP_LIKES_FILE, LIKES_FILE, VISITORS_FILE, EVENTS_FILE, SHARES_FILE, REQUESTS_FILE
     ]:
         with open(file, "w", encoding="utf-8"):
             pass
@@ -448,7 +455,7 @@ def _ensure_files_exist():
     LOG_DIR.mkdir(parents=True, exist_ok=True)
     for file in [
         COMMENTS_FILE, FOLLOWERS_FILE, GIFTS_FILE, TOP_GIFTERS_FILE,
-        STATS_FILE, TOP_LIKES_FILE, LIKES_FILE, VISITORS_FILE, SHARES_FILE
+        STATS_FILE, TOP_LIKES_FILE, LIKES_FILE, VISITORS_FILE, SHARES_FILE, REQUESTS_FILE
     ]:
         if not file.exists():
             with open(file, "w", encoding="utf-8"):
@@ -494,6 +501,9 @@ def _extract_comment_payload(event):
     user = getattr(event, "user", None)
     nickname = getattr(user, "nickname", None) or getattr(user, "unique_id", None) or "someone"
     nickname = _sanitize_name(nickname)
+    uid = getattr(user, "id", getattr(user, "uid", None))
+    if uid:
+        _known_users[str(uid)] = nickname
 
     comment_text = (
         getattr(event, "comment", None)
@@ -555,7 +565,12 @@ def _handle_speech_and_sound(event_key, speak_text):
 
 def _apply_like_event(ev):
     global total_likes
-    user_name = _sanitize_name(getattr(getattr(ev, "user", None), "nickname", "someone"))
+    user = getattr(ev, "user", None)
+    user_name = _sanitize_name(getattr(user, "nickname", "someone"))
+    uid = getattr(user, "id", getattr(user, "uid", None))
+    if uid:
+        _known_users[str(uid)] = user_name
+
     if hasattr(ev, "totalLikeCount"):
         total_likes = ev.totalLikeCount
     elif hasattr(ev, "total"):
@@ -605,6 +620,10 @@ async def on_follow(event):
     global total_followers
     
     unique_id = getattr(event.user, "unique_id", event.user.nickname)
+    name = _sanitize_name(event.user.nickname)
+    uid = getattr(event.user, "id", getattr(event.user, "uid", None))
+    if uid:
+        _known_users[str(uid)] = name
 
     if unique_id in _known_followers:
         return
@@ -636,6 +655,10 @@ async def on_gift(event):
     name = getattr(event.gift, "name", "Gift")
     diamonds = count * getattr(event.gift, "diamond_count", 0)
     display_name = _sanitize_name(getattr(event.user, "nickname", "someone"))
+    uid = getattr(event.user, "id", getattr(event.user, "uid", None))
+    if uid:
+        _known_users[str(uid)] = display_name
+
     if diamonds > 0:
         total_diamonds += diamonds
         top_gifters[display_name] = top_gifters.get(display_name, 0) + diamonds
@@ -671,6 +694,9 @@ async def on_share(event):
         return
     
     display_name = _sanitize_name(event.user.nickname)
+    uid = getattr(event.user, "id", getattr(event.user, "uid", None))
+    if uid:
+        _known_users[str(uid)] = display_name
 
     current_time = time.time()
     last_share_time = _known_shares.get(display_name, 0)
@@ -714,7 +740,11 @@ async def on_join(event):
     if not _should_run:
         return
     global total_viewers
-    display_name = _sanitize_name(getattr(getattr(event, "user", None), "nickname", "someone"))
+    user = getattr(event, "user", None)
+    display_name = _sanitize_name(getattr(user, "nickname", "someone"))
+    uid = getattr(user, "id", getattr(user, "uid", None))
+    if uid:
+        _known_users[str(uid)] = display_name
     
     if display_name in visitors:
         return
@@ -742,6 +772,125 @@ async def on_viewer_update(event):
     elif hasattr(event, "viewer_count"):
         viewer_count = event.viewer_count
     update_stats_file()
+
+async def on_guest_request(event):
+    if not _should_run:
+        return
+    
+    try:
+        user_name = "някой"
+        is_request = False
+        
+        if hasattr(event, "apply_content") and event.apply_content is not None:
+            is_request = True
+            if hasattr(event.apply_content, "applicant") and getattr(event.apply_content.applicant, "nickname", None):
+                user_name = _sanitize_name(event.apply_content.applicant.nickname)
+                uid = getattr(event.apply_content.applicant, "id", getattr(event.apply_content.applicant, "uid", None))
+                if uid: _known_users[str(uid)] = user_name
+            elif hasattr(event.apply_content, "applicant") and getattr(event.apply_content.applicant, "nick_name", None):
+                user_name = _sanitize_name(event.apply_content.applicant.nick_name)
+                uid = getattr(event.apply_content.applicant, "id", getattr(event.apply_content.applicant, "uid", None))
+                if uid: _known_users[str(uid)] = user_name
+
+        if hasattr(event, "invite_content") and event.invite_content is not None:
+            is_request = True
+            if hasattr(event.invite_content, "invitee") and getattr(event.invite_content.invitee, "nick_name", None):
+                user_name = _sanitize_name(event.invite_content.invitee.nick_name)
+                uid = getattr(event.invite_content.invitee, "id", getattr(event.invite_content.invitee, "uid", None))
+                if uid: _known_users[str(uid)] = user_name
+            elif hasattr(event.invite_content, "invitee") and getattr(event.invite_content.invitee, "nickname", None):
+                user_name = _sanitize_name(event.invite_content.invitee.nickname)
+                uid = getattr(event.invite_content.invitee, "id", getattr(event.invite_content.invitee, "uid", None))
+                if uid: _known_users[str(uid)] = user_name
+                
+        if hasattr(event, "user") and getattr(event.user, "nickname", None):
+            user_name = _sanitize_name(event.user.nickname)
+            uid = getattr(event.user, "id", getattr(event.user, "uid", None))
+            if uid: _known_users[str(uid)] = user_name
+        elif hasattr(event, "user") and getattr(event.user, "nick_name", None):
+            user_name = _sanitize_name(event.user.nick_name)
+            uid = getattr(event.user, "id", getattr(event.user, "uid", None))
+            if uid: _known_users[str(uid)] = user_name
+                
+        if hasattr(event, "inviter_nickname") and event.inviter_nickname:
+            user_name = _sanitize_name(event.inviter_nickname)
+            is_request = True
+
+        if hasattr(event, "base_message") and event.base_message:
+            dt = getattr(event.base_message, "display_text", None)
+            if dt and hasattr(dt, "pieces") and dt.pieces:
+                for piece in dt.pieces:
+                    uv = getattr(piece, "user_value", None)
+                    if uv and hasattr(uv, "user"):
+                        u = uv.user
+                        uid = getattr(u, "id", getattr(u, "uid", None))
+                        if getattr(u, "nick_name", None):
+                            user_name = _sanitize_name(u.nick_name)
+                            if uid: _known_users[str(uid)] = user_name
+                        elif getattr(u, "nickname", None):
+                            user_name = _sanitize_name(u.nickname)
+                            if uid: _known_users[str(uid)] = user_name
+                            
+        if user_name == "някой" and hasattr(event, "list_content") and event.list_content:
+            lc = event.list_content
+            change_type = getattr(lc, "list_change_type", None)
+            if change_type is not None and change_type not in (1, 2):
+                return
+            if hasattr(lc, "user_list") and lc.user_list:
+                ul = lc.user_list
+                if hasattr(ul, "applied_list") and ul.applied_list:
+                    for app in ul.applied_list:
+                        if hasattr(app, "link_user") and app.link_user:
+                            luid = getattr(app.link_user, "uid", None)
+                            if luid and str(luid) in _known_users:
+                                user_name = _known_users[str(luid)]
+                                is_request = True
+                                break
+
+        mtype = str(getattr(event, "message_type", ""))
+        if "Apply" in mtype or "APPLY" in mtype:
+            is_request = True
+            
+        m_t = str(getattr(event, "m_type", getattr(event, "mType", "")))
+        if m_t in ("1", "2"):
+            is_request = True
+        elif m_t == "8":
+            return
+                
+        if not is_request and type(event).__name__ not in ("LinkMicMethodEvent", "GuestInviteEvent", "LinkLayerEvent"):
+            return
+            
+        if user_name == "някой":
+            try:
+                import json
+                with open(LOG_DIR / "debug_requests.txt", "a", encoding="utf-8") as df:
+                    df.write(f"--- FAILED TO FIND NAME FOR EVENT: {type(event).__name__} ---\n")
+                    if hasattr(event, "to_dict"):
+                        df.write(json.dumps(event.to_dict(), ensure_ascii=False) + "\n")
+                    elif hasattr(event, "__dict__"):
+                        df.write(str(event.__dict__) + "\n")
+            except Exception:
+                pass
+            
+        now = time.time()
+        if now - _requests_log.get(user_name, 0) < 10.0:
+            return
+        _requests_log[user_name] = now
+            
+        log_line = f"{user_name}  {datetime.datetime.now().strftime('%H:%M:%S')}"
+        with open(REQUESTS_FILE, "a", encoding="utf-8") as f:
+            f.write(log_line + "\n")
+            
+        if PREFS.get("requests", True):
+            msg = _t("Guest request: {name}").format(name=user_name)
+            log_msg = f"{msg}  {datetime.datetime.now().strftime('%H:%M:%S')}"
+            _log_to_events(log_msg)
+            
+        speak_msg = _t("Guest request: {name}").format(name=user_name)
+        _handle_speech_and_sound("requests", speak_msg)
+        
+    except Exception as e:
+        _log_debug(f"Error handling guest request: {e}")
 
 def setup():
     _ensure_files_exist()
@@ -784,6 +933,21 @@ def _runner(username, on_connect_cb, on_retry_cb, on_fail_cb, max_attempts=3):
                 from TikTokLive.events import SocialEvent
             except ImportError:
                 SocialEvent = None
+                
+            try:
+                from TikTokLive.events import LinkLayerEvent
+            except ImportError:
+                LinkLayerEvent = None
+
+            try:
+                from TikTokLive.events import LinkMicMethodEvent
+            except ImportError:
+                LinkMicMethodEvent = None
+
+            try:
+                from TikTokLive.events import GuestInviteEvent
+            except ImportError:
+                GuestInviteEvent = None
     except Exception as e:
         if on_fail_cb:
             on_fail_cb()
@@ -823,7 +987,23 @@ def _runner(username, on_connect_cb, on_retry_cb, on_fail_cb, max_attempts=3):
                     client.add_listener(ViewerUpdateEvent, on_viewer_update)
                 if RoomUserSeqEvent:
                     client.add_listener(RoomUserSeqEvent, on_viewer_update)
+                    
+                if LinkLayerEvent:
+                    client.add_listener(LinkLayerEvent, on_guest_request)
+                    client.add_listener("LinkLayerEvent", on_guest_request)
+                if LinkMicMethodEvent:
+                    client.add_listener(LinkMicMethodEvent, on_guest_request)
+                    client.add_listener("LinkMicMethodEvent", on_guest_request)
+                if GuestInviteEvent:
+                    client.add_listener(GuestInviteEvent, on_guest_request)
+                    client.add_listener("GuestInviteEvent", on_guest_request)
                 
+                # Also listen to string events for generic webcast messages
+                client.add_listener("WebcastLinkLayerMessage", on_guest_request)
+                client.add_listener("WebcastLinkMicMethodMessage", on_guest_request)
+                client.add_listener("WebcastGuestInviteMessage", on_guest_request)
+                
+
 
                 async def on_connected(event):
                     nonlocal attempts, connected_once

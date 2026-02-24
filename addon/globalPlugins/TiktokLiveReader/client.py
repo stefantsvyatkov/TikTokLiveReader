@@ -59,6 +59,12 @@ REQUESTS_FILE = LOG_DIR / "requests.txt"
 EVENTS_FILE = LOG_DIR / "events.txt"
 SPEECH_BUFFER_FILE = LOG_DIR / "speechbuffer.json"
 
+def _clear_speech_buffer():
+    try:
+        with open(SPEECH_BUFFER_FILE, "w", encoding="utf-8") as f:
+            pass
+    except Exception:
+        pass
 
 client = None
 _thread = None
@@ -152,6 +158,10 @@ class SoundManager:
 
     def stop(self):
         self._running = False
+        with self._queue.mutex:
+            self._queue.queue.clear()
+
+    def clear(self):
         with self._queue.mutex:
             self._queue.queue.clear()
 
@@ -549,12 +559,7 @@ def _handle_speech_and_sound(event_key, speak_text):
 
 def _apply_like_event(ev):
     global total_likes
-    user = getattr(ev, "user", None)
-    user_name = _sanitize_name(getattr(user, "nickname", "someone"))
-    uid = getattr(user, "id", getattr(user, "uid", None))
-    if uid:
-        _known_users[str(uid)] = user_name
-
+    user_name = _sanitize_name(getattr(getattr(ev, "user", None), "nickname", "someone"))
     if hasattr(ev, "totalLikeCount"):
         total_likes = ev.totalLikeCount
     elif hasattr(ev, "total"):
@@ -574,6 +579,9 @@ def _apply_like_event(ev):
     increment = inc_val if (isinstance(inc_val, int) and inc_val > 0) else 1
     
     like_manager.add_like(user_name, increment)
+
+    if _console_mode:
+        print(f"{user_name} liked (total likes: {total_likes}, user total: {top_likers[user_name]})")
 
 async def on_comment(event):
     if not _should_run:
@@ -604,10 +612,6 @@ async def on_follow(event):
     global total_followers
     
     unique_id = getattr(event.user, "unique_id", event.user.nickname)
-    name = _sanitize_name(event.user.nickname)
-    uid = getattr(event.user, "id", getattr(event.user, "uid", None))
-    if uid:
-        _known_users[str(uid)] = name
 
     if unique_id in _known_followers:
         return
@@ -639,10 +643,6 @@ async def on_gift(event):
     name = getattr(event.gift, "name", "Gift")
     diamonds = count * getattr(event.gift, "diamond_count", 0)
     display_name = _sanitize_name(getattr(event.user, "nickname", "someone"))
-    uid = getattr(event.user, "id", getattr(event.user, "uid", None))
-    if uid:
-        _known_users[str(uid)] = display_name
-
     if diamonds > 0:
         total_diamonds += diamonds
         top_gifters[display_name] = top_gifters.get(display_name, 0) + diamonds
@@ -678,18 +678,6 @@ async def on_share(event):
         return
     
     display_name = _sanitize_name(event.user.nickname)
-    uid = getattr(event.user, "id", getattr(event.user, "uid", None))
-    if uid:
-        _known_users[str(uid)] = display_name
-
-    current_time = time.time()
-    last_share_time = _known_shares.get(display_name, 0)
-    
-    if current_time - last_share_time < 1.0:
-        return
-        
-    _known_shares[display_name] = current_time
-
     log_line = f"{display_name}  {datetime.datetime.now().strftime('%H:%M:%S')}"
     
     with open(SHARES_FILE, "a", encoding="utf-8") as f:
@@ -709,15 +697,16 @@ async def on_social(event):
     
     action = getattr(event, "action", None)
     key = getattr(getattr(event, "display_text", None), "key", "").lower()
+    default_fmt = getattr(getattr(event, "display_text", None), "default_pattern", "").lower()
     
-    if action == 3:
-        if "share" not in key:
-            await on_share(event)
+    if action == 3 or "share" in key or "share" in default_fmt:
+        if "share" not in key: # If it WAS caught by ShareEvent, we skip. But if key is weird, maybe we handle it.
+             pass
+        await on_share(event)
         return
 
-    if action == 1:
-        if "follow" not in key:
-            await on_follow(event)
+    if action == 1 or "follow" in key or "follow" in default_fmt:
+        await on_follow(event)
         return
 
 async def on_join(event):
@@ -762,7 +751,7 @@ async def on_guest_request(event):
         return
     
     try:
-        user_name = "някой"
+        user_name = "someone"
         is_request = False
         
         if hasattr(event, "apply_content") and event.apply_content is not None:
@@ -815,7 +804,7 @@ async def on_guest_request(event):
                             user_name = _sanitize_name(u.nickname)
                             if uid: _known_users[str(uid)] = user_name
                             
-        if user_name == "някой" and hasattr(event, "list_content") and event.list_content:
+        if user_name == "someone" and hasattr(event, "list_content") and event.list_content:
             lc = event.list_content
             change_type = getattr(lc, "list_change_type", None)
             if change_type is not None and change_type not in (1, 2):
@@ -844,14 +833,14 @@ async def on_guest_request(event):
         if not is_request and type(event).__name__ not in ("LinkMicMethodEvent", "GuestInviteEvent", "LinkLayerEvent"):
             return
             
-        if user_name == "някой":
+        if user_name == "someone":
             return
         now = time.time()
         if now - _requests_log.get(user_name, 0) < 10.0:
             return
         _requests_log[user_name] = now
             
-        is_unknown = (user_name == "някой")
+        is_unknown = (user_name == "someone")
         display_name = _t("Guest request") if is_unknown else user_name
         
         log_line = f"{display_name}  {datetime.datetime.now().strftime('%H:%M:%S')}"
@@ -1030,6 +1019,8 @@ def connect(username=None, on_connect=None, on_retry=None, on_fail=None, retry_c
     USERNAME, clear_on_start, CLEAN_USERNAMES, PREFS, AUTO_SPEAK_PREFS, PLAY_SOUNDS, SOUND_VOLUME = _load_config()
     sound_manager.set_volume(SOUND_VOLUME)
     sound_manager.start() # Ensure sound manager is running (fixes restart issue)
+    sound_manager.clear()
+    _clear_speech_buffer()
     _known_comments = set()
     _processed_ids = set()
     _connection_time = 0

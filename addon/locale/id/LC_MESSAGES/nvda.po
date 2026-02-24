@@ -7,7 +7,7 @@ msgstr ""
 "Project-Id-Version: TikTok Live Reader 1.0\n"
 "Report-Msgid-Bugs-To: \n"
 "POT-Creation-Date: 2026-02-14 01:00+0200\n"
-"PO-Revision-Date: 2026-02-24 00:56+0200\n"
+"PO-Revision-Date: 2026-02-24 03:22+0200\n"
 "Last-Translator: Muhammad\n"
 "Language-Team: Indonesian\n"
 "Language: id\n"
@@ -18,20 +18,20 @@ msgstr ""
 "X-Generator: Poedit 3.8\n"
 
 #. Translators: File name shown when navigating files.
-msgid "Comments"
-msgstr "Komentar"
+msgid "&Comments"
+msgstr "&Komentar"
 
 #. Translators: File name shown when navigating files.
-msgid "Followers"
-msgstr "Pengikut"
+msgid "&Followers"
+msgstr "&Pengikut"
 
 #. Translators: File name shown when navigating files.
-msgid "Gifts"
-msgstr "Hadiah"
+msgid "&Gifts"
+msgstr "&Hadiah"
 
 #. Translators: File name shown when navigating files.
-msgid "Likes"
-msgstr "Suka"
+msgid "&Likes"
+msgstr "&Suka"
 
 #. Translators: File name shown when navigating files.
 msgid "Stats"
@@ -46,8 +46,8 @@ msgid "Top likes"
 msgstr "Penyuka teratas"
 
 #. Translators: File name shown when navigating files.
-msgid "Visitors"
-msgstr "Pengunjung"
+msgid "&Visitors"
+msgstr "&Pengunjung"
 
 #. Translators: Announced when navigating items. {item} is the content, {num} is current position, {total} is total count.
 msgid "{item} ({num} of {total})"
@@ -114,20 +114,20 @@ msgid "TikTok Live Reader Settings"
 msgstr "Pengaturan TikTok Live Reader"
 
 #. Translators: Label for the username text field in settings.
-msgid "User name"
-msgstr "Nama pengguna"
+msgid "&User name"
+msgstr "&Nama pengguna"
 
 #. Translators: Checkbox label in settings.
-msgid "Clear text files on startup"
-msgstr "Bersihkan file teks saat startup"
+msgid "&Clear text files on startup"
+msgstr "&Bersihkan file teks saat startup"
 
 #. Translators: Checkbox label in settings.
-msgid "Clean user names"
-msgstr "Bersihkan nama pengguna"
+msgid "Cl&ean user names"
+msgstr "B&ersihkan nama pengguna"
 
 #. Translators: Label for the retry count spinner in settings.
-msgid "Connection retry count"
-msgstr "Jumlah percobaan koneksi"
+msgid "Connection &retry count"
+msgstr "&Jumlah percobaan koneksi"
 
 #. Translators: Tab name in settings dialog.
 msgid "General"
@@ -222,24 +222,24 @@ msgid "Events"
 msgstr "Peristiwa"
 
 #. Translators: File name shown when navigating files.
-msgid "Shares"
-msgstr "Bagikan"
+msgid "&Shares"
+msgstr "&Bagikan"
 
 #. Translators: Announced when a user shares the live. {name} is their display name.
 msgid "{name} shared the live"
 msgstr "{name} membagikan live"
 
 #. Translators: Button to learn sounds.
-msgid "Learn sounds"
-msgstr "Pelajari suara"
+msgid "L&earn sounds"
+msgstr "P&elajari suara"
 
 #. Translators: Checkbox to enable playing sounds for selected events.
-msgid "Play sounds for the selected events"
-msgstr "Putar suara untuk peristiwa yang dipilih"
+msgid "&Play sounds for the selected events"
+msgstr "&Putar suara untuk peristiwa yang dipilih"
 
 #. Translators: Label for volume slider.
-msgid "Audio volume"
-msgstr "Volume audio"
+msgid "V&olume"
+msgstr "&Volume audio"
 
 #. Translators: Sound label.
 msgid "Comment"
@@ -267,7 +267,7 @@ msgstr "Pengunjung"
 
 #. Translators: Checkbox to enable automatic speaking for selected events.
 #: addon\globalPlugins\TiktokLiveReader\globalPlugin.py:597
-msgid "Auto speak selected events"
+msgid "&Auto speak selected events"
 msgstr "Bicara otomatis pada kejadian yang dipilih"
 
 #. Translators: Description shown in NVDA Input Gestures dialog.
@@ -285,3 +285,10 @@ msgstr "Suara menyala"
 msgid "Sounds Off"
 msgstr "Suara mati"
 
+#. Translators: Button to stop.
+msgid "St&op"
+msgstr "&Berhenti"
+
+#. Translators: Section description.
+msgid "Automatically speak:"
+msgstr "Bicara otomatis:"

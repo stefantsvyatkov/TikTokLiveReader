@@ -7,7 +7,7 @@ msgstr ""
 "Project-Id-Version: TikTok Live Reader 1.0\n"
 "Report-Msgid-Bugs-To: \n"
 "POT-Creation-Date: 2026-02-14 01:00+0200\n"
-"PO-Revision-Date: 2026-02-24 00:45+0200\n"
+"PO-Revision-Date: 2026-02-24 03:33+0200\n"
 "Last-Translator: Stefan Tsvyatkov\n"
 "Language-Team: Bulgarian\n"
 "Language: bg\n"
@@ -18,20 +18,20 @@ msgstr ""
 "X-Generator: Poedit 3.8\n"
 
 #. Translators: File name shown when navigating files.
-msgid "Comments"
-msgstr "Коментари"
+msgid "&Comments"
+msgstr "&Коментари"
 
 #. Translators: File name shown when navigating files.
-msgid "Followers"
-msgstr "Последователи"
+msgid "&Followers"
+msgstr "&Последователи"
 
 #. Translators: File name shown when navigating files.
-msgid "Gifts"
-msgstr "Гифтове"
+msgid "&Gifts"
+msgstr "&Гифтове"
 
 #. Translators: File name shown when navigating files.
-msgid "Likes"
-msgstr "Харесвания"
+msgid "&Likes"
+msgstr "&Харесвания"
 
 #. Translators: File name shown when navigating files.
 msgid "Stats"
@@ -46,8 +46,8 @@ msgid "Top likes"
 msgstr "Топ харесвания"
 
 #. Translators: File name shown when navigating files.
-msgid "Visitors"
-msgstr "Посетители"
+msgid "&Visitors"
+msgstr "Пос&етители"
 
 #. Translators: Announced when navigating items. {item} is the content, {num} is current position, {total} is total count.
 msgid "{item} ({num} of {total})"
@@ -114,20 +114,20 @@ msgid "TikTok Live Reader Settings"
 msgstr "Настройки на TikTok Live Reader"
 
 #. Translators: Label for the username text field in settings.
-msgid "User name"
-msgstr "Име на потребител"
+msgid "&User name"
+msgstr "Име на &потребител"
 
 #. Translators: Checkbox label in settings.
-msgid "Clear text files on startup"
-msgstr "Изчистване на файловете при стартиране"
+msgid "&Clear text files on startup"
+msgstr "&Изчистване на файловете при стартиране"
 
 #. Translators: Checkbox label in settings.
-msgid "Clean user names"
-msgstr "Подкастряне на потребителските имена"
+msgid "Cl&ean user names"
+msgstr "&Опростяване на потребителските имена"
 
 #. Translators: Label for the retry count spinner in settings.
-msgid "Connection retry count"
-msgstr "Брой опити за свързване"
+msgid "Connection &retry count"
+msgstr "&Брой опити за свързване"
 
 #. Translators: Tab name in settings dialog.
 msgid "General"
@@ -222,24 +222,24 @@ msgid "Events"
 msgstr "Събития"
 
 #. Translators: File name shown when navigating files.
-msgid "Shares"
-msgstr "Споделяния"
+msgid "&Shares"
+msgstr "&Споделяния"
 
 #. Translators: Announced when a user shares the live. {name} is their display name.
 msgid "{name} shared the live"
 msgstr "{name} сподели лайфа"
 
 #. Translators: Button to learn sounds.
-msgid "Learn sounds"
-msgstr "Научаване на звуците"
+msgid "L&earn sounds"
+msgstr "&Научаване на звуците"
 
 #. Translators: Checkbox to enable playing sounds for selected events.
-msgid "Play sounds for the selected events"
-msgstr "Възпроизвеждане на звуци за избраните събития"
+msgid "&Play sounds for the selected events"
+msgstr "&Възпроизвеждане на звуци за избраните събития"
 
 #. Translators: Label for volume slider.
-msgid "Audio volume"
-msgstr "Сила на звука"
+msgid "V&olume"
+msgstr "С&ила на звука"
 
 #. Translators: Sound label.
 msgid "Comment"
@@ -266,8 +266,8 @@ msgid "Visitor"
 msgstr "Посетител"
 
 #. Translators: Checkbox to enable automatic speaking for selected events.
-msgid "Auto speak selected events"
-msgstr "Автоматично изговаряне на избраните събития"
+msgid "&Auto speak selected events"
+msgstr "&Автоматично изговаряне на избраните събития"
 
 #. Translators: Description shown in NVDA Input Gestures dialog.
 msgid "Toggle sound playback for selected events"
@@ -280,3 +280,11 @@ msgstr "Звуците са включени"
 #. Translators: Announced when sounds are disabled.
 msgid "Sounds Off"
 msgstr "Звуците са изключени"
+
+#. Translators: Button to stop.
+msgid "St&op"
+msgstr "Сп&иране"
+
+#. Translators: Section description.
+msgid "Automatically speak:"
+msgstr "Автоматично изговаряне:"

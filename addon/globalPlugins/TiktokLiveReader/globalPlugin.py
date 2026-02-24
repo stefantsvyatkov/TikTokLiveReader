@@ -471,18 +471,18 @@ class GlobalPlugin(NVDA_GlobalPlugin):
         s_general = wx.BoxSizer(wx.VERTICAL)
         
         # Translators: Label for the username text field in settings.
-        lbl_user = wx.StaticText(p_general, label=_("User name"))
+        lbl_user = wx.StaticText(p_general, label=_("&User name"))
         txt_user = wx.TextCtrl(p_general, value=self.username)
         # Translators: Checkbox label in settings.
-        chk_clear = wx.CheckBox(p_general, label=_("Clear text files on startup"))
+        chk_clear = wx.CheckBox(p_general, label=_("&Clear text files on startup"))
         # Translators: Checkbox label in settings.
-        chk_strip = wx.CheckBox(p_general, label=_("Clean user names"))
+        chk_strip = wx.CheckBox(p_general, label=_("Cl&ean user names"))
 
         chk_clear.SetValue(self.clearOnStart)
         chk_strip.SetValue(self.cleanUsernames)
 
         # Translators: Label for the retry count spinner in settings.
-        lbl_retry = wx.StaticText(p_general, label=_("Connection retry count"))
+        lbl_retry = wx.StaticText(p_general, label=_("Connection &retry count"))
         spin_retry = wx.SpinCtrl(p_general, value=str(self.retryCount), min=1, max=10)
         
         s_general.Add(lbl_user, flag=wx.ALL, border=5)
@@ -494,12 +494,12 @@ class GlobalPlugin(NVDA_GlobalPlugin):
         p_general.SetSizer(s_general)
 
         s_events = wx.BoxSizer(wx.VERTICAL)
-        chk_ev_comments = wx.CheckBox(p_events, label=_("Comments"))
-        chk_ev_followers = wx.CheckBox(p_events, label=_("Followers"))
-        chk_ev_gifts = wx.CheckBox(p_events, label=_("Gifts"))
-        chk_ev_likes = wx.CheckBox(p_events, label=_("Likes"))
-        chk_ev_shares = wx.CheckBox(p_events, label=_("Shares"))
-        chk_ev_visitors = wx.CheckBox(p_events, label=_("Visitors"))
+        chk_ev_comments = wx.CheckBox(p_events, label=_("&Comments"))
+        chk_ev_followers = wx.CheckBox(p_events, label=_("&Followers"))
+        chk_ev_gifts = wx.CheckBox(p_events, label=_("&Gifts"))
+        chk_ev_likes = wx.CheckBox(p_events, label=_("&Likes"))
+        chk_ev_shares = wx.CheckBox(p_events, label=_("&Shares"))
+        chk_ev_visitors = wx.CheckBox(p_events, label=_("&Visitors"))
 
         chk_ev_comments.SetValue(self.prefs.get("comments", True))
         chk_ev_followers.SetValue(self.prefs.get("followers", False))
@@ -514,20 +514,18 @@ class GlobalPlugin(NVDA_GlobalPlugin):
         s_events.Add(wx.StaticLine(p_events), flag=wx.EXPAND|wx.ALL, border=5)
 
         # Translators: Checkbox to enable playing sounds for selected events.
-        chk_play_sounds = wx.CheckBox(p_events, label=_("Play sounds for the selected events"))
+        chk_play_sounds = wx.CheckBox(p_events, label=_("&Play sounds for the selected events"))
         chk_play_sounds.SetValue(self.playSounds)
         s_events.Add(chk_play_sounds, flag=wx.ALL, border=5)
 
         # Translators: Label for volume slider.
-        lbl_volume = wx.StaticText(p_events, label=_("Audio volume"))
-        slider_volume = wx.Slider(p_events, value=self.soundVolume, minValue=0, maxValue=100, style=wx.SL_HORIZONTAL, name=_("Audio volume"))
-        slider_volume.Name = _("Audio volume")
-        slider_volume.SetToolTip(_("Audio volume"))
+        lbl_volume = wx.StaticText(p_events, label=_("V&olume"))
+        slider_volume = wx.Slider(p_events, value=self.soundVolume, minValue=0, maxValue=100, style=wx.SL_HORIZONTAL, name=_("V&olume"))
         s_events.Add(lbl_volume, flag=wx.ALL, border=5)
         s_events.Add(slider_volume, flag=wx.EXPAND | wx.ALL, border=5)
 
         # Translators: Button to learn sounds.
-        btn_learn = wx.Button(p_events, label=_("Learn sounds"))
+        btn_learn = wx.Button(p_events, label=_("L&earn sounds"))
         
         self._learning_thread = None
         self._stop_learning = threading.Event()
@@ -541,7 +539,7 @@ class GlobalPlugin(NVDA_GlobalPlugin):
             btn_learn.Enable(is_checked)
             if not is_checked and self._learning_thread and self._learning_thread.is_alive():
                 self._stop_learning.set()
-                btn_learn.SetLabel(_("Learn sounds"))
+                btn_learn.SetLabel(_("L&earn sounds"))
             
         def on_volume_change(evt):
             vol = slider_volume.GetValue()
@@ -555,11 +553,11 @@ class GlobalPlugin(NVDA_GlobalPlugin):
         def on_learn_sounds(evt):
              if self._learning_thread and self._learning_thread.is_alive():
                  self._stop_learning.set()
-                 btn_learn.SetLabel(_("Learn sounds"))
+                 btn_learn.SetLabel(_("L&earn sounds"))
                  return
 
              self._stop_learning.clear()
-             btn_learn.SetLabel(_("Stop"))
+             btn_learn.SetLabel(_("St&op"))
 
              try:
                  initial_vol = slider_volume.GetValue()
@@ -617,7 +615,7 @@ class GlobalPlugin(NVDA_GlobalPlugin):
                  except Exception:
                      pass
                  finally:
-                     wx.CallAfter(btn_learn.SetLabel, _("Learn sounds"))
+                     wx.CallAfter(btn_learn.SetLabel, _("L&earn sounds"))
                      
              self._learning_thread = threading.Thread(target=_learner, args=(initial_vol,), daemon=True)
              self._learning_thread.start()
@@ -627,7 +625,7 @@ class GlobalPlugin(NVDA_GlobalPlugin):
 
         s_autospeak = wx.BoxSizer(wx.VERTICAL)
         # Translators: Checkbox to enable automatic speaking for selected events.
-        chk_auto_speak = wx.CheckBox(p_autospeak, label=_("Auto speak selected events"))
+        chk_auto_speak = wx.CheckBox(p_autospeak, label=_("&Auto speak selected events"))
         chk_auto_speak.SetValue(self.autoSpeak)
         s_autospeak.Add(chk_auto_speak, flag=wx.ALL, border=5)
         
@@ -638,12 +636,12 @@ class GlobalPlugin(NVDA_GlobalPlugin):
         lbl_as_desc = wx.StaticText(p_autospeak, label=_("Automatically speak:"))
         s_autospeak.Add(lbl_as_desc, flag=wx.ALL, border=5)
         
-        chk_as_comments = wx.CheckBox(p_autospeak, label=_("Comments"))
-        chk_as_followers = wx.CheckBox(p_autospeak, label=_("Followers"))
-        chk_as_gifts = wx.CheckBox(p_autospeak, label=_("Gifts"))
-        chk_as_likes = wx.CheckBox(p_autospeak, label=_("Likes"))
-        chk_as_shares = wx.CheckBox(p_autospeak, label=_("Shares"))
-        chk_as_visitors = wx.CheckBox(p_autospeak, label=_("Visitors"))
+        chk_as_comments = wx.CheckBox(p_autospeak, label=_("&Comments"))
+        chk_as_followers = wx.CheckBox(p_autospeak, label=_("&Followers"))
+        chk_as_gifts = wx.CheckBox(p_autospeak, label=_("&Gifts"))
+        chk_as_likes = wx.CheckBox(p_autospeak, label=_("&Likes"))
+        chk_as_shares = wx.CheckBox(p_autospeak, label=_("&Shares"))
+        chk_as_visitors = wx.CheckBox(p_autospeak, label=_("&Visitors"))
 
         chk_as_comments.SetValue(self.auto_speak_prefs.get("comments", True))
         chk_as_followers.SetValue(self.auto_speak_prefs.get("followers", False))

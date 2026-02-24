@@ -4,7 +4,7 @@
 #
 msgid ""
 msgstr ""
-"Project-Id-Version: TikTok Live Reader 1.0\n"
+"Project-Id-Version: TikTok Live Reader 1.2\n"
 "Report-Msgid-Bugs-To: \n"
 "POT-Creation-Date: 2026-02-14 01:00+0200\n"
 "PO-Revision-Date: 2026-02-24 03:22+0200\n"
@@ -22,16 +22,32 @@ msgid "&Comments"
 msgstr "&Komentar"
 
 #. Translators: File name shown when navigating files.
+msgid "Comments"
+msgstr "Komentar"
+
+#. Translators: File name shown when navigating files.
 msgid "&Followers"
 msgstr "&Pengikut"
+
+#. Translators: File name shown when navigating files.
+msgid "Followers"
+msgstr "Pengikut"
 
 #. Translators: File name shown when navigating files.
 msgid "&Gifts"
 msgstr "&Hadiah"
 
 #. Translators: File name shown when navigating files.
+msgid "Gifts"
+msgstr "Hadiah"
+
+#. Translators: File name shown when navigating files.
 msgid "&Likes"
 msgstr "&Suka"
+
+#. Translators: File name shown when navigating files.
+msgid "Likes"
+msgstr "Suka"
 
 #. Translators: File name shown when navigating files.
 msgid "Stats"
@@ -48,6 +64,10 @@ msgstr "Penyuka teratas"
 #. Translators: File name shown when navigating files.
 msgid "&Visitors"
 msgstr "&Pengunjung"
+
+#. Translators: File name shown when navigating files.
+msgid "Visitors"
+msgstr "Pengunjung"
 
 #. Translators: Announced when navigating items. {item} is the content, {num} is current position, {total} is total count.
 msgid "{item} ({num} of {total})"
@@ -224,6 +244,10 @@ msgstr "Peristiwa"
 #. Translators: File name shown when navigating files.
 msgid "&Shares"
 msgstr "&Bagikan"
+
+#. Translators: File name shown when navigating files.
+msgid "Shares"
+msgstr "Bagikan"
 
 #. Translators: Announced when a user shares the live. {name} is their display name.
 msgid "{name} shared the live"

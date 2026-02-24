@@ -112,6 +112,9 @@ class LikeManager:
         
         speak_line = f"{user}: {count} {likes_word}"
 
+        if SETTINGS_OPEN:
+            return
+
         event_key = "likes"
         sound_enabled = PLAY_SOUNDS and PREFS.get(event_key, False)
         speech_enabled = AUTO_SPEAK_PREFS.get(event_key, False)
@@ -300,6 +303,11 @@ _connection_time = 0
 AUTO_SPEAK_PREFS = {}
 PLAY_SOUNDS = True
 SOUND_VOLUME = 100
+SETTINGS_OPEN = False
+
+def set_settings_open(is_open):
+    global SETTINGS_OPEN
+    SETTINGS_OPEN = is_open
 
 def _is_processed(event):
     uid = getattr(event, "msgId", None)
@@ -514,7 +522,9 @@ def _handle_speech_and_sound(event_key, speak_text):
     event_key: 'comments', 'followers', etc.
     speak_text: The text to speak.
     """
-    
+    if SETTINGS_OPEN:
+        return
+        
     sound_enabled = PLAY_SOUNDS and PREFS.get(event_key, False)
     speech_enabled = AUTO_SPEAK_PREFS.get(event_key, False)
     

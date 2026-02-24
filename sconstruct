@@ -110,21 +110,7 @@ if (cssFile := Path("style.css")).is_file():
 	cssTarget = env.Command(str(cssPath), str(cssFile), Copy("$TARGET", "$SOURCE"))
 	env.Depends(addon, cssTarget)
 
-if (readmeFile := Path("readme.md")).is_file():
-	readmePath = docsDir / buildVars.baseLanguage / readmeFile
-	readmeTarget = env.Command(str(readmePath), str(readmeFile), Copy("$TARGET", "$SOURCE"))
-	env.Depends(addon, readmeTarget)
-
-for mdFile in env.Glob(docsDir/"*/*.md"):
-	# the title of the html file is translated based on the contents of something in the moFile for a language.
-	# Thus, we find the moFile for this language and depend on it if it exists.
-	lang = mdFile.dir.name
-	moFile = moByLang.get(lang)
-	htmlFile = env.md2html(mdFile, moFile=moFile, mdExtensions=buildVars.markdownExtensions)
-	env.Depends(htmlFile, mdFile)
-	if moFile:
-		env.Depends(htmlFile, moFile)
-	env.Depends(addon, htmlFile)
+# Markdown generation has been disabled. User provides their own HTML documentation.
 
 # Pot target
 i18nFiles = expandGlobs(buildVars.i18nSources)

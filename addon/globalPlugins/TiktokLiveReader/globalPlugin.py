@@ -34,16 +34,16 @@ def _log_debug(msg):
         pass
 
 FILES = [
-    (_("Comments"), "comments.txt"),
-    (_("Events"), "events.txt"),
-    (_("Followers"), "followers.txt"),
-    (_("Gifts"), "gifts.txt"),
-    (_("Likes"), "likes.txt"),
-    (_("Shares"), "shares.txt"),
-    (_("Stats"), "stats.txt"),
-    (_("Top gifters"), "top gifters.txt"),
-    (_("Top likes"), "top likes.txt"),
-    (_("Visitors"), "visitors.txt"),
+    ("Comments", "comments.txt"),
+    ("Events", "events.txt"),
+    ("Followers", "followers.txt"),
+    ("Gifts", "gifts.txt"),
+    ("Likes", "likes.txt"),
+    ("Shares", "shares.txt"),
+    ("Stats", "stats.txt"),
+    ("Top gifters", "top gifters.txt"),
+    ("Top likes", "top likes.txt"),
+    ("Visitors", "visitors.txt"),
 ]
 
 NAV_GESTURES = {
@@ -304,7 +304,7 @@ class GlobalPlugin(NVDA_GlobalPlugin):
 
     def _get_current_file(self):
         name, filename = FILES[self.currentFileIndex]
-        return name, LOG_DIR / filename
+        return _(name), LOG_DIR / filename
 
     def _load_items(self):
         _label, file = self._get_current_file()
@@ -451,11 +451,12 @@ class GlobalPlugin(NVDA_GlobalPlugin):
         if self._settingsDialog:
             return
         was_active = self.active
+        old_username = self.username
         if was_active:
-            self.active = False
-            self._unbind_nav()
-            self.autoSpeak = False
-            client.disconnect()
+            self.speech_manager.stop()
+            with client.sound_manager._queue.mutex:
+                client.sound_manager._queue.queue.clear()
+            client.set_settings_open(True)
             
         client.sound_manager.start()
             
@@ -695,15 +696,17 @@ class GlobalPlugin(NVDA_GlobalPlugin):
         txt_user.SetFocus()
         txt_user.SetInsertionPointEnd()
 
-        if dlg.ShowModal() == wx.ID_OK:
+        res = dlg.ShowModal()
+        
+        if hasattr(self, "_stop_learning"):
+            self._stop_learning.set()
+            
+        if was_active:
+            client.set_settings_open(False)
+            
+        if res == wx.ID_OK:
             self.autoSpeak = chk_auto_speak.IsChecked()
             
-            if self.active:
-                if self.autoSpeak:
-                    self.speech_manager.start()
-                else:
-                    self.speech_manager.stop()
-                    
             prefs = {
                 "comments": chk_ev_comments.IsChecked(),
                 "followers": chk_ev_followers.IsChecked(),
@@ -731,10 +734,42 @@ class GlobalPlugin(NVDA_GlobalPlugin):
                 chk_play_sounds.IsChecked(),
                 slider_volume.GetValue()
             )
-        
-        if hasattr(self, "_stop_learning"):
-            self._stop_learning.set()
             
+            new_username = txt_user.GetValue().strip()
+            
+            if was_active:
+                if new_username != old_username:
+                    self.active = False
+                    self._unbind_nav()
+                    client.disconnect()
+                    self._cleanup_temp_files()
+                    
+                    self.active = True
+                    self._bind_nav()
+                    self.index = self.filePositions.get(self.currentFileIndex, -1) if not self.clearOnStart else -1
+                    if self.autoSpeak:
+                        self.speech_manager.start()
+                        
+                    def on_conn():
+                        ui.message(_("Connected to user: {username}").format(username=self.username))
+                    def on_retry():
+                        ui.message(_("Attempting to connect..."))
+                    def on_fail():
+                        ui.message(_("Connection unsuccessful."))
+                        self.active = False
+                        self._unbind_nav()
+                        client.disconnect()
+                        self.speech_manager.stop()
+                        self._cleanup_temp_files()
+                        
+                    client.connect(username=self.username, on_connect=on_conn, on_retry=on_retry, on_fail=on_fail, retry_count=self.retryCount)
+                else:
+                    if self.autoSpeak:
+                        self.speech_manager.start()
+        else:
+            if was_active and self.autoSpeak:
+                self.speech_manager.start()
+                
         dlg.Destroy()
         self._settingsDialog = None
 

@@ -45,9 +45,9 @@ It can span multiple lines."""),
 	# Do not change unless you know what you are doing!
 	addon_updateChannel=None,
 	# Add-on license such as GPL 2
-	addon_license=None,
+	addon_license="GNU General Public License v2.0",
 	# URL for the license document the ad-on is licensed under
-	addon_licenseURL=None,
+	addon_licenseURL="https://github.com/stefantsvyatkov/TikTokLiveReader/blob/main/LICENSE",
 )
 
 # Define the python files that are the sources of your add-on.
@@ -67,7 +67,7 @@ i18nSources: list[str] = pythonSources + ["buildVars.py"]
 # Paths are relative to the addon directory, not to the root directory of your addon sources.
 # You can either list every file (using ""/") as a path separator,
 # or use glob expressions.
-excludedFiles: list[str] = []
+excludedFiles: list[str] = [".git/*", ".gitignore", "**/*.pyc", "**/__pycache__", "**/*.bak", ".vscode/*"]
 
 # Base language for the NVDA add-on
 # If your add-on is written in a language other than english, modify this variable.

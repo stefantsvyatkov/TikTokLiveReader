@@ -38,7 +38,7 @@ def generate(env):
 	env.SetDefault(gettext_package_version="")
 
 	env["BUILDERS"]["gettextMoFile"] = env.Builder(
-		action=Action("msgfmt -o $TARGET $SOURCE", "Compiling translation $SOURCE"),
+		action=Action("python msgfmt.py -o $TARGET $SOURCE", "Compiling translation $SOURCE"),
 		suffix=".mo",
 		src_suffix=".po",
 	)

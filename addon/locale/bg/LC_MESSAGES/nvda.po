@@ -7,7 +7,7 @@ msgstr ""
 "Project-Id-Version: TikTok Live Reader 1.5\n"
 "Report-Msgid-Bugs-To: \n"
 "POT-Creation-Date: 2026-02-14 01:00+0200\n"
-"PO-Revision-Date: 2026-02-24 15:58+0200\n"
+"PO-Revision-Date: 2026-02-24 17:00+0200\n"
 "Last-Translator: Stefan Tsvyatkov\n"
 "Language-Team: Bulgarian\n"
 "Language: bg\n"
@@ -323,7 +323,7 @@ msgstr "Заявка за присъединяване: {name}"
 
 #. Translators: Sound label.
 msgid "Guest request"
-msgstr "Заявка"
+msgstr "Заявка за присъединяване"
 
 #. Translators: File name shown when navigating files.
 msgid "Requests"
@@ -335,12 +335,5 @@ msgstr "TikTok Live Reader"
 
 #. Translators: Long description to be shown for this add-on on add-on information from add-on store
 msgid "TikTok Live Reader allows NVDA users to monitor TikTok Live streams in real time. The add-on extracts comments, gifts, followers, likes, shares, and viewer statistics, saving them to text files. They can be read with keyboard shortcuts during the live session. Audio notifications and auto speak functionality are also supported."
-msgstr "TikTok Live Reader позволява на потребителите на NVDA да следят TikTok Live излъчвания в реално време. Добавката извлича коментари, гифтове, последователи, харесвания, споделяния и статистика за зрителите, като ги запазва в текстови файлове. Те могат да бъдат четени с клавишни комбинации по време на живата сесия. Поддържат се също звукови известия и функция за автоматично изговаряне."
+msgstr "TikTok Live Reader позволява проследяването на лайфове в TikTok. Добавката извлича коментари, гифтове, последователи, харесвания, споделяния и статистика за зрителите, като ги запазва в текстови файлове. Те могат да бъдат четени с клавишни комбинации по време на сесията. Поддържат се също звукови известия и автоматично изговаряне на избрани събития."
 
-#. Translators: what's new content for the add-on version to be shown in the add-on store
-msgid ""
-"Changelog for the add-on version.\n"
-"It can span multiple lines."
-msgstr ""
-"Списък с промените за версията на добавката.\n"
-"Може да заема няколко реда."

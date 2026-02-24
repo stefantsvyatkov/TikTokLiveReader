@@ -58,14 +58,7 @@ SHARES_FILE = LOG_DIR / "shares.txt"
 REQUESTS_FILE = LOG_DIR / "requests.txt"
 EVENTS_FILE = LOG_DIR / "events.txt"
 SPEECH_BUFFER_FILE = LOG_DIR / "speechbuffer.json"
-DEBUG_LOG = LOG_DIR / "debug.log"
 
-def _log_debug(msg):
-    try:
-        with open(DEBUG_LOG, "a", encoding="utf-8") as f:
-            f.write(f"{datetime.datetime.now()}: {msg}\n")
-    except Exception:
-        pass
 
 client = None
 _thread = None
@@ -122,11 +115,9 @@ class LikeManager:
 
         if sound_enabled and _connection_time > 0:
              if (time.time() - _connection_time) < 10.0:
-                 _log_debug(f"Suppressed sound (startup delay): {event_key}")
                  sound_enabled = False
 
         if sound_enabled or speech_enabled:
-            _log_debug(f"_handle: {event_key}, sound={sound_enabled}, speech={speech_enabled}")
             cb = None
             if speech_enabled:
                 def _on_complete():
@@ -213,17 +204,16 @@ class SoundManager:
                 fname = item
 
             if fname and play_file:
-                _log_debug(f"Playing sound: {fname}")
                 self._play_actual(fname)
             else:
-                _log_debug(f"Skipping sound: {fname} (play_file=False)")
+                pass
             
             if cb:
                 try:
-                    _log_debug("Calling on_complete callback")
+    
                     cb()
-                except Exception as e:
-                    _log_debug(f"Callback error: {e}")
+                except Exception:
+                    pass
 
             if post_delay > 0:
                 time.sleep(post_delay)
@@ -275,12 +265,10 @@ class SoundManager:
                     mem_file.seek(0)
                     winsound.PlaySound(mem_file.read(), winsound.SND_MEMORY | winsound.SND_SYNC)
                     
-                except Exception as e:
-                    _log_debug(f"Scaling error: {e}")
+                except Exception:
                     winsound.PlaySound(str(fpath), winsound.SND_FILENAME | winsound.SND_SYNC)
                 
-        except Exception as e:
-            _log_debug(f"Sound error: {e}")
+        except Exception:
             try:
                 winsound.PlaySound(str(fpath), winsound.SND_FILENAME | winsound.SND_SYNC)
             except Exception:
@@ -541,17 +529,13 @@ def _handle_speech_and_sound(event_key, speak_text):
     if _connection_time == 0:
         sound_enabled = False
         speech_enabled = False
-        _log_debug(f"Suppressed sound/speech (not connected): {event_key}")
     elif (time.time() - _connection_time) < 10.0:
         if sound_enabled:
-            _log_debug(f"Suppressed sound (startup delay): {event_key}")
             sound_enabled = False
         if speech_enabled:
-            _log_debug(f"Suppressed speech (startup delay): {event_key}")
             speech_enabled = False
 
     if sound_enabled or speech_enabled:
-        _log_debug(f"_handle: {event_key}, sound={sound_enabled}, speech={speech_enabled}")
         cb = None
         if speech_enabled:
             def _on_complete():
@@ -561,7 +545,7 @@ def _handle_speech_and_sound(event_key, speak_text):
             
         sound_manager.play(event_key, play_file=sound_enabled, on_complete=cb)
     else:
-        _log_debug(f"_handle: {event_key} IGNORED (sound={sound_enabled}, speech={speech_enabled})")
+        pass
 
 def _apply_like_event(ev):
     global total_likes
@@ -856,41 +840,37 @@ async def on_guest_request(event):
             is_request = True
         elif m_t == "8":
             return
-                
+            
         if not is_request and type(event).__name__ not in ("LinkMicMethodEvent", "GuestInviteEvent", "LinkLayerEvent"):
             return
             
         if user_name == "някой":
-            try:
-                import json
-                with open(LOG_DIR / "debug_requests.txt", "a", encoding="utf-8") as df:
-                    df.write(f"--- FAILED TO FIND NAME FOR EVENT: {type(event).__name__} ---\n")
-                    if hasattr(event, "to_dict"):
-                        df.write(json.dumps(event.to_dict(), ensure_ascii=False) + "\n")
-                    elif hasattr(event, "__dict__"):
-                        df.write(str(event.__dict__) + "\n")
-            except Exception:
-                pass
-            
+            return
         now = time.time()
         if now - _requests_log.get(user_name, 0) < 10.0:
             return
         _requests_log[user_name] = now
             
-        log_line = f"{user_name}  {datetime.datetime.now().strftime('%H:%M:%S')}"
+        is_unknown = (user_name == "някой")
+        display_name = _t("Guest request") if is_unknown else user_name
+        
+        log_line = f"{display_name}  {datetime.datetime.now().strftime('%H:%M:%S')}"
         with open(REQUESTS_FILE, "a", encoding="utf-8") as f:
             f.write(log_line + "\n")
             
+        if is_unknown:
+            speak_msg = _t("Guest request")
+        else:
+            speak_msg = _t("Guest request: {name}").format(name=user_name)
+            
         if PREFS.get("requests", True):
-            msg = _t("Guest request: {name}").format(name=user_name)
-            log_msg = f"{msg}  {datetime.datetime.now().strftime('%H:%M:%S')}"
+            log_msg = f"{speak_msg}  {datetime.datetime.now().strftime('%H:%M:%S')}"
             _log_to_events(log_msg)
             
-        speak_msg = _t("Guest request: {name}").format(name=user_name)
         _handle_speech_and_sound("requests", speak_msg)
         
     except Exception as e:
-        _log_debug(f"Error handling guest request: {e}")
+        pass
 
 def setup():
     _ensure_files_exist()
@@ -1026,10 +1006,9 @@ def _runner(username, on_connect_cb, on_retry_cb, on_fail_cb, max_attempts=3):
                 
                 client.run()
             
-        except Exception as e:
-            _log_debug(f"Runner exception: {e}")
+        except Exception:
             import traceback
-            _log_debug(traceback.format_exc())
+            pass
         
         if not _should_run:
             break
@@ -1066,7 +1045,6 @@ def connect(username=None, on_connect=None, on_retry=None, on_fail=None, retry_c
         except Exception:
             pass
     final_user = username if username else USERNAME
-    _log_debug(f"Connect called. Username={final_user}")
     
     if not final_user:
         return

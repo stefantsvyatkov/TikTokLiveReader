@@ -24,10 +24,6 @@ addon_info = AddonInfo(
 	addon_description=_("""TikTok Live Reader allows NVDA users to monitor TikTok Live streams in real time. The add-on extracts comments, gifts, followers, likes, shares, and viewer statistics, saving them to text files. They can be read with keyboard shortcuts during the live session. Audio notifications and auto speak functionality are also supported."""),
 	# version
 	addon_version="1.5",
-	# Brief changelog for this version
-	# Translators: what's new content for the add-on version to be shown in the add-on store
-	addon_changelog=_("""Changelog for the add-on version.
-It can span multiple lines."""),
 	# Author(s)
 	addon_author="Stefan Tsvyatkov <stefcho.cvetkov@gmail.com>",
 	# URL for the add-on documentation support

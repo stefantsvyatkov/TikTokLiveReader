@@ -24,14 +24,8 @@ POS_FILE = ADDON_DIR / "positions.json"
 LOG_DIR = Path.home() / "Documents" / "TikTok live"
 STATS_FILE = LOG_DIR / "stats.txt"
 SPEECH_BUFFER_FILE = LOG_DIR / "speechbuffer.json"
-DEBUG_LOG = LOG_DIR / "debug.log"
 
-def _log_debug(msg):
-    try:
-        with open(DEBUG_LOG, "a", encoding="utf-8") as f:
-            f.write(f"GP {datetime.datetime.now()}: {msg}\n")
-    except Exception:
-        pass
+
 
 FILES = [
     ("Comments", "comments.txt"),
@@ -131,14 +125,15 @@ class SpeechManager:
                         if not line:
                             continue
                         try:
-                            _log_debug(f"Speaking: {line}")
+
                             data = json.loads(line)
                             txt = data.get("text", "")
                             if txt:
                                 ui.message(txt)
                                 time.sleep(float(self.plugin.autoSpeakDelay))
                         except Exception as e:
-                            _log_debug(f"Speech error: {e}")
+                            pass
+
             except Exception:
                 pass
             
@@ -242,7 +237,7 @@ class GlobalPlugin(NVDA_GlobalPlugin):
                 cfg.getboolean("auto_speak", "enabled", fallback=False), 
             )
         except Exception as e:
-            _log_debug(f"Config load error: {e}")
+
             return ("", {}, {}, True, False, 3, False, 100, False)
 
     def _save_config(self, username, prefs, auto_speak_prefs, clear_on_start, clean_usernames, retry_count, play_sounds, volume):
@@ -570,11 +565,11 @@ class GlobalPlugin(NVDA_GlobalPlugin):
 
              def _learner(vol):
                  try:
-                     if client.sound_manager._running:
-                         client.sound_manager.stop()
-                         time.sleep(0.2)
-                     client.sound_manager.start()
-                     
+                     for _wait_step in range(20):
+                         if self._stop_learning.is_set():
+                             return
+                         time.sleep(0.1)
+                         
                      sequence = [
                          (_("Comment"), "comments"),
                          (_("Follower"), "followers"),
@@ -602,7 +597,7 @@ class GlobalPlugin(NVDA_GlobalPlugin):
                              break
 
                          done = threading.Event()
-                         client.sound_manager.play(event_key, play_file=True, post_delay=0.0, on_complete=lambda: done.set())
+                         client.sound_manager.play(event_key, play_file=True, post_delay=0.0, on_complete=lambda d=done: d.set())
                          
                          start_wait = time.time()
                          while not done.is_set():

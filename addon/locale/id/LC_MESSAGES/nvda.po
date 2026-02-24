@@ -341,10 +341,3 @@ msgstr "TikTok Live Reader"
 msgid "TikTok Live Reader allows NVDA users to monitor TikTok Live streams in real time. The add-on extracts comments, gifts, followers, likes, shares, and viewer statistics, saving them to text files. They can be read with keyboard shortcuts during the live session. Audio notifications and auto speak functionality are also supported."
 msgstr "TikTok Live Reader memungkinkan pengguna NVDA untuk memantau siaran TikTok Live secara waktu nyata. Add-on ini mengekstraksi komentar, hadiah, pengikut, suka, bagian, dan statistik penonton, menyimpannya ke dalam file teks. Mereka dapat dibaca dengan pintasan keyboard selama sesi live. Notifikasi audio dan fungsionalitas bicara otomatis juga didukung."
 
-#. Translators: what's new content for the add-on version to be shown in the add-on store
-msgid ""
-"Changelog for the add-on version.\n"
-"It can span multiple lines."
-msgstr ""
-"Catatan perubahan untuk versi add-on.\n"
-"Ini bisa mencakup beberapa baris."

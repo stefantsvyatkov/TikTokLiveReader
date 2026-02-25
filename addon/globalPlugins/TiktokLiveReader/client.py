@@ -57,7 +57,9 @@ VISITORS_FILE = LOG_DIR / "visitors.txt"
 SHARES_FILE = LOG_DIR / "shares.txt"
 REQUESTS_FILE = LOG_DIR / "requests.txt"
 EVENTS_FILE = LOG_DIR / "events.txt"
-SPEECH_BUFFER_FILE = LOG_DIR / "speechbuffer.json"
+SPEECH_BUFFER_FILE = BASE_DIR / "speechbuffer.json"
+
+_known_gifts = {}
 
 def _clear_speech_buffer():
     try:
@@ -74,7 +76,7 @@ _client_loop = None
 _stop_event = threading.Event()
 _top_thread_started = False
 _should_run = False
-_console_mode = __name__ == "__main__"
+
 
 class LikeManager:
     def __init__(self):
@@ -98,6 +100,9 @@ class LikeManager:
                 del self._timers[user]
             count = self._counts.pop(user, 0)
         
+        if count == 0:
+            return
+        
         likes_word = _nt("like", "likes", count)
         log_line = f"{user}: {count} {likes_word}  {datetime.datetime.now().strftime('%H:%M:%S')}"
         try:
@@ -119,9 +124,9 @@ class LikeManager:
         sound_enabled = PLAY_SOUNDS and PREFS.get(event_key, False)
         speech_enabled = AUTO_SPEAK_PREFS.get(event_key, False)
 
-        if sound_enabled and _connection_time > 0:
-             if (time.time() - _connection_time) < 10.0:
-                 sound_enabled = False
+        if _connection_time == 0 or (time.time() - _connection_time) < 10.0:
+            sound_enabled = False
+            speech_enabled = False
 
         if sound_enabled or speech_enabled:
             cb = None
@@ -557,8 +562,19 @@ def _handle_speech_and_sound(event_key, speak_text):
     else:
         pass
 
+def _track_user(event):
+    user = getattr(event, "user", None)
+    if user:
+        uid = getattr(user, "id", getattr(user, "uid", None))
+        nn = getattr(user, "nick_name", getattr(user, "nickname", None))
+        if uid and nn:
+            _known_users[str(uid)] = _sanitize_name(nn)
+
 def _apply_like_event(ev):
     global total_likes
+    
+    _track_user(ev)
+    
     user_name = _sanitize_name(getattr(getattr(ev, "user", None), "nickname", "someone"))
     if hasattr(ev, "totalLikeCount"):
         total_likes = ev.totalLikeCount
@@ -580,14 +596,14 @@ def _apply_like_event(ev):
     
     like_manager.add_like(user_name, increment)
 
-    if _console_mode:
-        print(f"{user_name} liked (total likes: {total_likes}, user total: {top_likers[user_name]})")
-
 async def on_comment(event):
     if not _should_run:
         return
     if _is_processed(event):
         return
+    
+    _track_user(event)
+    
     payload = _extract_comment_payload(event)
     if not payload:
         return
@@ -609,6 +625,9 @@ async def on_follow(event):
         return
     if _is_processed(event):
         return
+    
+    _track_user(event)
+    
     global total_followers
     
     unique_id = getattr(event.user, "unique_id", event.user.nickname)
@@ -636,6 +655,9 @@ async def on_gift(event):
         return
     if _is_processed(event):
         return
+        
+    _track_user(event)
+    
     global total_diamonds
     if not getattr(event, "repeat_end", True):
         return
@@ -643,6 +665,13 @@ async def on_gift(event):
     name = getattr(event.gift, "name", "Gift")
     diamonds = count * getattr(event.gift, "diamond_count", 0)
     display_name = _sanitize_name(getattr(event.user, "nickname", "someone"))
+    
+    gift_key = f"{display_name}_{name}_{count}"
+    now = time.time()
+    if now - _known_gifts.get(gift_key, 0) < 1.0:
+        return
+    _known_gifts[gift_key] = now
+    
     if diamonds > 0:
         total_diamonds += diamonds
         top_gifters[display_name] = top_gifters.get(display_name, 0) + diamonds
@@ -676,8 +705,16 @@ async def on_share(event):
         return
     if _is_processed(event):
         return
+        
+    _track_user(event)
     
     display_name = _sanitize_name(event.user.nickname)
+    
+    now = time.time()
+    if now - _known_shares.get(display_name, 0) < 1.0:
+        return
+    _known_shares[display_name] = now
+    
     log_line = f"{display_name}  {datetime.datetime.now().strftime('%H:%M:%S')}"
     
     with open(SHARES_FILE, "a", encoding="utf-8") as f:
@@ -712,12 +749,12 @@ async def on_social(event):
 async def on_join(event):
     if not _should_run:
         return
+    
+    _track_user(event)
+    
     global total_viewers
     user = getattr(event, "user", None)
     display_name = _sanitize_name(getattr(user, "nickname", "someone"))
-    uid = getattr(user, "id", getattr(user, "uid", None))
-    if uid:
-        _known_users[str(uid)] = display_name
     
     if display_name in visitors:
         return
@@ -756,34 +793,36 @@ async def on_guest_request(event):
         
         if hasattr(event, "apply_content") and event.apply_content is not None:
             is_request = True
-            if hasattr(event.apply_content, "applicant") and getattr(event.apply_content.applicant, "nickname", None):
-                user_name = _sanitize_name(event.apply_content.applicant.nickname)
-                uid = getattr(event.apply_content.applicant, "id", getattr(event.apply_content.applicant, "uid", None))
-                if uid: _known_users[str(uid)] = user_name
-            elif hasattr(event.apply_content, "applicant") and getattr(event.apply_content.applicant, "nick_name", None):
-                user_name = _sanitize_name(event.apply_content.applicant.nick_name)
-                uid = getattr(event.apply_content.applicant, "id", getattr(event.apply_content.applicant, "uid", None))
-                if uid: _known_users[str(uid)] = user_name
+            app = getattr(event.apply_content, "applicant", None)
+            if app:
+                uid = getattr(app, "id", getattr(app, "uid", None))
+                nn = getattr(app, "nick_name", getattr(app, "nickname", None))
+                if nn:
+                    user_name = _sanitize_name(nn)
+                    if uid: _known_users[str(uid)] = user_name
+                elif uid and str(uid) in _known_users:
+                    user_name = _known_users[str(uid)]
 
         if hasattr(event, "invite_content") and event.invite_content is not None:
             is_request = True
-            if hasattr(event.invite_content, "invitee") and getattr(event.invite_content.invitee, "nick_name", None):
-                user_name = _sanitize_name(event.invite_content.invitee.nick_name)
-                uid = getattr(event.invite_content.invitee, "id", getattr(event.invite_content.invitee, "uid", None))
-                if uid: _known_users[str(uid)] = user_name
-            elif hasattr(event.invite_content, "invitee") and getattr(event.invite_content.invitee, "nickname", None):
-                user_name = _sanitize_name(event.invite_content.invitee.nickname)
-                uid = getattr(event.invite_content.invitee, "id", getattr(event.invite_content.invitee, "uid", None))
-                if uid: _known_users[str(uid)] = user_name
+            inv = getattr(event.invite_content, "invitee", None)
+            if inv:
+                uid = getattr(inv, "id", getattr(inv, "uid", None))
+                nn = getattr(inv, "nick_name", getattr(inv, "nickname", None))
+                if nn:
+                    user_name = _sanitize_name(nn)
+                    if uid: _known_users[str(uid)] = user_name
+                elif uid and str(uid) in _known_users:
+                    user_name = _known_users[str(uid)]
                 
-        if hasattr(event, "user") and getattr(event.user, "nickname", None):
-            user_name = _sanitize_name(event.user.nickname)
+        if hasattr(event, "user") and event.user is not None:
             uid = getattr(event.user, "id", getattr(event.user, "uid", None))
-            if uid: _known_users[str(uid)] = user_name
-        elif hasattr(event, "user") and getattr(event.user, "nick_name", None):
-            user_name = _sanitize_name(event.user.nick_name)
-            uid = getattr(event.user, "id", getattr(event.user, "uid", None))
-            if uid: _known_users[str(uid)] = user_name
+            nn = getattr(event.user, "nick_name", getattr(event.user, "nickname", None))
+            if nn:
+                user_name = _sanitize_name(nn)
+                if uid: _known_users[str(uid)] = user_name
+            elif uid and str(uid) in _known_users:
+                user_name = _known_users[str(uid)]
                 
         if hasattr(event, "inviter_nickname") and event.inviter_nickname:
             user_name = _sanitize_name(event.inviter_nickname)
@@ -797,12 +836,12 @@ async def on_guest_request(event):
                     if uv and hasattr(uv, "user"):
                         u = uv.user
                         uid = getattr(u, "id", getattr(u, "uid", None))
-                        if getattr(u, "nick_name", None):
-                            user_name = _sanitize_name(u.nick_name)
+                        nn = getattr(u, "nick_name", getattr(u, "nickname", None))
+                        if nn:
+                            user_name = _sanitize_name(nn)
                             if uid: _known_users[str(uid)] = user_name
-                        elif getattr(u, "nickname", None):
-                            user_name = _sanitize_name(u.nickname)
-                            if uid: _known_users[str(uid)] = user_name
+                        elif uid and str(uid) in _known_users:
+                            user_name = _known_users[str(uid)]
                             
         if user_name == "someone" and hasattr(event, "list_content") and event.list_content:
             lc = event.list_content
@@ -833,8 +872,6 @@ async def on_guest_request(event):
         if not is_request and type(event).__name__ not in ("LinkMicMethodEvent", "GuestInviteEvent", "LinkLayerEvent"):
             return
             
-        if user_name == "someone":
-            return
         now = time.time()
         if now - _requests_log.get(user_name, 0) < 10.0:
             return
@@ -1023,6 +1060,7 @@ def connect(username=None, on_connect=None, on_retry=None, on_fail=None, retry_c
     _clear_speech_buffer()
     _known_comments = set()
     _processed_ids = set()
+    _known_gifts.clear()
     _connection_time = 0
     _known_followers = set()
     _known_shares = {}

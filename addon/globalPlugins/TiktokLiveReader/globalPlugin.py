@@ -23,7 +23,7 @@ POS_FILE = ADDON_DIR / "positions.json"
 
 LOG_DIR = Path.home() / "Documents" / "TikTok live"
 STATS_FILE = LOG_DIR / "stats.txt"
-SPEECH_BUFFER_FILE = LOG_DIR / "speechbuffer.json"
+SPEECH_BUFFER_FILE = ADDON_DIR / "speechbuffer.json"
 
 
 
@@ -331,6 +331,7 @@ class GlobalPlugin(NVDA_GlobalPlugin):
             return
         self.active = not self.active
         if self.active:
+            self._cleanup_temp_files()
             self._bind_nav()
             self.index = self.filePositions.get(self.currentFileIndex, -1) if not self.clearOnStart else -1
             if self.autoSpeak:
@@ -341,6 +342,7 @@ class GlobalPlugin(NVDA_GlobalPlugin):
             ui.message(_("TikTok Live Reader On"))
 
             def on_conn():
+                self._ensure_temp_files_exist()
                 # Translators: Announced when successfully connected to a TikTok live. {username} is the streamer name.
                 ui.message(_("Connected to user: {username}").format(username=self.username))
 
@@ -372,6 +374,17 @@ class GlobalPlugin(NVDA_GlobalPlugin):
                 SPEECH_BUFFER_FILE.unlink()
             if POS_FILE.exists():
                 POS_FILE.unlink()
+        except Exception:
+            pass
+
+    def _ensure_temp_files_exist(self):
+        try:
+            if not SPEECH_BUFFER_FILE.exists():
+                with open(SPEECH_BUFFER_FILE, "w", encoding="utf-8") as f:
+                    pass
+            if not POS_FILE.exists():
+                with open(POS_FILE, "w", encoding="utf-8") as f:
+                    json.dump({"version": 1, "files": {}}, f)
         except Exception:
             pass
 
@@ -748,12 +761,14 @@ class GlobalPlugin(NVDA_GlobalPlugin):
                     self._cleanup_temp_files()
                     
                     self.active = True
+                    self._cleanup_temp_files()
                     self._bind_nav()
                     self.index = self.filePositions.get(self.currentFileIndex, -1) if not self.clearOnStart else -1
                     if self.autoSpeak:
                         self.speech_manager.start()
                         
                     def on_conn():
+                        self._ensure_temp_files_exist()
                         ui.message(_("Connected to user: {username}").format(username=self.username))
                     def on_retry():
                         ui.message(_("Attempting to connect..."))

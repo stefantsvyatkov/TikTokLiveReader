@@ -1,9 +1,15 @@
 from pathlib import Path
 import configparser
 import datetime
+import difflib
 import json
+import platform
+import queue
+import re
+import subprocess
 import threading
 import time
+import winreg
 
 from . import client
 from globalPluginHandler import GlobalPlugin as NVDA_GlobalPlugin
@@ -158,7 +164,7 @@ class GlobalPlugin(NVDA_GlobalPlugin):
         self.currentFileIndex = 0
         self.filePositions = {i: -1 for i in range(len(FILES))}
         self.username, self.prefs, self.auto_speak_prefs, self.clearOnStart, self.cleanUsernames, self.retryCount, self.playSounds, self.soundVolume, self.autoSpeak = self._load_config()
-        self.autoSpeakDelay = 1.0 # Default delay for auto speak
+        self.autoSpeakDelay = 1.0
         
         client.update_config(self.username, self.prefs, self.auto_speak_prefs, self.playSounds, self.soundVolume, self.clearOnStart, self.cleanUsernames)
 
@@ -325,15 +331,23 @@ class GlobalPlugin(NVDA_GlobalPlugin):
 
 
     # Translators: Description shown in NVDA Input Gestures dialog.
-    @script(description=_("Toggle TikTok Live Reader on or off"), category=_("TikTok Live Reader"))
+    @script(description=_("Toggle TikTok Live Reader on or off"), category="TikTok Live Reader")
     def script_toggleActive(self, gesture):
         if self._settingsDialog:
             return
+            
+        test_username = self.username.strip().lstrip('@')
+        if not self.active and len(test_username) < 2:
+            # Translators: Announced when trying to turn on the add-on or save settings with an invalid username.
+            ui.message(_("Please enter a valid username"))
+            return
+            
         self.active = not self.active
         if self.active:
-            self._cleanup_temp_files()
             self._bind_nav()
-            self.index = self.filePositions.get(self.currentFileIndex, -1) if not self.clearOnStart else -1
+            if not self.clearOnStart:
+                self._load_positions_json()
+            self.index = self.filePositions.get(self.currentFileIndex, -1)
             if self.autoSpeak:
                 self.speech_manager.start()
             else:
@@ -368,12 +382,19 @@ class GlobalPlugin(NVDA_GlobalPlugin):
             self.speech_manager.stop()
             self._cleanup_temp_files()
 
-    def _cleanup_temp_files(self):
+    def _cleanup_temp_files(self, hard_reset=False):
         try:
             if SPEECH_BUFFER_FILE.exists():
                 SPEECH_BUFFER_FILE.unlink()
-            if POS_FILE.exists():
-                POS_FILE.unlink()
+            
+            if hard_reset:
+                if POS_FILE.exists():
+                    POS_FILE.unlink()
+                if hasattr(self, 'filePositions'):
+                    self.filePositions = {i: -1 for i in range(len(FILES))}
+                    self.index = -1
+            else:
+                self._save_positions_json()
         except Exception:
             pass
 
@@ -389,7 +410,7 @@ class GlobalPlugin(NVDA_GlobalPlugin):
             pass
 
     # Translators: Description shown in NVDA Input Gestures dialog.
-    @script(description=_("Toggle automatic speaking of new events"), category=_("TikTok Live Reader"))
+    @script(description=_("Toggle automatic speaking of new events"), category="TikTok Live Reader")
     def script_toggleAutoSpeak(self, gesture):
         if not self.active:
             gesture.send()
@@ -419,7 +440,7 @@ class GlobalPlugin(NVDA_GlobalPlugin):
     # Translators: Description shown in NVDA Input Gestures dialog.
     @script(
         description=_("Toggle sound playback for selected events"),
-        category=_("TikTok Live Reader")
+        category="TikTok Live Reader"
     )
     def script_togglePlaySounds(self, gesture):
         if not self.active:
@@ -449,7 +470,7 @@ class GlobalPlugin(NVDA_GlobalPlugin):
             ui.message(_("Sounds Off"))
 
     # Translators: Description shown in NVDA Input Gestures dialog.
-    @script(description=_("Open TikTok Live Reader settings"), category=_("TikTok Live Reader"))
+    @script(description=_("Open TikTok Live Reader settings"), category="TikTok Live Reader")
     def script_openSettingsDialog(self, gesture):
         if self._settingsDialog:
             self._settingsDialog.Raise()
@@ -645,9 +666,7 @@ class GlobalPlugin(NVDA_GlobalPlugin):
         sl_as1 = wx.StaticLine(p_autospeak)
         s_autospeak.Add(sl_as1, flag=wx.EXPAND|wx.ALL, border=5)
 
-        # Translators: Section description or label
-        lbl_as_desc = wx.StaticText(p_autospeak, label=_("Automatically speak:"))
-        s_autospeak.Add(lbl_as_desc, flag=wx.ALL, border=5)
+
         
         chk_as_comments = wx.CheckBox(p_autospeak, label=_("&Comments"))
         chk_as_followers = wx.CheckBox(p_autospeak, label=_("&Followers"))
@@ -675,7 +694,6 @@ class GlobalPlugin(NVDA_GlobalPlugin):
         def on_toggle_auto_speak(evt):
             is_checked = chk_auto_speak.IsChecked()
             sl_as1.Show(is_checked)
-            lbl_as_desc.Show(is_checked)
             for chk in sub_chks:
                 chk.Show(is_checked)
             sl_as2.Show(is_checked)
@@ -697,6 +715,18 @@ class GlobalPlugin(NVDA_GlobalPlugin):
         topsizer.Add(nb, 1, wx.EXPAND | wx.ALL, 5)
         btn_sizer = wx.StdDialogButtonSizer()
         btn_ok = wx.Button(dlg, wx.ID_OK, _("OK"))
+        
+        def on_ok(evt):
+            val = txt_user.GetValue().strip().lstrip('@')
+            if len(val) < 2 or not re.match(r'^[a-zA-Z0-9_\.\-]+$', val):
+                # Translators: Announced when trying to turn on the add-on or save settings with an invalid username.
+                ui.message(_("Please enter a valid username"))
+                txt_user.SetFocus()
+                return
+            evt.Skip()
+            
+        btn_ok.Bind(wx.EVT_BUTTON, on_ok)
+        
         # Translators: Cancel button label in the settings dialog.
         btn_cancel = wx.Button(dlg, wx.ID_CANCEL, _("Cancel"))
         btn_ok.SetDefault()
@@ -741,7 +771,7 @@ class GlobalPlugin(NVDA_GlobalPlugin):
             }
             
             self._save_config(
-                txt_user.GetValue().strip(), 
+                txt_user.GetValue().strip().lstrip('@'), 
                 prefs, 
                 auto_speak_prefs,
                 chk_clear.IsChecked(), 
@@ -751,19 +781,21 @@ class GlobalPlugin(NVDA_GlobalPlugin):
                 slider_volume.GetValue()
             )
             
-            new_username = txt_user.GetValue().strip()
+            new_username = txt_user.GetValue().strip().lstrip('@')
             
             if was_active:
                 if new_username != old_username:
                     self.active = False
                     self._unbind_nav()
                     client.disconnect()
-                    self._cleanup_temp_files()
+                    self._cleanup_temp_files(hard_reset=True)
                     
                     self.active = True
-                    self._cleanup_temp_files()
+                    client.sound_manager.clear()
                     self._bind_nav()
-                    self.index = self.filePositions.get(self.currentFileIndex, -1) if not self.clearOnStart else -1
+                    if not self.clearOnStart:
+                        self._load_positions_json()
+                    self.index = self.filePositions.get(self.currentFileIndex, -1)
                     if self.autoSpeak:
                         self.speech_manager.start()
                         
@@ -878,14 +910,16 @@ class GlobalPlugin(NVDA_GlobalPlugin):
     def script_clearTextFiles(self, gesture):
         if not self.active:
             return
+            
+        self._cleanup_temp_files(hard_reset=True)
+        client.sound_manager.clear()
         client._clear_all_text_files()
-        for i in range(len(FILES)):
-            self.filePositions[i] = -1
-        self.index = -1
+        
         try:
             POS_FILE.write_text(json.dumps({"version": 1, "files": {}}, ensure_ascii=False), encoding="utf-8")
         except Exception:
             pass
+            
         client.reset_accumulators()
         # Translators: Announced after clearing all log files.
         ui.message(_("All files cleared."))

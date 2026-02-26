@@ -7,7 +7,7 @@ msgstr ""
 "Project-Id-Version: TikTok Live Reader 1.5\n"
 "Report-Msgid-Bugs-To: \n"
 "POT-Creation-Date: 2026-02-14 01:00+0200\n"
-"PO-Revision-Date: 2026-02-24 15:58+0200\n"
+"PO-Revision-Date: 2026-02-26 00:16+0200\n"
 "Last-Translator: Muhammad\n"
 "Language-Team: Indonesian\n"
 "Language: id\n"
@@ -88,10 +88,6 @@ msgstr "{name} bergabung"
 #. Translators: Description shown in NVDA Input Gestures dialog.
 msgid "Toggle TikTok Live Reader on or off"
 msgstr "Aktif/nonaktifkan TikTok Live Reader"
-
-#. Translators: Category name in NVDA Input Gestures dialog.
-msgid "TikTok Live Reader"
-msgstr "TikTok Live Reader"
 
 #. Translators: Announced when the addon is turned on.
 msgid "TikTok Live Reader On"
@@ -313,10 +309,6 @@ msgstr "Suara mati"
 msgid "St&op"
 msgstr "&Berhenti"
 
-#. Translators: Section description.
-msgid "Automatically speak:"
-msgstr "Bicara otomatis:"
-
 #. Translators: Settings checkbox and file name label.
 msgid "&Requests"
 msgstr "&Permintaan"
@@ -333,11 +325,10 @@ msgstr "Permintaan bergabung"
 msgid "Requests"
 msgstr "Permintaan"
 
-#. Translators: Summary/title for this add-on
-msgid "TikTok Live Reader"
-msgstr "TikTok Live Reader"
-
 #. Translators: Long description to be shown for this add-on on add-on information from add-on store
 msgid "TikTok Live Reader allows NVDA users to monitor TikTok Live streams in real time. The add-on extracts comments, gifts, followers, likes, shares, guest requests, and viewer statistics, saving them to text files. They can be read with keyboard shortcuts during the live session. Audio notifications and auto speak functionality are also supported."
 msgstr "TikTok Live Reader memungkinkan pengguna NVDA untuk memantau siaran TikTok Live secara waktu nyata. Add-on ini mengekstraksi komentar, hadiah, pengikut, suka, bagian, permintaan bergabung, dan statistik penonton, menyimpannya ke dalam file teks. Mereka dapat dibaca dengan pintasan keyboard selama sesi live. Notifikasi audio dan fungsionalitas bicara otomatis juga didukung."
 
+#. Translators: Announced when trying to turn on the add-on or save settings with an invalid username.
+msgid "Please enter a valid username"
+msgstr "Silakan masukkan nama pengguna yang valid"

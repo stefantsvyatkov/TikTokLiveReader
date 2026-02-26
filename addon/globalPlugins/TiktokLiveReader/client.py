@@ -10,7 +10,7 @@ if not hasattr(winsound, "SND_SYNC"):
     winsound.SND_SYNC = 0x0000
 if not hasattr(winsound, "SND_ASYNC"):
     winsound.SND_ASYNC = 0x0001
-if not hasattr(winsound, "SND_filename"): # Note: Case variance check
+if not hasattr(winsound, "SND_filename"):
     pass
 if not hasattr(winsound, "SND_FILENAME"):
     winsound.SND_FILENAME = 0x00020000
@@ -81,14 +81,22 @@ _should_run = False
 class LikeManager:
     def __init__(self):
         self._timers = {}
-        self._counts = {}
+        
+        self._baselines = {}
+        self._current_totals = {}
+        
         self._lock = threading.Lock()
 
-    def add_like(self, user, increment):
+    def add_like(self, user, current_api_total):
         with self._lock:
             if user in self._timers:
                 self._timers[user].cancel()
-            self._counts[user] = self._counts.get(user, 0) + increment
+                
+            if user not in self._baselines:
+                self._baselines[user] = self._current_totals.get(user, 0)
+                
+            self._current_totals[user] = current_api_total
+            
             t = threading.Timer(10.0, self._flush, args=[user])
             t.daemon = True
             self._timers[user] = t
@@ -98,9 +106,13 @@ class LikeManager:
         with self._lock:
             if user in self._timers:
                 del self._timers[user]
-            count = self._counts.pop(user, 0)
-        
-        if count == 0:
+                
+            baseline = self._baselines.pop(user, 0)
+            current = self._current_totals.get(user, 0)
+            
+            count = current - baseline
+            
+        if count <= 0:
             return
         
         likes_word = _nt("like", "likes", count)
@@ -143,7 +155,8 @@ class LikeManager:
             for t in self._timers.values():
                 t.cancel()
             self._timers.clear()
-            self._counts.clear()
+            self._baselines.clear()
+            self._current_totals.clear()
 
 like_manager = LikeManager()
 
@@ -172,7 +185,7 @@ class SoundManager:
 
     def start(self):
         if not self._running:
-            self._queue = queue.Queue() # Re-init queue just in case
+            self._queue = queue.Queue()
             self._running = True
             self._thread = threading.Thread(target=self._worker, daemon=True)
             self._thread.start()
@@ -220,9 +233,7 @@ class SoundManager:
 
             if fname and play_file:
                 self._play_actual(fname)
-            else:
-                pass
-            
+                
             if cb:
                 try:
     
@@ -301,6 +312,7 @@ viewer_count = 0
 total_viewers = 0
 _known_processed_ids = set()
 _known_comments = set()
+_known_events = set()
 _requests_log = {}
 _known_users = {}
 _known_followers = set()
@@ -445,6 +457,7 @@ def _clear_all_text_files():
 
 def reset_accumulators():
     global top_gifters, top_likers, total_likes, total_followers, total_diamonds, visitors, viewer_count, total_viewers
+    global _known_comments, _known_events, _known_followers, _known_shares, _requests_log, _processed_ids
     top_gifters = {}
     top_likers = {}
     total_likes = 0
@@ -453,12 +466,20 @@ def reset_accumulators():
     visitors = set()
     viewer_count = 0
     total_viewers = 0
+    
+    _known_comments.clear()
+    _known_events.clear()
+    _known_followers.clear()
+    _known_shares.clear()
+    _requests_log.clear()
+    _processed_ids.clear()
+    _known_gifts.clear()
 
 def _ensure_files_exist():
     LOG_DIR.mkdir(parents=True, exist_ok=True)
     for file in [
         COMMENTS_FILE, FOLLOWERS_FILE, GIFTS_FILE, TOP_GIFTERS_FILE,
-        STATS_FILE, TOP_LIKES_FILE, LIKES_FILE, VISITORS_FILE, SHARES_FILE, REQUESTS_FILE
+        STATS_FILE, TOP_LIKES_FILE, LIKES_FILE, VISITORS_FILE, SHARES_FILE, REQUESTS_FILE, EVENTS_FILE
     ]:
         if not file.exists():
             with open(file, "w", encoding="utf-8"):
@@ -487,6 +508,10 @@ def update_top_files():
         _stop_event.wait(10)
 
 def _log_to_events(log_text):
+    event_text = log_text.rsplit("  ", 1)[0]
+    if event_text in _known_events:
+        return
+    _known_events.add(event_text)
     try:
         with open(EVENTS_FILE, "a", encoding="utf-8") as f:
             f.write(log_text + "\n")
@@ -575,26 +600,39 @@ def _apply_like_event(ev):
     
     _track_user(ev)
     
-    user_name = _sanitize_name(getattr(getattr(ev, "user", None), "nickname", "someone"))
     if hasattr(ev, "totalLikeCount"):
         total_likes = ev.totalLikeCount
     elif hasattr(ev, "total"):
         total_likes = ev.total
     elif hasattr(ev, "totalDiggCount"):
         total_likes = ev.totalDiggCount
-    inc_candidates = ("likeCount", "count", "diggCount", "increment", "delta")
-    inc_val = next((getattr(ev, a) for a in inc_candidates if hasattr(ev, a)), None)
-    if isinstance(inc_val, int) and inc_val > 0:
-        top_likers[user_name] = top_likers.get(user_name, 0) + inc_val
-    else:
-        top_likers[user_name] = top_likers.get(user_name, 0) + 1
-    
-    
+        
     update_stats_file()
     
+    user_obj = getattr(ev, "user", None)
+    if not user_obj:
+        return
+        
+    nick = getattr(user_obj, "nickname", None)
+    unique_id = getattr(user_obj, "unique_id", None)
+    
+    raw_name = nick if nick else unique_id
+    if not raw_name:
+        return
+        
+    user_name = _sanitize_name(raw_name)
+    if not user_name:
+        return
+        
+    inc_candidates = ("likeCount", "count", "diggCount", "increment", "delta")
+    inc_val = next((getattr(ev, a) for a in inc_candidates if hasattr(ev, a)), 0)
     increment = inc_val if (isinstance(inc_val, int) and inc_val > 0) else 1
     
-    like_manager.add_like(user_name, increment)
+    top_likers[user_name] = top_likers.get(user_name, 0) + increment
+    update_stats_file()
+    
+    current_user_total = top_likers[user_name]
+    like_manager.add_like(user_name, current_user_total)
 
 async def on_comment(event):
     if not _should_run:
@@ -737,8 +775,6 @@ async def on_social(event):
     default_fmt = getattr(getattr(event, "display_text", None), "default_pattern", "").lower()
     
     if action == 3 or "share" in key or "share" in default_fmt:
-        if "share" not in key: # If it WAS caught by ShareEvent, we skip. But if key is weird, maybe we handle it.
-             pass
         await on_share(event)
         return
 
@@ -788,62 +824,54 @@ async def on_guest_request(event):
         return
     
     try:
-        user_name = "someone"
+        user_name = None
         is_request = False
         
+        def _get_name_from_user(u):
+            if not u: return None
+            uid = getattr(u, "id", getattr(u, "uid", None))
+            nn = getattr(u, "nick_name", getattr(u, "nickname", None))
+            if nn:
+                sanitized = _sanitize_name(nn)
+                if sanitized:
+                    if uid: _known_users[str(uid)] = sanitized
+                    return sanitized
+            if uid and str(uid) in _known_users:
+                return _known_users[str(uid)]
+            return None
+
         if hasattr(event, "apply_content") and event.apply_content is not None:
             is_request = True
-            app = getattr(event.apply_content, "applicant", None)
-            if app:
-                uid = getattr(app, "id", getattr(app, "uid", None))
-                nn = getattr(app, "nick_name", getattr(app, "nickname", None))
-                if nn:
-                    user_name = _sanitize_name(nn)
-                    if uid: _known_users[str(uid)] = user_name
-                elif uid and str(uid) in _known_users:
-                    user_name = _known_users[str(uid)]
+            name = _get_name_from_user(getattr(event.apply_content, "applicant", None))
+            if name: user_name = name
 
-        if hasattr(event, "invite_content") and event.invite_content is not None:
+        if not user_name and hasattr(event, "invite_content") and event.invite_content is not None:
             is_request = True
-            inv = getattr(event.invite_content, "invitee", None)
-            if inv:
-                uid = getattr(inv, "id", getattr(inv, "uid", None))
-                nn = getattr(inv, "nick_name", getattr(inv, "nickname", None))
-                if nn:
-                    user_name = _sanitize_name(nn)
-                    if uid: _known_users[str(uid)] = user_name
-                elif uid and str(uid) in _known_users:
-                    user_name = _known_users[str(uid)]
+            name = _get_name_from_user(getattr(event.invite_content, "invitee", None))
+            if name: user_name = name
                 
-        if hasattr(event, "user") and event.user is not None:
-            uid = getattr(event.user, "id", getattr(event.user, "uid", None))
-            nn = getattr(event.user, "nick_name", getattr(event.user, "nickname", None))
-            if nn:
-                user_name = _sanitize_name(nn)
-                if uid: _known_users[str(uid)] = user_name
-            elif uid and str(uid) in _known_users:
-                user_name = _known_users[str(uid)]
+        if not user_name and hasattr(event, "user") and event.user is not None:
+            name = _get_name_from_user(event.user)
+            if name: user_name = name
                 
-        if hasattr(event, "inviter_nickname") and event.inviter_nickname:
-            user_name = _sanitize_name(event.inviter_nickname)
+        if not user_name and hasattr(event, "inviter_nickname") and event.inviter_nickname:
+            sanitized = _sanitize_name(event.inviter_nickname)
+            if sanitized:
+                user_name = sanitized
             is_request = True
 
-        if hasattr(event, "base_message") and event.base_message:
+        if not user_name and hasattr(event, "base_message") and event.base_message:
             dt = getattr(event.base_message, "display_text", None)
             if dt and hasattr(dt, "pieces") and dt.pieces:
                 for piece in dt.pieces:
                     uv = getattr(piece, "user_value", None)
                     if uv and hasattr(uv, "user"):
-                        u = uv.user
-                        uid = getattr(u, "id", getattr(u, "uid", None))
-                        nn = getattr(u, "nick_name", getattr(u, "nickname", None))
-                        if nn:
-                            user_name = _sanitize_name(nn)
-                            if uid: _known_users[str(uid)] = user_name
-                        elif uid and str(uid) in _known_users:
-                            user_name = _known_users[str(uid)]
+                        name = _get_name_from_user(uv.user)
+                        if name:
+                            user_name = name
+                            break
                             
-        if user_name == "someone" and hasattr(event, "list_content") and event.list_content:
+        if not user_name and hasattr(event, "list_content") and event.list_content:
             lc = event.list_content
             change_type = getattr(lc, "list_change_type", None)
             if change_type is not None and change_type not in (1, 2):
@@ -853,9 +881,9 @@ async def on_guest_request(event):
                 if hasattr(ul, "applied_list") and ul.applied_list:
                     for app in ul.applied_list:
                         if hasattr(app, "link_user") and app.link_user:
-                            luid = getattr(app.link_user, "uid", None)
-                            if luid and str(luid) in _known_users:
-                                user_name = _known_users[str(luid)]
+                            name = _get_name_from_user(app.link_user)
+                            if name:
+                                user_name = name
                                 is_request = True
                                 break
 
@@ -869,7 +897,15 @@ async def on_guest_request(event):
         elif m_t == "8":
             return
             
-        if not is_request and type(event).__name__ not in ("LinkMicMethodEvent", "GuestInviteEvent", "LinkLayerEvent"):
+        ename = type(event).__name__
+        if ename in ("LinkMicMethodEvent", "GuestInviteEvent", "LinkLayerEvent", 
+                     "WebcastLinkLayerMessage", "WebcastLinkMicMethodMessage", "WebcastGuestInviteMessage"):
+            is_request = True
+            
+        if not is_request:
+            return
+            
+        if not user_name:
             return
             
         now = time.time()
@@ -877,17 +913,11 @@ async def on_guest_request(event):
             return
         _requests_log[user_name] = now
             
-        is_unknown = (user_name == "someone")
-        display_name = _t("Guest request") if is_unknown else user_name
+        speak_msg = _t("Guest request: {name}").format(name=user_name)
         
-        log_line = f"{display_name}  {datetime.datetime.now().strftime('%H:%M:%S')}"
+        log_line = f"{user_name}  {datetime.datetime.now().strftime('%H:%M:%S')}"
         with open(REQUESTS_FILE, "a", encoding="utf-8") as f:
             f.write(log_line + "\n")
-            
-        if is_unknown:
-            speak_msg = _t("Guest request")
-        else:
-            speak_msg = _t("Guest request: {name}").format(name=user_name)
             
         if PREFS.get("requests", True):
             log_msg = f"{speak_msg}  {datetime.datetime.now().strftime('%H:%M:%S')}"
@@ -963,51 +993,59 @@ def _runner(username, on_connect_cb, on_retry_cb, on_fail_cb, max_attempts=3):
         try:
             with runtime_scope(_RUNTIME):
                 client = TikTokLiveClient(unique_id=username)
-                client.add_listener(CommentEvent, on_comment)
-                client.add_listener("CommentEvent", on_comment)
+                
+                my_client = client
+                def wrap(func):
+                    async def wrapper(*args, **kwargs):
+                        if globals().get('client') is not my_client:
+                            return
+                        await func(*args, **kwargs)
+                    return wrapper
+
+                client.add_listener(CommentEvent, wrap(on_comment))
+                client.add_listener("CommentEvent", wrap(on_comment))
                 if CommentsEvent:
-                    client.add_listener(CommentsEvent, on_comment)
-                    client.add_listener("CommentsEvent", on_comment)
+                    client.add_listener(CommentsEvent, wrap(on_comment))
+                    client.add_listener("CommentsEvent", wrap(on_comment))
                 if EmoteChatEvent:
-                    client.add_listener(EmoteChatEvent, on_comment)
-                    client.add_listener("EmoteChatEvent", on_comment)
+                    client.add_listener(EmoteChatEvent, wrap(on_comment))
+                    client.add_listener("EmoteChatEvent", wrap(on_comment))
                 if ScreenChatEvent:
-                    client.add_listener(ScreenChatEvent, on_comment)
-                    client.add_listener("ScreenChatEvent", on_comment)
-                client.add_listener(FollowEvent, on_follow)
-                client.add_listener(GiftEvent, on_gift)
-                client.add_listener(LikeEvent, on_like)
-                client.add_listener(DiggEvent, on_digg)
-                client.add_listener(JoinEvent, on_join)
+                    client.add_listener(ScreenChatEvent, wrap(on_comment))
+                    client.add_listener("ScreenChatEvent", wrap(on_comment))
+                client.add_listener(FollowEvent, wrap(on_follow))
+                client.add_listener(GiftEvent, wrap(on_gift))
+                client.add_listener(LikeEvent, wrap(on_like))
+                client.add_listener(DiggEvent, wrap(on_digg))
+                client.add_listener(JoinEvent, wrap(on_join))
                 if ShareEvent:
                     try:
-                        client.add_listener(ShareEvent, on_share)
+                        client.add_listener(ShareEvent, wrap(on_share))
                     except Exception:
                         pass
                 if SocialEvent:
                     try:
-                        client.add_listener(SocialEvent, on_social)
+                        client.add_listener(SocialEvent, wrap(on_social))
                     except Exception:
                         pass
                 if ViewerUpdateEvent:
-                    client.add_listener(ViewerUpdateEvent, on_viewer_update)
+                    client.add_listener(ViewerUpdateEvent, wrap(on_viewer_update))
                 if RoomUserSeqEvent:
-                    client.add_listener(RoomUserSeqEvent, on_viewer_update)
+                    client.add_listener(RoomUserSeqEvent, wrap(on_viewer_update))
                     
                 if LinkLayerEvent:
-                    client.add_listener(LinkLayerEvent, on_guest_request)
-                    client.add_listener("LinkLayerEvent", on_guest_request)
+                    client.add_listener(LinkLayerEvent, wrap(on_guest_request))
+                    client.add_listener("LinkLayerEvent", wrap(on_guest_request))
                 if LinkMicMethodEvent:
-                    client.add_listener(LinkMicMethodEvent, on_guest_request)
-                    client.add_listener("LinkMicMethodEvent", on_guest_request)
+                    client.add_listener(LinkMicMethodEvent, wrap(on_guest_request))
+                    client.add_listener("LinkMicMethodEvent", wrap(on_guest_request))
                 if GuestInviteEvent:
-                    client.add_listener(GuestInviteEvent, on_guest_request)
-                    client.add_listener("GuestInviteEvent", on_guest_request)
+                    client.add_listener(GuestInviteEvent, wrap(on_guest_request))
+                    client.add_listener("GuestInviteEvent", wrap(on_guest_request))
                 
-                # Also listen to string events for generic webcast messages
-                client.add_listener("WebcastLinkLayerMessage", on_guest_request)
-                client.add_listener("WebcastLinkMicMethodMessage", on_guest_request)
-                client.add_listener("WebcastGuestInviteMessage", on_guest_request)
+                client.add_listener("WebcastLinkLayerMessage", wrap(on_guest_request))
+                client.add_listener("WebcastLinkMicMethodMessage", wrap(on_guest_request))
+                client.add_listener("WebcastGuestInviteMessage", wrap(on_guest_request))
                 
 
 
@@ -1050,15 +1088,16 @@ def _runner(username, on_connect_cb, on_retry_cb, on_fail_cb, max_attempts=3):
             break
 
 def connect(username=None, on_connect=None, on_retry=None, on_fail=None, retry_count=3):
-    global _top_thread_started, USERNAME, CLEAN_USERNAMES, _thread, _should_run, _stats_thread, _known_comments
+    global _top_thread_started, USERNAME, CLEAN_USERNAMES, _thread, _should_run, _stats_thread, _known_comments, _known_events
     global _known_followers, _known_shares, PREFS, AUTO_SPEAK_PREFS, PLAY_SOUNDS, SOUND_VOLUME, _processed_ids, _connection_time
     
     USERNAME, clear_on_start, CLEAN_USERNAMES, PREFS, AUTO_SPEAK_PREFS, PLAY_SOUNDS, SOUND_VOLUME = _load_config()
     sound_manager.set_volume(SOUND_VOLUME)
-    sound_manager.start() # Ensure sound manager is running (fixes restart issue)
+    sound_manager.start()
     sound_manager.clear()
     _clear_speech_buffer()
     _known_comments = set()
+    _known_events = set()
     _processed_ids = set()
     _known_gifts.clear()
     _connection_time = 0
@@ -1071,6 +1110,12 @@ def connect(username=None, on_connect=None, on_retry=None, on_fail=None, retry_c
                 if ln:
                     parts = ln.rsplit("  ", 1)
                     _known_comments.add(parts[0])
+            if EVENTS_FILE.exists():
+                for ln in EVENTS_FILE.read_text(encoding="utf-8").splitlines():
+                    ln = ln.strip()
+                    if ln:
+                        parts = ln.rsplit("  ", 1)
+                        _known_events.add(parts[0])
         except Exception:
             pass
     final_user = username if username else USERNAME
@@ -1123,8 +1168,15 @@ def disconnect():
         if 'sound_manager' in globals():
             sound_manager.stop()
         
+        old_thread = _thread
         _thread = None
         client = None
+        
+    if old_thread and old_thread.is_alive() and old_thread != threading.current_thread():
+        try:
+            old_thread.join(timeout=3.0)
+        except Exception:
+            pass
 
 if __name__ == "__main__":
     setup()

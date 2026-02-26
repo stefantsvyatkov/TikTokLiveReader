@@ -3,81 +3,156 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<link rel="stylesheet" type="text/css" href="../style.css" media="screen">
-<title>TikTok Live Reader 1.2</title>
+<title>TikTok Live Reader</title>
+<style>
+body {
+    font-family: Verdana, sans-serif;
+    font-size: 1.2rem;
+    line-height: 1.8;
+    color: #000;
+    max-width: 1000px;
+    margin: 40px auto;
+    padding: 20px;
+}
+ul {
+    margin-bottom: 20px;
+}
+li {
+    margin-bottom: 10px;
+}
+</style>
 </head>
 <body>
-<h1>TikTok Live Reader</h1>
-<p>Add-on ini terhubung ke siaran TikTok Live dan mengekstrak informasi secara real-time. Add-on menggunakan library Python TikTokLive untuk mengakses siaran live tertentu. Fitur yang didukung:</p>
+
+<h1 align="center">TikTok Live Reader</h1>
+
+<p>Add-on ini terhubung ke siaran TikTok Live dan mengekstrak informasi secara real-time. Add-on menggunakan library Python TikTokLive untuk mengakses siaran live tertentu. Fitur-fitur berikut didukung:</p>
+
 <ul>
-<li>Mencatat data hasil ekstraksi ke file teks di folder Documents\TikTok live.</li>
-<li>Melacak peristiwa: komentar, pengikut baru, hadiah, likes, share, dan pengunjung.</li>
-<li>File events yang dapat merekam banyak jenis data secara bersamaan.</li>
-<li>Notifikasi suara untuk peristiwa yang dipilih, misalnya komentar baru, hadiah, dan lainnya.</li>
+<li>Menyimpan data hasil ekstraksi ke dalam file teks, yang dibuat di folder Documents\TikTok live.</li>
+<li>Melacak peristiwa: komentar, pengikut baru, hadiah (gift), likes, share, pengunjung, dan permintaan tamu.</li>
+<li>File events yang dapat merekam berbagai jenis data secara bersamaan.</li>
+<li>Notifikasi audio untuk peristiwa terpilih, seperti komentar mới, hadiah, dll.</li>
 <li>Statistik siaran: menampilkan jumlah penonton saat ini, total pengunjung sesi, total likes, pengikut baru, dan diamond yang terkumpul.</li>
-<li>Peringkat Top Gifters: mengurutkan pengguna dari paling aktif ke paling sedikit berdasarkan diamond yang dikirim.</li>
+<li>Peringkat Top Gifters: mengurutkan pengguna dari yang paling aktif hingga yang paling sedikit berdasarkan diamond yang dikirim.</li>
 <li>Peringkat Top Likers: mengurutkan pengguna berdasarkan total likes selama siaran.</li>
 </ul>
-<p>TikTok Live Reader membantu host atau penonton memantau data penting siaran tanpa alat eksternal. Data disimpan di file teks dalam Documents\TikTok live dan dapat ditinjau kembali nanti. Add-on mengekstrak tipe data berikut ke file terpisah:</p>
+
+<p>TikTok Live Reader membantu host atau penonton memantau data penting siaran tanpa alat eksternal. Data disimpan dalam file teks yang terletak di folder Documents\TikTok live и dapat ditinjau kembali nanti. Add-on mengekstrak tipe data berikut ke dalam file terpisah:</p>
+
 <ul>
 <li>comments.txt - Mencatat semua komentar yang terdeteksi selama live beserta timestamp.</li>
 <li>followers.txt - Mencatat semua pengguna baru yang mengikuti kreator selama sesi berjalan.</li>
 <li>gifts.txt - Mencatat semua hadiah yang diterima: pengguna, jenis hadiah, jumlah, dan timestamp.</li>
-<li>likes.txt - Menampilkan siapa yang memberi like, kapan, dan berapa kali.</li>
+<li>likes.txt - Menunjukkan siapa yang memberi like, kapan, dan berapa kali.</li>
+<li>requests.txt - Mencatat semua permintaan bergabung yang dikirimkan kepada host.</li>
 <li>shares.txt - Mencatat pengguna yang membagikan siaran live beserta timestamp.</li>
-<li>stats.txt - Menampilkan penonton saat ini, pengikut baru, total likes, total pengunjung sesi, dan total diamond.</li>
-<li>top gifts.txt - Peringkat pengguna yang mengirim hadiah, dari paling aktif sampai paling sedikit.</li>
+<li>stats.txt - Menampilkan penonton saat ini, pengikut baru, total likes, pengunjung sesi, dan total diamond.</li>
+<li>top gifts.txt - Peringkat pengguna yang mengirim hadiah, dari yang paling aktif sampai paling sedikit.</li>
 <li>top likes.txt - Peringkat pengguna berdasarkan total likes.</li>
 <li>visitors.txt - Mencatat semua pengunjung yang masuk selama sesi berjalan beserta timestamp.</li>
-<li>events.txt - Log gabungan berurutan untuk berbagai peristiwa (komentar, pengikut, hadiah, dan lainnya), dapat ditentukan oleh pengguna.</li>
+<li>events.txt - Terletak di antara file komentar dan pengikut selama navigasi keyboard, file ini mencatat berbagai jenis peristiwa yang ditentukan dalam pengaturan. Tujuannya adalah untuk melacak komentar, pengikut, hadiah, likes, permintaan, share, atau pengunjung dengan mudah di satu tempat.</li>
 </ul>
-<h2>Pengaturan</h2>
-<p>TikTok Live Reader memiliki jendela pengaturan sendiri. Buka dengan pintasan NVDA+Shift+Control+L. Jendela ini memiliki 3 tab:</p>
-<h3>General</h3>
-<p>Bagian ini memuat pengaturan berikut:</p>
+
+<h2 align="center">Pengaturan</h2>
+
+<p>TikTok Live Reader memiliki jendela pengaturan sendiri, yang dapat dibuka dengan pintasan NVDA+Shift+Control+L. Jendela ini memiliki 3 tab:</p>
+
+<h3 align="center">General</h3>
+
+<p>Bagian ini mencakup pengaturan berikut:</p>
+
 <ul>
-<li>Username - Masukkan username host TikTok live tanpa simbol @.</li>
-<li>Clear text files on startup - Menghapus isi file teks saat add-on dimulai.</li>
-<li>Clean usernames - Menghapus emoji dan simbol Unicode dari username agar lebih kompatibel dengan screen reader. Saat aktif, username hanya berisi huruf, angka, dan tanda baca.</li>
+<li>Username - Masukkan username host TikTok tanpa simbol @.</li>
+<li>Clear files on startup - Menghapus isi file teks saat add-on dimulai.</li>
+<li>Clean usernames - Opsi ini menghapus elemen yang tidak perlu dari nama pengguna. Banyak pengguna TikTok menggunakan emoji dan simbol Unicode yang menghambat screen reader. Saat aktif, nama hanya akan berisi huruf, angka, dan tanda baca.</li>
 <li>Connection retry count - Menentukan berapa kali add-on mencoba tersambung ke siaran live.</li>
 </ul>
-<h3>Events</h3>
-<p>Kotak centang ini menentukan jenis data apa yang dicatat di file Events. Pilihan mencakup Comments, Followers, Gifts, Likes, Shares, dan Visitors. Opsi tambahan:</p>
+
+<h3 align="center">Events</h3>
+
+<p>Bagian ini berisi kotak centang untuk menentukan data mana yang dicatat di events.txt (Komentar, Pengikut, Hadiah, Likes, Permintaan, Share, dan Pengunjung). Pengaturan tambahan:</p>
+
 <ul>
-<li>Play sounds for the selected events - Memutar suara singkat khusus saat peristiwa terdaftar terjadi.</li>
-<li>Audio volume - Mengatur level suara notifikasi.</li>
-<li>Learn sounds - Memutar deskripsi berbagai suara agar pengguna dapat mengenalinya.</li>
+<li>Play sounds for the selected events - Memutar suara singkat khusus (misalnya untuk komentar atau hadiah baru). Fitur ini dapat diaktifkan/dinonaktifkan dengan NVDA+Shift+Control+P.</li>
+<li>Volume - Mengatur level suara notifikasi.</li>
+<li>Learn sounds - Memutar deskripsi suara agar pengguna dapat mengenal suara-suara audio yang berbeda.</li>
 </ul>
-<h3>Auto speak</h3>
-<p>Bagian ini menentukan peristiwa apa yang dibacakan ketika fungsi Auto speak aktif. Aktif/nonaktifkan dengan NVDA+Shift+Control+S. Saat peristiwa terpilih terjadi, peristiwa dibacakan otomatis (misalnya "New follower: Username" atau "Username shared the live").</p>
-<p>Pengumuman dan suara diputar dengan jeda satu detik. Keduanya disimpan dalam file sementara agar pelaporan tetap berurutan saat traffic live tinggi. Notifikasi suara dan Auto speak bekerja secara independen.</p>
-<h2>Cara menggunakan add-on</h2>
-<p>Setelah konfigurasi selesai, tekan NVDA+Shift+Control+T untuk terhubung. Status koneksi akan diumumkan otomatis. Hotkey berikut hanya aktif selama sesi berjalan:</p>
+
+<h3 align="center">Auto speak</h3>
+
+<p>Bagian ini menentukan data mana yang diumumkan saat fungsi Auto speak aktif. Aktifkan dengan NVDA+Shift+Control+S atau kotak centang "Auto speak selected events". Saat aktif, peristiwa tertentu dapat dipilih untuk dibacakan otomatis (misalnya "New follower: Username").</p>
+
+<p>Suara dan pesan diputar dengan jeda satu detik dan disimpan dalam file sementara untuk memastikan pelaporan tetap berurutan saat traffic live tinggi. Fungsi suara dan Auto speak bekerja secara independen.</p>
+
+<h2 align="center">Cara menggunakan add-on</h2>
+
+<p>Tekan NVDA+Shift+Control+T dan klien TikTok Live Reader akan mencoba terhubung. Status koneksi diumumkan otomatis. Setelah terhubung, hotkey berikut tersedia:</p>
+
 <ul>
-<li>Control+Shift+Right Arrow - File berikutnya (misalnya Comments, Events, Followers, Gifts, dll).</li>
-<li>Control+Shift+Left Arrow - File sebelumnya.</li>
-<li>Control+Shift+Down Arrow - Item berikutnya di file saat ini (misalnya komentar, like, share).</li>
-<li>Control+Shift+Up Arrow - Item sebelumnya di file saat ini.</li>
-<li>Control+Shift+Home - Pindah ke item pertama di file saat ini.</li>
-<li>Control+Shift+End - Pindah ke item terakhir di file saat ini.</li>
+<li>Control+Shift+Panah Kanan - File berikutnya (misalnya Comments, Events, Followers, dll).</li>
+<li>Control+Shift+Panah Kiri - File sebelumnya.</li>
+<li>Control+Shift+Panah Bawah - Item berikutnya di file saat ini (misalnya komentar, like, share).</li>
+<li>Control+Shift+Panah Atas - Item sebelumnya.</li>
+<li>Control+Shift+Home - Pilih item pertama di file saat ini.</li>
+<li>Control+Shift+End - Pilih item terakhir.</li>
 <li>NVDA+Shift+Control+V - Melaporkan jumlah penonton saat ini.</li>
 <li>NVDA+Shift+Control+S - Mengaktifkan atau menonaktifkan Auto speak.</li>
-<li>NVDA+Shift+Control+R - Mengosongkan isi file teks secara manual.</li>
+<li>NVDA+Shift+Control+P - Mengaktifkan atau menonaktifkan suara.</li>
+<li>NVDA+Shift+Control+R - Menghapus isi file teks dan file sementara.</li>
 </ul>
-<p>Tekan NVDA+Shift+Control+T lagi untuk mengakhiri sesi saat ini. Data tetap tersedia di folder Documents\TikTok live.</p>
-<h2>Catatan</h2>
+
+<p>Tekan NVDA+Shift+Control+T untuk mengakhiri sesi add-on.</p>
+
+<h2 align="center">Catatan</h2>
+
 <ul>
-<li>Membuka pengaturan akan menghentikan koneksi aktif agar perubahan dapat diterapkan dengan stabil.</li>
-<li>Jika "Clear files on startup" nonaktif, data baru akan ditambahkan ke log lama. Gunakan NVDA+Shift+Control+R untuk mengosongkannya secara manual.</li>
-<li>Add-on mengingat posisi terakhir Anda di file jika file tidak dibersihkan otomatis.</li>
+<li>Membuka pengaturan menonaktifkan sementara auto-speak dan suara, tetapi pencatatan data tetap berlanjut di latar belakang.</li>
+<li>Jika username diubah di pengaturan, add-on akan mencoba terhubung ke pengguna baru setelah disimpan.</li>
+<li>Saat pembersihan file otomatis dinonaktifkan, file akan tetap berisi data dari siaran live terakhir. Jika Anda ingin menghapusnya di awal sesi saat ini, tekan NVDA+Shift+Control+R.</li>
+<li>Jika pembersihan manual dinonaktifkan, add-on mengingat posisi terakhir Anda di file (misalnya baris 45 di komentar).</li>
 </ul>
-<h2>Batasan</h2>
+
+<h2 align="center">Batasan</h2>
+
 <ul>
-<li>Add-on tidak dapat menampilkan daftar semua penonton saat ini karena library TikTokLive tidak melaporkan saat pengguna keluar dari siaran.</li>
-<li>Peringkat berbasis durasi tonton tidak dapat dibuat karena tidak ada event saat pengguna meninggalkan siaran.</li>
-<li>Saat proses penerjemahan add-on ke bahasa lain, ditemukan bahwa nama hadiah TikTok sangat banyak dan sering berubah. Menjaga terjemahan manual untuk semuanya tidak praktis, jadi nama hadiah dilaporkan dalam bahasa Inggris.</li>
+<li>Daftar penonton lengkap tidak dapat ditampilkan karena library TikTokLive tidak melaporkan saat pengguna keluar.</li>
+<li>Peringkat berdasarkan durasi tonton tidak dapat dibuat karena alasan yang sama.</li>
+<li>Nama hadiah dilaporkan dalam bahasa Inggris karena jumlahnya terlalu banyak dan terlalu sering diperbarui untuk diterjemahkan secara layak.</li>
+<li>Permintaan bergabung hanya didaftarkan jika pengguna telah berinteraksi dengan siaran live sebelumnya. Ini karena TikTok tidak mempublikasikan nama pengguna yang hanya mengirim permintaan tanpa aktivitas lain.</li>
 </ul>
-<h2>Klarifikasi Akhir</h2>
-<p>Add-on ini dikembangkan dengan bantuan model bahasa ChatGPT, Google Gemini, dan Claude OPUS 4.6 Thinking. Distribusi menggunakan lisensi GNU General Public License 2.0.</p>
+
+<h2 align="center">Daftar Perubahan</h2>
+
+<h3 align="center">Versi 1.5</h3>
+
+<ol>
+<li>Logika untuk memuat dan mematikan add-on telah distabilkan.</li>
+<li>Migrasi ke NVDA addon template untuk otomatisasi dan lokalisasi yang lebih baik.</li>
+<li>Logika pencatatan untuk likes, share, dan follows telah distabilkan.</li>
+<li>Opsi Auto speak sekarang dipatuhi; pengumuman dimulai 10 detik setelah koneksi berhasil.</li>
+<li>Tab Auto speak sekarang secara dinamis menyembunyikan pilihan peristiwa kecuali fungsi utama diaktifkan.</li>
+<li>Memperbaiki bug di mana suara dan pengumuman dimainkan segera setelah restart add-on.</li>
+<li>Menambahkan pintasan NVDA+Shift+Control+P untuk mengaktifkan/menonaktifkan suara selama sesi aktif.</li>
+<li>Menambahkan tombol akses (Alt + huruf) untuk semua pengaturan.</li>
+<li>Logika slider Audio volume dioptimalkan. Labelnya sekarang adalah Volume.</li>
+<li>Pengaturan sekarang disimpan secara dinamis. Pencatatan latar belakang berlanjut saat jendela pengaturan terbuka.</li>
+<li>Koneksi otomatis ke pengguna baru jika diubah dalam sesi aktif.</li>
+<li>Menambahkan dukungan untuk melacak permintaan bergabung. Disimpan dalam file requests.txt.</li>
+<li>Opsi "Requests" baru di pengaturan dan notifikasi suara baru untuk peristiwa tersebut.</li>
+<li>Menambahkan validasi input username: minimal dua karakter dan hanya boleh berisi huruf Latin, angka, titik, dan garis bawah.</li>
+</ol>
+
+<h2 align="center">Ucapan Terima Kasih</h2>
+
+<ul>
+<li>Terima kasih kepada MuhammadGagah atas bantuan optimasi logika pemuatan di lingkungan terisolasi dan terjemahan bahasa Indonesia.</li>
+<li>Terima kasih kepada Bena Karkova atas ide-ide bagus, dukungan, dan kepercayaannya pada proyek ini.</li>
+</ul>
+
+<h2 align="center">Klarifikasi Akhir</h2>
+
+<p>Add-on ini dikembangkan dengan bantuan model bahasa ChatGPT, Google Gemini, dan Claude OPUS 4.6 Thinking. Didistribusikan di bawah lisensi GNU General Public License 2.0.</p>
+
 </body>
 </html>

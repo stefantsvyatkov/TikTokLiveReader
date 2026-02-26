@@ -7,7 +7,7 @@ msgstr ""
 "Project-Id-Version: TikTok Live Reader 1.5\n"
 "Report-Msgid-Bugs-To: \n"
 "POT-Creation-Date: 2026-02-14 01:00+0200\n"
-"PO-Revision-Date: 2026-02-25 23:55+0200\n"
+"PO-Revision-Date: 2026-02-26 16:55+0200\n"
 "Last-Translator: Stefan Tsvyatkov\n"
 "Language-Team: Bulgarian\n"
 "Language: bg\n"
@@ -304,8 +304,6 @@ msgstr "Звуците са изключени"
 #. Translators: Button to stop.
 msgid "St&op"
 msgstr "Сп&иране"
-
-
 
 #. Translators: Settings checkbox and file name label.
 msgid "&Requests"

@@ -10,7 +10,7 @@ if not hasattr(winsound, "SND_SYNC"):
     winsound.SND_SYNC = 0x0000
 if not hasattr(winsound, "SND_ASYNC"):
     winsound.SND_ASYNC = 0x0001
-if not hasattr(winsound, "SND_filename"): # Note: Case variance check
+if not hasattr(winsound, "SND_filename"):
     pass
 if not hasattr(winsound, "SND_FILENAME"):
     winsound.SND_FILENAME = 0x00020000
@@ -55,14 +55,16 @@ TOP_GIFTERS_FILE = LOG_DIR / "top gifters.txt"
 TOP_LIKES_FILE = LOG_DIR / "top likes.txt"
 VISITORS_FILE = LOG_DIR / "visitors.txt"
 SHARES_FILE = LOG_DIR / "shares.txt"
+REQUESTS_FILE = LOG_DIR / "requests.txt"
 EVENTS_FILE = LOG_DIR / "events.txt"
-SPEECH_BUFFER_FILE = LOG_DIR / "speechbuffer.json"
-DEBUG_LOG = LOG_DIR / "debug.log"
+SPEECH_BUFFER_FILE = BASE_DIR / "speechbuffer.json"
 
-def _log_debug(msg):
+_known_gifts = {}
+
+def _clear_speech_buffer():
     try:
-        with open(DEBUG_LOG, "a", encoding="utf-8") as f:
-            f.write(f"{datetime.datetime.now()}: {msg}\n")
+        with open(SPEECH_BUFFER_FILE, "w", encoding="utf-8") as f:
+            pass
     except Exception:
         pass
 
@@ -70,22 +72,31 @@ client = None
 _thread = None
 _stats_thread = None
 _run_lock = threading.Lock()
+_client_loop = None
 _stop_event = threading.Event()
 _top_thread_started = False
 _should_run = False
-_console_mode = __name__ == "__main__"
+
 
 class LikeManager:
     def __init__(self):
         self._timers = {}
-        self._counts = {}
+        
+        self._baselines = {}
+        self._current_totals = {}
+        
         self._lock = threading.Lock()
 
-    def add_like(self, user, increment):
+    def add_like(self, user, current_api_total):
         with self._lock:
             if user in self._timers:
                 self._timers[user].cancel()
-            self._counts[user] = self._counts.get(user, 0) + increment
+                
+            if user not in self._baselines:
+                self._baselines[user] = self._current_totals.get(user, 0)
+                
+            self._current_totals[user] = current_api_total
+            
             t = threading.Timer(10.0, self._flush, args=[user])
             t.daemon = True
             self._timers[user] = t
@@ -95,7 +106,14 @@ class LikeManager:
         with self._lock:
             if user in self._timers:
                 del self._timers[user]
-            count = self._counts.pop(user, 0)
+                
+            baseline = self._baselines.pop(user, 0)
+            current = self._current_totals.get(user, 0)
+            
+            count = current - baseline
+            
+        if count <= 0:
+            return
         
         likes_word = _nt("like", "likes", count)
         log_line = f"{user}: {count} {likes_word}  {datetime.datetime.now().strftime('%H:%M:%S')}"
@@ -111,17 +129,18 @@ class LikeManager:
         
         speak_line = f"{user}: {count} {likes_word}"
 
+        if SETTINGS_OPEN:
+            return
+
         event_key = "likes"
         sound_enabled = PLAY_SOUNDS and PREFS.get(event_key, False)
         speech_enabled = AUTO_SPEAK_PREFS.get(event_key, False)
 
-        if sound_enabled and _connection_time > 0:
-             if (time.time() - _connection_time) < 10.0:
-                 _log_debug(f"Suppressed sound (startup delay): {event_key}")
-                 sound_enabled = False
+        if _connection_time == 0 or (time.time() - _connection_time) < 10.0:
+            sound_enabled = False
+            speech_enabled = False
 
         if sound_enabled or speech_enabled:
-            _log_debug(f"_handle: {event_key}, sound={sound_enabled}, speech={speech_enabled}")
             cb = None
             if speech_enabled:
                 def _on_complete():
@@ -136,7 +155,8 @@ class LikeManager:
             for t in self._timers.values():
                 t.cancel()
             self._timers.clear()
-            self._counts.clear()
+            self._baselines.clear()
+            self._current_totals.clear()
 
 like_manager = LikeManager()
 
@@ -159,9 +179,13 @@ class SoundManager:
         with self._queue.mutex:
             self._queue.queue.clear()
 
+    def clear(self):
+        with self._queue.mutex:
+            self._queue.queue.clear()
+
     def start(self):
         if not self._running:
-            self._queue = queue.Queue() # Re-init queue just in case
+            self._queue = queue.Queue()
             self._running = True
             self._thread = threading.Thread(target=self._worker, daemon=True)
             self._thread.start()
@@ -174,7 +198,8 @@ class SoundManager:
             "gifts": "gift.wav",
             "likes": "like.wav",
             "shares": "share.wav",
-            "visitors": "visitor.wav"
+            "visitors": "visitor.wav",
+            "requests": "request.wav"
         }
         
         fname = mapping.get(event_name, f"{event_name}.wav")
@@ -207,17 +232,14 @@ class SoundManager:
                 fname = item
 
             if fname and play_file:
-                _log_debug(f"Playing sound: {fname}")
                 self._play_actual(fname)
-            else:
-                _log_debug(f"Skipping sound: {fname} (play_file=False)")
-            
+                
             if cb:
                 try:
-                    _log_debug("Calling on_complete callback")
+    
                     cb()
-                except Exception as e:
-                    _log_debug(f"Callback error: {e}")
+                except Exception:
+                    pass
 
             if post_delay > 0:
                 time.sleep(post_delay)
@@ -269,12 +291,10 @@ class SoundManager:
                     mem_file.seek(0)
                     winsound.PlaySound(mem_file.read(), winsound.SND_MEMORY | winsound.SND_SYNC)
                     
-                except Exception as e:
-                    _log_debug(f"Scaling error: {e}")
+                except Exception:
                     winsound.PlaySound(str(fpath), winsound.SND_FILENAME | winsound.SND_SYNC)
                 
-        except Exception as e:
-            _log_debug(f"Sound error: {e}")
+        except Exception:
             try:
                 winsound.PlaySound(str(fpath), winsound.SND_FILENAME | winsound.SND_SYNC)
             except Exception:
@@ -290,20 +310,34 @@ total_diamonds = 0
 visitors = set()
 viewer_count = 0
 total_viewers = 0
+_known_processed_ids = set()
 _known_comments = set()
+_known_events = set()
+_requests_log = {}
+_known_users = {}
 _known_followers = set()
+_known_shares = {}
 _processed_ids = set()
 _connection_time = 0
 
 AUTO_SPEAK_PREFS = {}
 PLAY_SOUNDS = True
 SOUND_VOLUME = 100
+SETTINGS_OPEN = False
+
+def set_settings_open(is_open):
+    global SETTINGS_OPEN
+    SETTINGS_OPEN = is_open
 
 def _is_processed(event):
     uid = getattr(event, "msgId", None)
     if not uid:
         uid = getattr(event, "id", None)
-    
+    if not uid:
+        base_msg = getattr(event, "base_message", None)
+        if base_msg:
+            uid = getattr(base_msg, "msg_id", None)
+            
     if uid:
         if uid in _processed_ids:
             return True
@@ -332,13 +366,13 @@ def _load_config():
     if "events" not in config:
         config["events"] = {
             "comments": "true", "followers": "false", "gifts": "false",
-            "likes": "false", "shares": "false", "visitors": "false",
+            "likes": "false", "shares": "false", "visitors": "false", "requests": "true",
         }
         
     if "auto_speak" not in config:
         config["auto_speak"] = {
             "comments": "true", "followers": "false", "gifts": "false",
-            "likes": "false", "shares": "false", "visitors": "false",
+            "likes": "false", "shares": "false", "visitors": "false", "requests": "true",
         }
         
     prefs = {
@@ -348,6 +382,7 @@ def _load_config():
         "likes": config.getboolean("events", "likes", fallback=False),
         "shares": config.getboolean("events", "shares", fallback=False),
         "visitors": config.getboolean("events", "visitors", fallback=False),
+        "requests": config.getboolean("events", "requests", fallback=True),
     }
     
     auto_speak_prefs = {
@@ -357,6 +392,7 @@ def _load_config():
         "likes": config.getboolean("auto_speak", "likes", fallback=False),
         "shares": config.getboolean("auto_speak", "shares", fallback=False),
         "visitors": config.getboolean("auto_speak", "visitors", fallback=False),
+        "requests": config.getboolean("auto_speak", "requests", fallback=True),
     }
     
     play_sounds = config.getboolean("sounds", "play_sounds", fallback=False)
@@ -378,6 +414,14 @@ except Exception:
 
 def update_config(username, prefs, auto_speak_prefs, play_sounds, volume, clear_on_start, clean_usernames):
     global USERNAME, PREFS, AUTO_SPEAK_PREFS, PLAY_SOUNDS, SOUND_VOLUME, _clear_on_start, CLEAN_USERNAMES
+    
+    if getattr(globals(), 'PLAY_SOUNDS', False) and not play_sounds:
+        try:
+            with sound_manager._queue.mutex:
+                sound_manager._queue.queue.clear()
+        except Exception:
+            pass
+
     USERNAME = username
     PREFS = prefs
     AUTO_SPEAK_PREFS = auto_speak_prefs
@@ -406,13 +450,14 @@ def _sanitize_name(name):
 def _clear_all_text_files():
     for file in [
         COMMENTS_FILE, FOLLOWERS_FILE, GIFTS_FILE, TOP_GIFTERS_FILE,
-        STATS_FILE, TOP_LIKES_FILE, LIKES_FILE, VISITORS_FILE, EVENTS_FILE, SHARES_FILE
+        STATS_FILE, TOP_LIKES_FILE, LIKES_FILE, VISITORS_FILE, EVENTS_FILE, SHARES_FILE, REQUESTS_FILE
     ]:
         with open(file, "w", encoding="utf-8"):
             pass
 
 def reset_accumulators():
     global top_gifters, top_likers, total_likes, total_followers, total_diamonds, visitors, viewer_count, total_viewers
+    global _known_comments, _known_events, _known_followers, _known_shares, _requests_log, _processed_ids
     top_gifters = {}
     top_likers = {}
     total_likes = 0
@@ -421,12 +466,20 @@ def reset_accumulators():
     visitors = set()
     viewer_count = 0
     total_viewers = 0
+    
+    _known_comments.clear()
+    _known_events.clear()
+    _known_followers.clear()
+    _known_shares.clear()
+    _requests_log.clear()
+    _processed_ids.clear()
+    _known_gifts.clear()
 
 def _ensure_files_exist():
     LOG_DIR.mkdir(parents=True, exist_ok=True)
     for file in [
         COMMENTS_FILE, FOLLOWERS_FILE, GIFTS_FILE, TOP_GIFTERS_FILE,
-        STATS_FILE, TOP_LIKES_FILE, LIKES_FILE, VISITORS_FILE, SHARES_FILE
+        STATS_FILE, TOP_LIKES_FILE, LIKES_FILE, VISITORS_FILE, SHARES_FILE, REQUESTS_FILE, EVENTS_FILE
     ]:
         if not file.exists():
             with open(file, "w", encoding="utf-8"):
@@ -455,6 +508,10 @@ def update_top_files():
         _stop_event.wait(10)
 
 def _log_to_events(log_text):
+    event_text = log_text.rsplit("  ", 1)[0]
+    if event_text in _known_events:
+        return
+    _known_events.add(event_text)
     try:
         with open(EVENTS_FILE, "a", encoding="utf-8") as f:
             f.write(log_text + "\n")
@@ -472,6 +529,9 @@ def _extract_comment_payload(event):
     user = getattr(event, "user", None)
     nickname = getattr(user, "nickname", None) or getattr(user, "unique_id", None) or "someone"
     nickname = _sanitize_name(nickname)
+    uid = getattr(user, "id", getattr(user, "uid", None))
+    if uid:
+        _known_users[str(uid)] = nickname
 
     comment_text = (
         getattr(event, "comment", None)
@@ -500,17 +560,22 @@ def _handle_speech_and_sound(event_key, speak_text):
     event_key: 'comments', 'followers', etc.
     speak_text: The text to speak.
     """
-    
+    if SETTINGS_OPEN:
+        return
+        
     sound_enabled = PLAY_SOUNDS and PREFS.get(event_key, False)
     speech_enabled = AUTO_SPEAK_PREFS.get(event_key, False)
     
-    if sound_enabled and _connection_time > 0:
-        if (time.time() - _connection_time) < 10.0:
-            _log_debug(f"Suppressed sound (startup delay): {event_key}")
+    if _connection_time == 0:
+        sound_enabled = False
+        speech_enabled = False
+    elif (time.time() - _connection_time) < 10.0:
+        if sound_enabled:
             sound_enabled = False
+        if speech_enabled:
+            speech_enabled = False
 
     if sound_enabled or speech_enabled:
-        _log_debug(f"_handle: {event_key}, sound={sound_enabled}, speech={speech_enabled}")
         cb = None
         if speech_enabled:
             def _on_complete():
@@ -520,54 +585,74 @@ def _handle_speech_and_sound(event_key, speak_text):
             
         sound_manager.play(event_key, play_file=sound_enabled, on_complete=cb)
     else:
-        _log_debug(f"_handle: {event_key} IGNORED (sound={sound_enabled}, speech={speech_enabled})")
+        pass
+
+def _track_user(event):
+    user = getattr(event, "user", None)
+    if user:
+        uid = getattr(user, "id", getattr(user, "uid", None))
+        nn = getattr(user, "nick_name", getattr(user, "nickname", None))
+        if uid and nn:
+            _known_users[str(uid)] = _sanitize_name(nn)
 
 def _apply_like_event(ev):
     global total_likes
-    user_name = _sanitize_name(getattr(getattr(ev, "user", None), "nickname", "someone"))
+    
+    _track_user(ev)
+    
     if hasattr(ev, "totalLikeCount"):
         total_likes = ev.totalLikeCount
     elif hasattr(ev, "total"):
         total_likes = ev.total
     elif hasattr(ev, "totalDiggCount"):
         total_likes = ev.totalDiggCount
-    inc_candidates = ("likeCount", "count", "diggCount", "increment", "delta")
-    inc_val = next((getattr(ev, a) for a in inc_candidates if hasattr(ev, a)), None)
-    if isinstance(inc_val, int) and inc_val > 0:
-        top_likers[user_name] = top_likers.get(user_name, 0) + inc_val
-    else:
-        top_likers[user_name] = top_likers.get(user_name, 0) + 1
-    
-    
+        
     update_stats_file()
     
+    user_obj = getattr(ev, "user", None)
+    if not user_obj:
+        return
+        
+    nick = getattr(user_obj, "nickname", None)
+    unique_id = getattr(user_obj, "unique_id", None)
+    
+    raw_name = nick if nick else unique_id
+    if not raw_name:
+        return
+        
+    user_name = _sanitize_name(raw_name)
+    if not user_name:
+        return
+        
+    inc_candidates = ("likeCount", "count", "diggCount", "increment", "delta")
+    inc_val = next((getattr(ev, a) for a in inc_candidates if hasattr(ev, a)), 0)
     increment = inc_val if (isinstance(inc_val, int) and inc_val > 0) else 1
     
-    like_manager.add_like(user_name, increment)
-
-    if _console_mode:
-        print(f"{user_name} liked (total likes: {total_likes}, user total: {top_likers[user_name]})")
+    top_likers[user_name] = top_likers.get(user_name, 0) + increment
+    update_stats_file()
+    
+    current_user_total = top_likers[user_name]
+    like_manager.add_like(user_name, current_user_total)
 
 async def on_comment(event):
     if not _should_run:
         return
     if _is_processed(event):
         return
+    
+    _track_user(event)
+    
     payload = _extract_comment_payload(event)
     if not payload:
         return
     display_name, comment_text = payload
     user_comment = f"{display_name}: {comment_text}"
     if user_comment in _known_comments:
-        if _console_mode:
-            print(f"Skipped duplicate: {user_comment}")
         return
     _known_comments.add(user_comment)
     log_line = f"{user_comment}  {datetime.datetime.now().strftime('%H:%M:%S')}"
     with open(COMMENTS_FILE, "a", encoding="utf-8") as f:
         f.write(log_line + "\n")
-        if _console_mode:
-            print(log_line.strip())
     if PREFS.get("comments", True):
         _log_to_events(log_line)
         
@@ -578,6 +663,9 @@ async def on_follow(event):
         return
     if _is_processed(event):
         return
+    
+    _track_user(event)
+    
     global total_followers
     
     unique_id = getattr(event.user, "unique_id", event.user.nickname)
@@ -605,6 +693,9 @@ async def on_gift(event):
         return
     if _is_processed(event):
         return
+        
+    _track_user(event)
+    
     global total_diamonds
     if not getattr(event, "repeat_end", True):
         return
@@ -612,6 +703,13 @@ async def on_gift(event):
     name = getattr(event.gift, "name", "Gift")
     diamonds = count * getattr(event.gift, "diamond_count", 0)
     display_name = _sanitize_name(getattr(event.user, "nickname", "someone"))
+    
+    gift_key = f"{display_name}_{name}_{count}"
+    now = time.time()
+    if now - _known_gifts.get(gift_key, 0) < 1.0:
+        return
+    _known_gifts[gift_key] = now
+    
     if diamonds > 0:
         total_diamonds += diamonds
         top_gifters[display_name] = top_gifters.get(display_name, 0) + diamonds
@@ -645,8 +743,16 @@ async def on_share(event):
         return
     if _is_processed(event):
         return
+        
+    _track_user(event)
     
     display_name = _sanitize_name(event.user.nickname)
+    
+    now = time.time()
+    if now - _known_shares.get(display_name, 0) < 1.0:
+        return
+    _known_shares[display_name] = now
+    
     log_line = f"{display_name}  {datetime.datetime.now().strftime('%H:%M:%S')}"
     
     with open(SHARES_FILE, "a", encoding="utf-8") as f:
@@ -664,24 +770,27 @@ async def on_social(event):
     if not _should_run:
         return
     
+    action = getattr(event, "action", None)
     key = getattr(getattr(event, "display_text", None), "key", "").lower()
     default_fmt = getattr(getattr(event, "display_text", None), "default_pattern", "").lower()
     
-    if "share" in key or "share" in default_fmt or "сподели" in default_fmt:
-        if "share" not in key: # If it WAS caught by ShareEvent, we skip. But if key is weird, maybe we handle it.
-             pass
+    if action == 3 or "share" in key or "share" in default_fmt:
         await on_share(event)
         return
 
-    if "follow" in key or "follow" in default_fmt or "последва" in default_fmt:
+    if action == 1 or "follow" in key or "follow" in default_fmt:
         await on_follow(event)
         return
 
 async def on_join(event):
     if not _should_run:
         return
+    
+    _track_user(event)
+    
     global total_viewers
-    display_name = _sanitize_name(getattr(getattr(event, "user", None), "nickname", "someone"))
+    user = getattr(event, "user", None)
+    display_name = _sanitize_name(getattr(user, "nickname", "someone"))
     
     if display_name in visitors:
         return
@@ -709,8 +818,115 @@ async def on_viewer_update(event):
     elif hasattr(event, "viewer_count"):
         viewer_count = event.viewer_count
     update_stats_file()
-    if _console_mode:
-        print(f"Viewer count update: {viewer_count}, Total: {total_viewers}")
+
+async def on_guest_request(event):
+    if not _should_run:
+        return
+    
+    try:
+        user_name = None
+        is_request = False
+        
+        def _get_name_from_user(u):
+            if not u: return None
+            uid = getattr(u, "id", getattr(u, "uid", None))
+            nn = getattr(u, "nick_name", getattr(u, "nickname", None))
+            if nn:
+                sanitized = _sanitize_name(nn)
+                if sanitized:
+                    if uid: _known_users[str(uid)] = sanitized
+                    return sanitized
+            if uid and str(uid) in _known_users:
+                return _known_users[str(uid)]
+            return None
+
+        if hasattr(event, "apply_content") and event.apply_content is not None:
+            is_request = True
+            name = _get_name_from_user(getattr(event.apply_content, "applicant", None))
+            if name: user_name = name
+
+        if not user_name and hasattr(event, "invite_content") and event.invite_content is not None:
+            is_request = True
+            name = _get_name_from_user(getattr(event.invite_content, "invitee", None))
+            if name: user_name = name
+                
+        if not user_name and hasattr(event, "user") and event.user is not None:
+            name = _get_name_from_user(event.user)
+            if name: user_name = name
+                
+        if not user_name and hasattr(event, "inviter_nickname") and event.inviter_nickname:
+            sanitized = _sanitize_name(event.inviter_nickname)
+            if sanitized:
+                user_name = sanitized
+            is_request = True
+
+        if not user_name and hasattr(event, "base_message") and event.base_message:
+            dt = getattr(event.base_message, "display_text", None)
+            if dt and hasattr(dt, "pieces") and dt.pieces:
+                for piece in dt.pieces:
+                    uv = getattr(piece, "user_value", None)
+                    if uv and hasattr(uv, "user"):
+                        name = _get_name_from_user(uv.user)
+                        if name:
+                            user_name = name
+                            break
+                            
+        if not user_name and hasattr(event, "list_content") and event.list_content:
+            lc = event.list_content
+            change_type = getattr(lc, "list_change_type", None)
+            if change_type is not None and change_type not in (1, 2):
+                return
+            if hasattr(lc, "user_list") and lc.user_list:
+                ul = lc.user_list
+                if hasattr(ul, "applied_list") and ul.applied_list:
+                    for app in ul.applied_list:
+                        if hasattr(app, "link_user") and app.link_user:
+                            name = _get_name_from_user(app.link_user)
+                            if name:
+                                user_name = name
+                                is_request = True
+                                break
+
+        mtype = str(getattr(event, "message_type", ""))
+        if "Apply" in mtype or "APPLY" in mtype:
+            is_request = True
+            
+        m_t = str(getattr(event, "m_type", getattr(event, "mType", "")))
+        if m_t in ("1", "2"):
+            is_request = True
+        elif m_t == "8":
+            return
+            
+        ename = type(event).__name__
+        if ename in ("LinkMicMethodEvent", "GuestInviteEvent", "LinkLayerEvent", 
+                     "WebcastLinkLayerMessage", "WebcastLinkMicMethodMessage", "WebcastGuestInviteMessage"):
+            is_request = True
+            
+        if not is_request:
+            return
+            
+        if not user_name:
+            return
+            
+        now = time.time()
+        if now - _requests_log.get(user_name, 0) < 10.0:
+            return
+        _requests_log[user_name] = now
+            
+        speak_msg = _t("Guest request: {name}").format(name=user_name)
+        
+        log_line = f"{user_name}  {datetime.datetime.now().strftime('%H:%M:%S')}"
+        with open(REQUESTS_FILE, "a", encoding="utf-8") as f:
+            f.write(log_line + "\n")
+            
+        if PREFS.get("requests", True):
+            log_msg = f"{speak_msg}  {datetime.datetime.now().strftime('%H:%M:%S')}"
+            _log_to_events(log_msg)
+            
+        _handle_speech_and_sound("requests", speak_msg)
+        
+    except Exception as e:
+        pass
 
 def setup():
     _ensure_files_exist()
@@ -753,9 +969,22 @@ def _runner(username, on_connect_cb, on_retry_cb, on_fail_cb, max_attempts=3):
                 from TikTokLive.events import SocialEvent
             except ImportError:
                 SocialEvent = None
+                
+            try:
+                from TikTokLive.events import LinkLayerEvent
+            except ImportError:
+                LinkLayerEvent = None
+
+            try:
+                from TikTokLive.events import LinkMicMethodEvent
+            except ImportError:
+                LinkMicMethodEvent = None
+
+            try:
+                from TikTokLive.events import GuestInviteEvent
+            except ImportError:
+                GuestInviteEvent = None
     except Exception as e:
-        if _console_mode:
-            print(f"Import error: {e}")
         if on_fail_cb:
             on_fail_cb()
         return
@@ -764,37 +993,61 @@ def _runner(username, on_connect_cb, on_retry_cb, on_fail_cb, max_attempts=3):
         try:
             with runtime_scope(_RUNTIME):
                 client = TikTokLiveClient(unique_id=username)
-                client.add_listener(CommentEvent, on_comment)
-                client.add_listener("CommentEvent", on_comment)
+                
+                my_client = client
+                def wrap(func):
+                    async def wrapper(*args, **kwargs):
+                        if globals().get('client') is not my_client:
+                            return
+                        await func(*args, **kwargs)
+                    return wrapper
+
+                client.add_listener(CommentEvent, wrap(on_comment))
+                client.add_listener("CommentEvent", wrap(on_comment))
                 if CommentsEvent:
-                    client.add_listener(CommentsEvent, on_comment)
-                    client.add_listener("CommentsEvent", on_comment)
+                    client.add_listener(CommentsEvent, wrap(on_comment))
+                    client.add_listener("CommentsEvent", wrap(on_comment))
                 if EmoteChatEvent:
-                    client.add_listener(EmoteChatEvent, on_comment)
-                    client.add_listener("EmoteChatEvent", on_comment)
+                    client.add_listener(EmoteChatEvent, wrap(on_comment))
+                    client.add_listener("EmoteChatEvent", wrap(on_comment))
                 if ScreenChatEvent:
-                    client.add_listener(ScreenChatEvent, on_comment)
-                    client.add_listener("ScreenChatEvent", on_comment)
-                client.add_listener(FollowEvent, on_follow)
-                client.add_listener(GiftEvent, on_gift)
-                client.add_listener(LikeEvent, on_like)
-                client.add_listener(DiggEvent, on_digg)
-                client.add_listener(JoinEvent, on_join)
+                    client.add_listener(ScreenChatEvent, wrap(on_comment))
+                    client.add_listener("ScreenChatEvent", wrap(on_comment))
+                client.add_listener(FollowEvent, wrap(on_follow))
+                client.add_listener(GiftEvent, wrap(on_gift))
+                client.add_listener(LikeEvent, wrap(on_like))
+                client.add_listener(DiggEvent, wrap(on_digg))
+                client.add_listener(JoinEvent, wrap(on_join))
                 if ShareEvent:
                     try:
-                        client.add_listener(ShareEvent, on_share)
+                        client.add_listener(ShareEvent, wrap(on_share))
                     except Exception:
                         pass
                 if SocialEvent:
                     try:
-                        client.add_listener(SocialEvent, on_social)
+                        client.add_listener(SocialEvent, wrap(on_social))
                     except Exception:
                         pass
                 if ViewerUpdateEvent:
-                    client.add_listener(ViewerUpdateEvent, on_viewer_update)
+                    client.add_listener(ViewerUpdateEvent, wrap(on_viewer_update))
                 if RoomUserSeqEvent:
-                    client.add_listener(RoomUserSeqEvent, on_viewer_update)
+                    client.add_listener(RoomUserSeqEvent, wrap(on_viewer_update))
+                    
+                if LinkLayerEvent:
+                    client.add_listener(LinkLayerEvent, wrap(on_guest_request))
+                    client.add_listener("LinkLayerEvent", wrap(on_guest_request))
+                if LinkMicMethodEvent:
+                    client.add_listener(LinkMicMethodEvent, wrap(on_guest_request))
+                    client.add_listener("LinkMicMethodEvent", wrap(on_guest_request))
+                if GuestInviteEvent:
+                    client.add_listener(GuestInviteEvent, wrap(on_guest_request))
+                    client.add_listener("GuestInviteEvent", wrap(on_guest_request))
                 
+                client.add_listener("WebcastLinkLayerMessage", wrap(on_guest_request))
+                client.add_listener("WebcastLinkMicMethodMessage", wrap(on_guest_request))
+                client.add_listener("WebcastGuestInviteMessage", wrap(on_guest_request))
+                
+
 
                 async def on_connected(event):
                     nonlocal attempts, connected_once
@@ -807,14 +1060,19 @@ def _runner(username, on_connect_cb, on_retry_cb, on_fail_cb, max_attempts=3):
                         
                 client.add_listener(ConnectEvent, on_connected)
                 
-                if _console_mode:
-                    print(f"Connecting to @{username} (attempt {attempts + 1})...")
-                    
+                global _client_loop
+                import asyncio
+                try:
+                    _client_loop = asyncio.get_event_loop()
+                except RuntimeError:
+                    _client_loop = asyncio.new_event_loop()
+                    asyncio.set_event_loop(_client_loop)
+                
                 client.run()
             
-        except Exception as e:
-            if _console_mode:
-                print(f"Connection error: {e}")
+        except Exception:
+            import traceback
+            pass
         
         if not _should_run:
             break
@@ -830,16 +1088,21 @@ def _runner(username, on_connect_cb, on_retry_cb, on_fail_cb, max_attempts=3):
             break
 
 def connect(username=None, on_connect=None, on_retry=None, on_fail=None, retry_count=3):
-    global _top_thread_started, USERNAME, CLEAN_USERNAMES, _thread, _should_run, _stats_thread, _known_comments
-    global _known_followers, PREFS, AUTO_SPEAK_PREFS, PLAY_SOUNDS, SOUND_VOLUME, _processed_ids, _connection_time
+    global _top_thread_started, USERNAME, CLEAN_USERNAMES, _thread, _should_run, _stats_thread, _known_comments, _known_events
+    global _known_followers, _known_shares, PREFS, AUTO_SPEAK_PREFS, PLAY_SOUNDS, SOUND_VOLUME, _processed_ids, _connection_time
     
     USERNAME, clear_on_start, CLEAN_USERNAMES, PREFS, AUTO_SPEAK_PREFS, PLAY_SOUNDS, SOUND_VOLUME = _load_config()
     sound_manager.set_volume(SOUND_VOLUME)
-    sound_manager.start() # Ensure sound manager is running (fixes restart issue)
+    sound_manager.start()
+    sound_manager.clear()
+    _clear_speech_buffer()
     _known_comments = set()
+    _known_events = set()
     _processed_ids = set()
+    _known_gifts.clear()
     _connection_time = 0
     _known_followers = set()
+    _known_shares = {}
     if not clear_on_start:
         try:
             for ln in COMMENTS_FILE.read_text(encoding="utf-8").splitlines():
@@ -847,10 +1110,15 @@ def connect(username=None, on_connect=None, on_retry=None, on_fail=None, retry_c
                 if ln:
                     parts = ln.rsplit("  ", 1)
                     _known_comments.add(parts[0])
+            if EVENTS_FILE.exists():
+                for ln in EVENTS_FILE.read_text(encoding="utf-8").splitlines():
+                    ln = ln.strip()
+                    if ln:
+                        parts = ln.rsplit("  ", 1)
+                        _known_events.add(parts[0])
         except Exception:
             pass
     final_user = username if username else USERNAME
-    _log_debug(f"Connect called. Username={final_user}")
     
     if not final_user:
         return
@@ -887,7 +1155,11 @@ def disconnect():
     with _run_lock:
         if client:
             try:
-                client.stop()
+                if '_client_loop' in globals() and _client_loop is not None and getattr(client, "connected", False):
+                    if _client_loop.is_running():
+                        _client_loop.call_soon_threadsafe(client.stop)
+                else:
+                    client.stop()
             except Exception:
                 pass
         
@@ -896,12 +1168,19 @@ def disconnect():
         if 'sound_manager' in globals():
             sound_manager.stop()
         
+        old_thread = _thread
         _thread = None
         client = None
+        
+    if old_thread and old_thread.is_alive() and old_thread != threading.current_thread():
+        try:
+            old_thread.join(timeout=3.0)
+        except Exception:
+            pass
 
 if __name__ == "__main__":
     setup()
-    connect(on_connect=lambda: print("Connected!"), on_retry=lambda: print("Retrying..."), on_fail=lambda: print("Failed!"))
+    connect()
     try:
         while True:
             time.sleep(1)

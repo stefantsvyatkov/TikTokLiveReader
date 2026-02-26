@@ -1,0 +1,157 @@
+﻿<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>TikTok Live Reader</title>
+<style>
+body {
+    font-family: Verdana, sans-serif;
+    font-size: 1.2rem;
+    line-height: 1.8;
+    color: #000;
+    max-width: 1000px;
+    margin: 40px auto;
+    padding: 20px;
+}
+ul {
+    margin-bottom: 20px;
+}
+li {
+    margin-bottom: 10px;
+}
+</style>
+</head>
+<body>
+
+<h1 align="center">TikTok Live Reader</h1>
+
+This add-on connects to TikTok Live streams and extracts information from them in real time. It uses the TikTokLive Python library to access a specific live stream. The following features are supported:
+
+<ul>
+<li>Saving extracted data into text files, created in the Documents\TikTok live folder.</li>
+<li>Tracking events: comments, new followers, gifts, likes, shares, visitors, and guest requests.</li>
+<li>An events file that can record multiple types of data simultaneously.</li>
+<li>Audio notifications for selected events, such as new comments, gifts, etc.</li>
+<li>Stream statistics: displays current viewers, total session visitors, total likes, new followers, and diamonds collected.</li>
+<li>Top Gifters leaderboard: ranks users from most active to least active based on diamonds sent.</li>
+<li>Top Likers leaderboard: ranks users based on their total likes during the stream.</li>
+</ul>
+
+TikTok Live Reader allows hosts or viewers to monitor essential stream data without external tools. The data is saved in text files, located in Documents\Tiktok live folder. They can be reviewed later. The add-on extracts the following data types into separate files:
+
+<ul>
+<li>comments.txt - Records all comments detected during the live stream with timestamps.</li>
+<li>followers.txt - Registers all new users who followed the live creator during the current session.</li>
+<li>gifts.txt - Logs all received gifts, reporting the user, gift type, quantity, and timestamp.</li>
+<li>likes.txt - Shows who liked the stream, when, and how many times.</li>
+<li>requests.txt - Registers all join requests sent to the host.</li>
+<li>shares.txt - Records the users who shared the live stream along with the timestamp.</li>
+<li>stats.txt - Shows current viewers, new followers, total likes, session visitors, and total diamonds received.</li>
+<li>top gifts.txt - A leaderboard of users who sent gifts, ranked from most to least active.</li>
+<li>top likes.txt - A leaderboard of users ranked by their total likes.</li>
+<li>visitors.txt - Records all visitors who entered the stream during the current session with timestamps.</li>
+<li>events.txt - Positioned between comments and followers during keyboard navigation, this file logs various event types defined in the settings. The goal is to easily track comments, followers, gifts, likes, requests, shares or visitors in one place.</li>
+</ul>
+
+<h2 align="center">Settings</h2>
+
+TikTok Live Reader has its own settings window, which can be opened with the shortcut NVDA+Shift+Control+L. It contains 3 tabs:
+
+<h3 align="center">General</h3>
+
+This section includes the following settings:
+
+<ul>
+<li>Username - Enter the TikTok host's username without the @ symbol.</li>
+<li>Clear files on startup - Deletes the content of text files when the add-on starts.</li>
+<li>Clean usernames - This option removes unnecessary elements from usernames. Many TikTok users use emojis and Unicode symbols that impede screen readers. When enabled, names are stripped down to only letters, numbers, and punctuation.</li>
+<li>Connection retry count - Defines how many times the add-on should try to connect to the live stream.</li>
+</ul>
+
+<h3 align="center">Events</h3>
+
+This section contains checkboxes to determine which data is recorded in events.txt (Comments, Followers, Gifts, Likes, Requests, Shares, and Visitors). Additional settings:
+
+<ul>
+<li>Play sounds for the selected events - Plays a specific short sound (e.g., for a new comment or gift). This can be toggled with NVDA+Shift+Control+P.</li>
+<li>Volume - Adjusts notification sound levels.</li>
+<li>Learn sounds - Plays a description of the sounds so the users get used to the different audio cues.</li>
+</ul>
+
+<h3 align="center">Auto speak</h3>
+
+This section defines which data is announced when the Auto speak function is enabled. Activate it via NVDA+Shift+Control+S or with the "Auto speak selected events" check box. When it's active, specific events can be selected for automatic reading (e.g., "New follower: Username").
+
+Sounds and messages are played with a one-second pause between them and are stored in temporary files to ensure they are reported in order during high-traffic streams. The sound and auto-speak functions work independently.
+
+<h2 align="center">How to use the add-on</h2>
+
+Press NVDA+Shift+Control+T and the TikTok Live Reader client will try to connect to the user. Connection status is announced automatically. Once connected, the following shortcuts are available:
+
+<ul>
+<li>Control+Shift+Right Arrow - Next file (e.g., Comments, Events, Followers, etc.).</li>
+<li>Control+Shift+Left Arrow - Previous file.</li>
+<li>Control+Shift+Down Arrow - Next item in the current file (e.g., comment, like, share).</li>
+<li>Control+Shift+Up Arrow - Previous item.</li>
+<li>Control+Shift+Home - Select the first item in the current file.</li>
+<li>Control+Shift+End - Select the last item.</li>
+<li>NVDA+Shift+Control+V - Reports current viewers.</li>
+<li>NVDA+Shift+Control+S - Toggles Auto speak on or off.</li>
+<li>NVDA+Shift+Control+P - Toggles sounds on or off.</li>
+<li>NVDA+Shift+Control+R - Clears content of the text and temporary files.</li>
+</ul>
+
+Press NVDA+Shift+Control+T to terminate the add-on session.
+
+<h2 align="center">Notes</h2>
+
+<ul>
+<li>Opening settings temporarily disables auto-speak and sounds, but data logging continues in the background.</li>
+<li>If the username is changed in settings, the add-on attempts to connect to the new user after saving.</li>
+<li>When automatic file clearing on startup is disabled, files will still contain data from the last live stream. If you want to clear them at the beginning of the current session, press NVDA+Shift+Control+R.</li>
+<li>If manual clearing is disabled, the add-on remembers your last position in the files (e.g., line 45 in comments).</li>
+</ul>
+
+<h2 align="center">Limitations</h2>
+
+<ul>
+<li>A full viewer list cannot be shown because the TikTokLive library does not report when a user leaves.</li>
+<li>Ranking by watch time is not possible for the same reason.</li>
+<li>Gift names are reported in English because they are too numerous and update too frequently for viable translation.</li>
+<li>Guest join requests are only registered if the user has interacted with the stream previously. This is because TikTok does not publicly broadcast the names of users who only request to join without other activity.</li>
+</ul>
+
+<h2 align="center">Changelog</h2>
+
+<h3 align="center">Version 1.5</h3>
+
+<ol>
+<li>Stabilized the logic for loading and disabling the add-on.</li>
+<li>Migrated to the NVDA addon template for improved automation and localization.</li>
+<li>Stabilized the logging logic for likes, shares, and follows.</li>
+<li>The Auto speak option is now respected from the add-on. Announcements start 10 seconds after a successful connection.</li>
+<li>The Auto speak tab now dynamically hides event options unless the main function is enabled.</li>
+<li>Fixed a bug where sounds and announcements would play immediately after restart of the add-on.</li>
+<li>Added shortcut NVDA+Shift+Control+P to toggle sounds during an active session.</li>
+<li>Added access keys (Alt + letter) for all settings.</li>
+<li>Optimized the Audio volume slider logic. Its label is now Volume.</li>
+<li>Settings are now saved dynamically. Background logging continues while the settings window is opened.</li>
+<li>Automatic connection to the new user if it's changed in active session.</li>
+<li>Added support for tracking guest join requests. They are saved in requests.txt file.</li>
+<li>A new "Requests" option in settings and a corresponding sound notification for the event.</li>
+<li>Added username field validation: must be at least two characters and can contain only Latin letters, numbers, dots and underscores.</li>
+</ol>
+
+<h2 align="center">Acknowledgements</h2>
+
+<ul>
+<li>Thanks to MuhammadGagah for optimizing the loading logic in an isolated environment and for the Indonesian translation.</li>
+<li>Thanks to Bena Karkova for her great ideas, support, and faith in this project.</li>
+</ul>
+
+<h2 align="center">Final Clarifications</h2>
+
+This add-on was developed with the assistance of language models ChatGPT, Google Gemini, and Claude OPUS 4.6 Thinking. It is distributed under the GNU General Public License 2.0.
+
+</body>
+</html>

@@ -1,0 +1,9 @@
+__pycache__/
+*.py[co]
+*.pyc
+*.pyo
+.sconsign.dblite
+releases/
+.vscode/
+*.nvda-addon
+/[0-9]*.[0-9]*.[0-9]*.json

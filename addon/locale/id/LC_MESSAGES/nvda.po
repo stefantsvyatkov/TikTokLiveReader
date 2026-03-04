@@ -7,7 +7,7 @@ msgstr ""
 "Project-Id-Version: TikTok Live Reader 1.6\n"
 "Report-Msgid-Bugs-To: \n"
 "POT-Creation-Date: 2026-02-14 01:00+0200\n"
-"PO-Revision-Date: 2026-02-26 16:55+0200\n"
+"PO-Revision-Date: 2026-03-04 15:57+0200\n"
 "Last-Translator: Muhammad\n"
 "Language-Team: Indonesian\n"
 "Language: id\n"
@@ -332,3 +332,15 @@ msgstr "TikTok Live Reader memungkinkan pengguna NVDA untuk memantau siaran TikT
 #. Translators: Announced when trying to turn on the add-on or save settings with an invalid username.
 msgid "Please enter a valid username"
 msgstr "Silakan masukkan nama pengguna yang valid"
+
+#. Translators: Settings checkbox and file name label.
+msgid "&Inactivity checks"
+msgstr "Pemeriksaan &ketidakaktifan"
+
+#. Translators: Label for the spinner in settings.
+msgid "Inactivity check sound play c&ount"
+msgstr "Jumlah p&emutaran suara pemeriksaan ketidakaktifan"
+
+#. Translators: Sound label and event log line.
+msgid "Inactivity check"
+msgstr "Pemeriksaan ketidakaktifan"

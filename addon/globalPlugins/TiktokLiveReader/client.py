@@ -319,6 +319,7 @@ _known_followers = set()
 _known_shares = {}
 _processed_ids = set()
 _connection_time = 0
+_last_access_control_time = 0.0
 
 AUTO_SPEAK_PREFS = {}
 PLAY_SOUNDS = True
@@ -397,11 +398,12 @@ def _load_config():
     
     play_sounds = config.getboolean("sounds", "play_sounds", fallback=False)
     volume = config.getint("sounds", "volume", fallback=100)
+    inactivity_sound_count = config.getint("sounds", "inactivity_sound_count", fallback=1)
     
-    return username, clear_on_start, clean_usernames, prefs, auto_speak_prefs, play_sounds, volume
+    return username, clear_on_start, clean_usernames, prefs, auto_speak_prefs, play_sounds, volume, inactivity_sound_count
 
 try:
-    USERNAME, _clear_on_start, CLEAN_USERNAMES, PREFS, AUTO_SPEAK_PREFS, PLAY_SOUNDS, SOUND_VOLUME = _load_config()
+    USERNAME, _clear_on_start, CLEAN_USERNAMES, PREFS, AUTO_SPEAK_PREFS, PLAY_SOUNDS, SOUND_VOLUME, INACTIVITY_SOUND_COUNT = _load_config()
     sound_manager.set_volume(SOUND_VOLUME)
 except Exception:
     USERNAME = ""
@@ -411,9 +413,10 @@ except Exception:
     AUTO_SPEAK_PREFS = {"comments": True}
     PLAY_SOUNDS = True
     SOUND_VOLUME = 100
+    INACTIVITY_SOUND_COUNT = 1
 
-def update_config(username, prefs, auto_speak_prefs, play_sounds, volume, clear_on_start, clean_usernames):
-    global USERNAME, PREFS, AUTO_SPEAK_PREFS, PLAY_SOUNDS, SOUND_VOLUME, _clear_on_start, CLEAN_USERNAMES
+def update_config(username, prefs, auto_speak_prefs, play_sounds, volume, clear_on_start, clean_usernames, inactivity_sound_count=1):
+    global USERNAME, PREFS, AUTO_SPEAK_PREFS, PLAY_SOUNDS, SOUND_VOLUME, _clear_on_start, CLEAN_USERNAMES, INACTIVITY_SOUND_COUNT
     
     if getattr(globals(), 'PLAY_SOUNDS', False) and not play_sounds:
         try:
@@ -429,6 +432,7 @@ def update_config(username, prefs, auto_speak_prefs, play_sounds, volume, clear_
     SOUND_VOLUME = volume
     _clear_on_start = clear_on_start
     CLEAN_USERNAMES = clean_usernames
+    INACTIVITY_SOUND_COUNT = inactivity_sound_count
     sound_manager.set_volume(volume)
 
 def _sanitize_name(name):
@@ -809,6 +813,54 @@ async def on_join(event):
     _handle_speech_and_sound("visitors", msg)
     update_stats_file()
 
+def _trigger_access_control_logic(is_test=False):
+    global _last_access_control_time
+    if not _should_run and not is_test:
+        return
+        
+    now = time.time()
+    if (now - _last_access_control_time < 5.0) and not is_test:
+        return
+    _last_access_control_time = now
+        
+    speak_msg = _t("Inactivity check")
+    log_line = f"{speak_msg}  {datetime.datetime.now().strftime('%H:%M:%S')}"
+    
+    if PREFS.get("captcha", False) or is_test:
+        _log_to_events(log_line)
+        
+    if SETTINGS_OPEN and not is_test:
+        return
+        
+    sound_enabled = PLAY_SOUNDS and PREFS.get("captcha", False)
+    speech_enabled = AUTO_SPEAK_PREFS.get("captcha", False)
+    
+    if is_test:
+        sound_enabled = True
+        speech_enabled = True
+    
+    if (_connection_time == 0 or (time.time() - _connection_time) < 10.0) and not is_test:
+        sound_enabled = False
+        speech_enabled = False
+
+    if sound_enabled or speech_enabled:
+        cb = None
+        if speech_enabled:
+            def _on_complete():
+                _speak_text(speak_msg)
+            cb = _on_complete
+            
+        if sound_enabled:
+            for i in range(INACTIVITY_SOUND_COUNT):
+                is_last = (i == INACTIVITY_SOUND_COUNT - 1)
+                sound_manager.play("captcha", play_file=True, on_complete=cb if is_last else None, post_delay=1.0)
+        else:
+            if cb:
+                sound_manager.play("captcha", play_file=False, on_complete=cb, post_delay=0.0)
+
+async def on_access_control(event):
+    _trigger_access_control_logic(is_test=False)
+
 async def on_viewer_update(event):
     if not _should_run:
         return
@@ -940,7 +992,7 @@ def _runner(username, on_connect_cb, on_retry_cb, on_fail_cb, max_attempts=3):
     try:
         with runtime_scope(_RUNTIME):
             from TikTokLive import TikTokLiveClient
-            from TikTokLive.events import CommentEvent, FollowEvent, GiftEvent, LikeEvent, DiggEvent, JoinEvent, ConnectEvent
+            from TikTokLive.events import CommentEvent, FollowEvent, GiftEvent, LikeEvent, DiggEvent, JoinEvent, ConnectEvent, AccessControlEvent, ControlEvent
             try:
                 from TikTokLive.events import CommentsEvent
             except ImportError:
@@ -1018,6 +1070,10 @@ def _runner(username, on_connect_cb, on_retry_cb, on_fail_cb, max_attempts=3):
                 client.add_listener(LikeEvent, wrap(on_like))
                 client.add_listener(DiggEvent, wrap(on_digg))
                 client.add_listener(JoinEvent, wrap(on_join))
+                client.add_listener(AccessControlEvent, wrap(on_access_control))
+                client.add_listener("AccessControlEvent", wrap(on_access_control))
+                client.add_listener(ControlEvent, wrap(on_access_control))
+                client.add_listener("ControlEvent", wrap(on_access_control))
                 if ShareEvent:
                     try:
                         client.add_listener(ShareEvent, wrap(on_share))
@@ -1089,9 +1145,9 @@ def _runner(username, on_connect_cb, on_retry_cb, on_fail_cb, max_attempts=3):
 
 def connect(username=None, on_connect=None, on_retry=None, on_fail=None, retry_count=3):
     global _top_thread_started, USERNAME, CLEAN_USERNAMES, _thread, _should_run, _stats_thread, _known_comments, _known_events
-    global _known_followers, _known_shares, PREFS, AUTO_SPEAK_PREFS, PLAY_SOUNDS, SOUND_VOLUME, _processed_ids, _connection_time
+    global _known_followers, _known_shares, PREFS, AUTO_SPEAK_PREFS, PLAY_SOUNDS, SOUND_VOLUME, INACTIVITY_SOUND_COUNT, _processed_ids, _connection_time
     
-    USERNAME, clear_on_start, CLEAN_USERNAMES, PREFS, AUTO_SPEAK_PREFS, PLAY_SOUNDS, SOUND_VOLUME = _load_config()
+    USERNAME, clear_on_start, CLEAN_USERNAMES, PREFS, AUTO_SPEAK_PREFS, PLAY_SOUNDS, SOUND_VOLUME, INACTIVITY_SOUND_COUNT = _load_config()
     sound_manager.set_volume(SOUND_VOLUME)
     sound_manager.start()
     sound_manager.clear()

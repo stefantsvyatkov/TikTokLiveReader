@@ -163,10 +163,10 @@ class GlobalPlugin(NVDA_GlobalPlugin):
         self.speech_manager = SpeechManager(self)
         self.currentFileIndex = 0
         self.filePositions = {i: -1 for i in range(len(FILES))}
-        self.username, self.prefs, self.auto_speak_prefs, self.clearOnStart, self.cleanUsernames, self.retryCount, self.playSounds, self.soundVolume, self.autoSpeak = self._load_config()
+        self.username, self.prefs, self.auto_speak_prefs, self.clearOnStart, self.cleanUsernames, self.retryCount, self.playSounds, self.soundVolume, self.autoSpeak, self.inactivitySoundCount = self._load_config()
         self.autoSpeakDelay = 1.0
         
-        client.update_config(self.username, self.prefs, self.auto_speak_prefs, self.playSounds, self.soundVolume, self.clearOnStart, self.cleanUsernames)
+        client.update_config(self.username, self.prefs, self.auto_speak_prefs, self.playSounds, self.soundVolume, self.clearOnStart, self.cleanUsernames, self.inactivitySoundCount)
 
         if not self.clearOnStart:
             self._load_positions_json()
@@ -221,6 +221,7 @@ class GlobalPlugin(NVDA_GlobalPlugin):
                 cfg.get("main", "username", fallback=""),
                 {
                     "comments": cfg.getboolean("events", "comments", fallback=True),
+                    "captcha": cfg.getboolean("events", "captcha", fallback=False),
                     "followers": cfg.getboolean("events", "followers", fallback=False),
                     "gifts": cfg.getboolean("events", "gifts", fallback=False),
                     "likes": cfg.getboolean("events", "likes", fallback=False),
@@ -229,6 +230,7 @@ class GlobalPlugin(NVDA_GlobalPlugin):
                 },
                 {
                     "comments": cfg.getboolean("auto_speak", "comments", fallback=True),
+                    "captcha": cfg.getboolean("auto_speak", "captcha", fallback=False),
                     "followers": cfg.getboolean("auto_speak", "followers", fallback=False),
                     "gifts": cfg.getboolean("auto_speak", "gifts", fallback=False),
                     "likes": cfg.getboolean("auto_speak", "likes", fallback=False),
@@ -240,13 +242,14 @@ class GlobalPlugin(NVDA_GlobalPlugin):
                 cfg.getint("behavior", "retry_count", fallback=3),
                 cfg.getboolean("sounds", "play_sounds", fallback=False),
                 cfg.getint("sounds", "volume", fallback=100),
-                cfg.getboolean("auto_speak", "enabled", fallback=False), 
+                cfg.getboolean("auto_speak", "enabled", fallback=False),
+                cfg.getint("sounds", "inactivity_sound_count", fallback=1),
             )
         except Exception as e:
 
-            return ("", {}, {}, True, False, 3, False, 100, False)
+            return ("", {}, {}, True, False, 3, False, 100, False, 1)
 
-    def _save_config(self, username, prefs, auto_speak_prefs, clear_on_start, clean_usernames, retry_count, play_sounds, volume):
+    def _save_config(self, username, prefs, auto_speak_prefs, clear_on_start, clean_usernames, retry_count, play_sounds, volume, inactivity_sound_count):
         cfg = configparser.ConfigParser()
         cfg["main"] = {"username": username}
         cfg["events"] = {k: "true" if v else "false" for k, v in prefs.items()}
@@ -259,7 +262,8 @@ class GlobalPlugin(NVDA_GlobalPlugin):
         }
         cfg["sounds"] = {
             "play_sounds": "true" if play_sounds else "false",
-            "volume": str(volume)
+            "volume": str(volume),
+            "inactivity_sound_count": str(inactivity_sound_count)
         }
         with open(CONFIG_FILE, "w", encoding="utf-8") as f:
             cfg.write(f)
@@ -271,8 +275,9 @@ class GlobalPlugin(NVDA_GlobalPlugin):
         self.retryCount = retry_count
         self.playSounds = play_sounds
         self.soundVolume = volume
+        self.inactivitySoundCount = inactivity_sound_count
         
-        client.update_config(self.username, self.prefs, self.auto_speak_prefs, self.playSounds, self.soundVolume, self.clearOnStart, self.cleanUsernames)
+        client.update_config(self.username, self.prefs, self.auto_speak_prefs, self.playSounds, self.soundVolume, self.clearOnStart, self.cleanUsernames, self.inactivitySoundCount)
 
     def _load_positions_json(self):
         try:
@@ -425,7 +430,8 @@ class GlobalPlugin(NVDA_GlobalPlugin):
             self.cleanUsernames, 
             self.retryCount, 
             self.playSounds,
-            self.soundVolume
+            self.soundVolume,
+            self.inactivitySoundCount
         )
         
         if self.autoSpeak:
@@ -457,10 +463,11 @@ class GlobalPlugin(NVDA_GlobalPlugin):
             self.cleanUsernames, 
             self.retryCount, 
             self.playSounds,
-            self.soundVolume
+            self.soundVolume,
+            self.inactivitySoundCount
         )
         
-        client.update_config(self.username, self.prefs, self.auto_speak_prefs, self.playSounds, self.soundVolume, self.clearOnStart, self.cleanUsernames)
+        client.update_config(self.username, self.prefs, self.auto_speak_prefs, self.playSounds, self.soundVolume, self.clearOnStart, self.cleanUsernames, self.inactivitySoundCount)
         
         if self.playSounds:
             # Translators: Announced when sounds are enabled.
@@ -532,6 +539,7 @@ class GlobalPlugin(NVDA_GlobalPlugin):
         chk_ev_requests = wx.CheckBox(p_events, label=_("&Requests"))
         chk_ev_shares = wx.CheckBox(p_events, label=_("&Shares"))
         chk_ev_visitors = wx.CheckBox(p_events, label=_("&Visitors"))
+        chk_ev_inactivity = wx.CheckBox(p_events, label=_("&Inactivity checks"))
 
         chk_ev_comments.SetValue(self.prefs.get("comments", True))
         chk_ev_requests.SetValue(self.prefs.get("requests", True))
@@ -540,8 +548,9 @@ class GlobalPlugin(NVDA_GlobalPlugin):
         chk_ev_likes.SetValue(self.prefs.get("likes", False))
         chk_ev_shares.SetValue(self.prefs.get("shares", False))
         chk_ev_visitors.SetValue(self.prefs.get("visitors", False))
+        chk_ev_inactivity.SetValue(self.prefs.get("captcha", False))
 
-        for chk in [chk_ev_comments, chk_ev_followers, chk_ev_gifts, chk_ev_likes, chk_ev_requests, chk_ev_shares, chk_ev_visitors]:
+        for chk in [chk_ev_comments, chk_ev_followers, chk_ev_gifts, chk_ev_likes, chk_ev_requests, chk_ev_shares, chk_ev_visitors, chk_ev_inactivity]:
             s_events.Add(chk, flag=wx.ALL, border=5)
 
         s_events.Add(wx.StaticLine(p_events), flag=wx.EXPAND|wx.ALL, border=5)
@@ -556,7 +565,7 @@ class GlobalPlugin(NVDA_GlobalPlugin):
         slider_volume = wx.Slider(p_events, value=self.soundVolume, minValue=0, maxValue=100, style=wx.SL_HORIZONTAL, name=_("V&olume"))
         s_events.Add(lbl_volume, flag=wx.ALL, border=5)
         s_events.Add(slider_volume, flag=wx.EXPAND | wx.ALL, border=5)
-
+        
         # Translators: Button to learn sounds.
         btn_learn = wx.Button(p_events, label=_("L&earn sounds"))
         
@@ -564,11 +573,22 @@ class GlobalPlugin(NVDA_GlobalPlugin):
         self._stop_learning = threading.Event()
 
         s_events.Add(btn_learn, flag=wx.ALL, border=5)
+        
+        lbl_inactivity_count = wx.StaticText(p_events, label=_("Inactivity check sound play c&ount"))
+        spin_inactivity_count = wx.SpinCtrl(p_events, value=str(self.inactivitySoundCount), min=1, max=5)
+        s_events.Add(lbl_inactivity_count, flag=wx.ALL, border=5)
+        s_events.Add(spin_inactivity_count, flag=wx.ALL, border=5)
 
         def on_toggle_sounds(evt):
             is_checked = chk_play_sounds.IsChecked()
             slider_volume.Enable(is_checked)
             lbl_volume.Enable(is_checked)
+            
+            # Sound play count requires both Play Sounds and Inactivity Checks to be enabled
+            inactivity_checked = chk_ev_inactivity.IsChecked()
+            lbl_inactivity_count.Enable(is_checked and inactivity_checked)
+            spin_inactivity_count.Enable(is_checked and inactivity_checked)
+            
             btn_learn.Enable(is_checked)
             if not is_checked and self._learning_thread and self._learning_thread.is_alive():
                 self._stop_learning.set()
@@ -579,6 +599,7 @@ class GlobalPlugin(NVDA_GlobalPlugin):
             client.sound_manager.set_volume(vol)
             
         chk_play_sounds.Bind(wx.EVT_CHECKBOX, on_toggle_sounds)
+        chk_ev_inactivity.Bind(wx.EVT_CHECKBOX, on_toggle_sounds)
         slider_volume.Bind(wx.EVT_SLIDER, on_volume_change)
         
         on_toggle_sounds(None)
@@ -612,6 +633,7 @@ class GlobalPlugin(NVDA_GlobalPlugin):
                          (_("Guest request"), "requests"),
                          (_("Sharing"), "shares"),
                          (_("Visitor"), "visitors"),
+                         (_("Inactivity check"), "captcha")
                      ]
                      
                      client.sound_manager.set_volume(vol)
@@ -622,7 +644,10 @@ class GlobalPlugin(NVDA_GlobalPlugin):
                          
                          ui.message(label)
                          
-                         for _i in range(10):
+                         wait_time = 2.0 if event_key in ("requests", "captcha") else 1.0
+                         iters = int(wait_time * 10)
+                         
+                         for _i in range(iters):
                              if self._stop_learning.is_set():
                                  break
                              time.sleep(0.1)
@@ -675,6 +700,7 @@ class GlobalPlugin(NVDA_GlobalPlugin):
         chk_as_requests = wx.CheckBox(p_autospeak, label=_("&Requests"))
         chk_as_shares = wx.CheckBox(p_autospeak, label=_("&Shares"))
         chk_as_visitors = wx.CheckBox(p_autospeak, label=_("&Visitors"))
+        chk_as_inactivity = wx.CheckBox(p_autospeak, label=_("&Inactivity checks"))
 
         chk_as_comments.SetValue(self.auto_speak_prefs.get("comments", True))
         chk_as_requests.SetValue(self.auto_speak_prefs.get("requests", True))
@@ -683,8 +709,9 @@ class GlobalPlugin(NVDA_GlobalPlugin):
         chk_as_likes.SetValue(self.auto_speak_prefs.get("likes", False))
         chk_as_shares.SetValue(self.auto_speak_prefs.get("shares", False))
         chk_as_visitors.SetValue(self.auto_speak_prefs.get("visitors", False))
+        chk_as_inactivity.SetValue(self.auto_speak_prefs.get("captcha", False))
 
-        sub_chks = [chk_as_comments, chk_as_followers, chk_as_gifts, chk_as_likes, chk_as_requests, chk_as_shares, chk_as_visitors]
+        sub_chks = [chk_as_comments, chk_as_followers, chk_as_gifts, chk_as_likes, chk_as_requests, chk_as_shares, chk_as_visitors, chk_as_inactivity]
         for chk in sub_chks:
             s_autospeak.Add(chk, flag=wx.ALL, border=5)
 
@@ -752,6 +779,7 @@ class GlobalPlugin(NVDA_GlobalPlugin):
             self.autoSpeak = chk_auto_speak.IsChecked()
             
             prefs = {
+                "captcha": chk_ev_inactivity.IsChecked(),
                 "comments": chk_ev_comments.IsChecked(),
                 "followers": chk_ev_followers.IsChecked(),
                 "gifts": chk_ev_gifts.IsChecked(),
@@ -761,6 +789,7 @@ class GlobalPlugin(NVDA_GlobalPlugin):
                 "visitors": chk_ev_visitors.IsChecked(),
             }
             auto_speak_prefs = {
+                "captcha": chk_as_inactivity.IsChecked(),
                 "comments": chk_as_comments.IsChecked(),
                 "followers": chk_as_followers.IsChecked(),
                 "gifts": chk_as_gifts.IsChecked(),
@@ -778,7 +807,8 @@ class GlobalPlugin(NVDA_GlobalPlugin):
                 chk_strip.IsChecked(), 
                 spin_retry.GetValue(), 
                 chk_play_sounds.IsChecked(),
-                slider_volume.GetValue()
+                slider_volume.GetValue(),
+                spin_inactivity_count.GetValue()
             )
             
             new_username = txt_user.GetValue().strip().lstrip('@')

@@ -7,7 +7,7 @@ msgstr ""
 "Project-Id-Version: TikTok Live Reader 1.6\n"
 "Report-Msgid-Bugs-To: \n"
 "POT-Creation-Date: 2026-02-14 01:00+0200\n"
-"PO-Revision-Date: 2026-02-26 16:55+0200\n"
+"PO-Revision-Date: 2026-03-04 16:18+0200\n"
 "Last-Translator: Stefan Tsvyatkov\n"
 "Language-Team: Bulgarian\n"
 "Language: bg\n"
@@ -328,3 +328,15 @@ msgstr "TikTok Live Reader позволява проследяването на 
 #. Translators: Announced when trying to turn on the add-on or save settings with an invalid username.
 msgid "Please enter a valid username"
 msgstr "Въведете валидно потребителско име"
+
+#. Translators: Settings checkbox and file name label.
+msgid "&Inactivity checks"
+msgstr "Проверки за &липса на активност"
+
+#. Translators: Label for the spinner in settings.
+msgid "Inactivity check sound play c&ount"
+msgstr "П&овторения на звука при проверка за активност"
+
+#. Translators: Sound label and event log line.
+msgid "Inactivity check"
+msgstr "Проверка за липса на активност"

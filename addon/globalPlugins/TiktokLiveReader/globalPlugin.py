@@ -163,10 +163,10 @@ class GlobalPlugin(NVDA_GlobalPlugin):
         self.speech_manager = SpeechManager(self)
         self.currentFileIndex = 0
         self.filePositions = {i: -1 for i in range(len(FILES))}
-        self.username, self.prefs, self.auto_speak_prefs, self.clearOnStart, self.cleanUsernames, self.retryCount, self.playSounds, self.soundVolume, self.autoSpeak = self._load_config()
+        self.username, self.prefs, self.auto_speak_prefs, self.sound_prefs, self.clearOnStart, self.cleanUsernames, self.retryCount, self.playSounds, self.soundVolume, self.autoSpeak = self._load_config()
         self.autoSpeakDelay = 1.0
         
-        client.update_config(self.username, self.prefs, self.auto_speak_prefs, self.playSounds, self.soundVolume, self.clearOnStart, self.cleanUsernames)
+        client.update_config(self.username, self.prefs, self.auto_speak_prefs, self.sound_prefs, self.playSounds, self.soundVolume, self.clearOnStart, self.cleanUsernames)
 
         if not self.clearOnStart:
             self._load_positions_json()
@@ -184,7 +184,6 @@ class GlobalPlugin(NVDA_GlobalPlugin):
             if "main" not in cfg:
                 cfg["main"] = {"username": ""}
                 
-            
             if "events" not in cfg:
                 if "auto_read" in cfg:
                     cfg["events"] = cfg["auto_read"]
@@ -196,7 +195,10 @@ class GlobalPlugin(NVDA_GlobalPlugin):
                         "likes": "false",
                         "shares": "false",
                         "visitors": "false",
+                        "requests": "true",
                     }
+            elif "requests" not in cfg["events"]:
+                cfg["events"]["requests"] = "true"
     
             if "auto_speak" not in cfg:
                 cfg["auto_speak"] = {
@@ -206,6 +208,20 @@ class GlobalPlugin(NVDA_GlobalPlugin):
                     "likes": "false",
                     "shares": "false",
                     "visitors": "false",
+                    "requests": "true",
+                }
+            elif "requests" not in cfg["auto_speak"]:
+                cfg["auto_speak"]["requests"] = "true"
+                
+            if "sound_events" not in cfg:
+                cfg["sound_events"] = {
+                    "comments": "true",
+                    "followers": "false",
+                    "gifts": "false",
+                    "likes": "false",
+                    "shares": "false",
+                    "visitors": "false",
+                    "requests": "true",
                 }
     
             if "behavior" not in cfg:
@@ -224,6 +240,7 @@ class GlobalPlugin(NVDA_GlobalPlugin):
                     "followers": cfg.getboolean("events", "followers", fallback=False),
                     "gifts": cfg.getboolean("events", "gifts", fallback=False),
                     "likes": cfg.getboolean("events", "likes", fallback=False),
+                    "requests": cfg.getboolean("events", "requests", fallback=True),
                     "shares": cfg.getboolean("events", "shares", fallback=False),
                     "visitors": cfg.getboolean("events", "visitors", fallback=False),
                 },
@@ -232,8 +249,18 @@ class GlobalPlugin(NVDA_GlobalPlugin):
                     "followers": cfg.getboolean("auto_speak", "followers", fallback=False),
                     "gifts": cfg.getboolean("auto_speak", "gifts", fallback=False),
                     "likes": cfg.getboolean("auto_speak", "likes", fallback=False),
+                    "requests": cfg.getboolean("auto_speak", "requests", fallback=True),
                     "shares": cfg.getboolean("auto_speak", "shares", fallback=False),
                     "visitors": cfg.getboolean("auto_speak", "visitors", fallback=False),
+                },
+                {
+                    "comments": cfg.getboolean("sound_events", "comments", fallback=True),
+                    "followers": cfg.getboolean("sound_events", "followers", fallback=False),
+                    "gifts": cfg.getboolean("sound_events", "gifts", fallback=False),
+                    "likes": cfg.getboolean("sound_events", "likes", fallback=False),
+                    "requests": cfg.getboolean("sound_events", "requests", fallback=True),
+                    "shares": cfg.getboolean("sound_events", "shares", fallback=False),
+                    "visitors": cfg.getboolean("sound_events", "visitors", fallback=False),
                 },
                 cfg.getboolean("behavior", "clear_on_start", fallback=True),
                 cfg.getboolean("behavior", "clean_usernames", fallback=False),
@@ -243,15 +270,15 @@ class GlobalPlugin(NVDA_GlobalPlugin):
                 cfg.getboolean("auto_speak", "enabled", fallback=False), 
             )
         except Exception as e:
+            return ("", {}, {}, {}, True, False, 3, False, 100, False)
 
-            return ("", {}, {}, True, False, 3, False, 100, False)
-
-    def _save_config(self, username, prefs, auto_speak_prefs, clear_on_start, clean_usernames, retry_count, play_sounds, volume):
+    def _save_config(self, username, prefs, auto_speak_prefs, sound_prefs, clear_on_start, clean_usernames, retry_count, play_sounds, volume):
         cfg = configparser.ConfigParser()
         cfg["main"] = {"username": username}
         cfg["events"] = {k: "true" if v else "false" for k, v in prefs.items()}
         cfg["auto_speak"] = {k: "true" if v else "false" for k, v in auto_speak_prefs.items()}
         cfg["auto_speak"]["enabled"] = "true" if self.autoSpeak else "false"
+        cfg["sound_events"] = {k: "true" if v else "false" for k, v in sound_prefs.items()}
         cfg["behavior"] = {
             "clear_on_start": "true" if clear_on_start else "false",
             "clean_usernames": "true" if clean_usernames else "false",
@@ -266,13 +293,14 @@ class GlobalPlugin(NVDA_GlobalPlugin):
         self.username = username
         self.prefs = prefs
         self.auto_speak_prefs = auto_speak_prefs
+        self.sound_prefs = sound_prefs
         self.clearOnStart = clear_on_start
         self.cleanUsernames = clean_usernames
         self.retryCount = retry_count
         self.playSounds = play_sounds
         self.soundVolume = volume
         
-        client.update_config(self.username, self.prefs, self.auto_speak_prefs, self.playSounds, self.soundVolume, self.clearOnStart, self.cleanUsernames)
+        client.update_config(self.username, self.prefs, self.auto_speak_prefs, self.sound_prefs, self.playSounds, self.soundVolume, self.clearOnStart, self.cleanUsernames)
 
     def _load_positions_json(self):
         try:
@@ -421,6 +449,7 @@ class GlobalPlugin(NVDA_GlobalPlugin):
             self.username, 
             self.prefs, 
             self.auto_speak_prefs,
+            self.sound_prefs,
             self.clearOnStart, 
             self.cleanUsernames, 
             self.retryCount, 
@@ -453,6 +482,7 @@ class GlobalPlugin(NVDA_GlobalPlugin):
             self.username, 
             self.prefs, 
             self.auto_speak_prefs,
+            self.sound_prefs,
             self.clearOnStart, 
             self.cleanUsernames, 
             self.retryCount, 
@@ -460,7 +490,7 @@ class GlobalPlugin(NVDA_GlobalPlugin):
             self.soundVolume
         )
         
-        client.update_config(self.username, self.prefs, self.auto_speak_prefs, self.playSounds, self.soundVolume, self.clearOnStart, self.cleanUsernames)
+        client.update_config(self.username, self.prefs, self.auto_speak_prefs, self.sound_prefs, self.playSounds, self.soundVolume, self.clearOnStart, self.cleanUsernames)
         
         if self.playSounds:
             # Translators: Announced when sounds are enabled.
@@ -498,6 +528,7 @@ class GlobalPlugin(NVDA_GlobalPlugin):
         p_general = wx.Panel(nb)
         p_events = wx.Panel(nb)
         p_autospeak = wx.Panel(nb)
+        p_sounds = wx.Panel(nb)
 
         s_general = wx.BoxSizer(wx.VERTICAL)
         
@@ -543,33 +574,64 @@ class GlobalPlugin(NVDA_GlobalPlugin):
 
         for chk in [chk_ev_comments, chk_ev_followers, chk_ev_gifts, chk_ev_likes, chk_ev_requests, chk_ev_shares, chk_ev_visitors]:
             s_events.Add(chk, flag=wx.ALL, border=5)
+        p_events.SetSizer(s_events)
 
-        s_events.Add(wx.StaticLine(p_events), flag=wx.EXPAND|wx.ALL, border=5)
-
+        s_sounds = wx.BoxSizer(wx.VERTICAL)
         # Translators: Checkbox to enable playing sounds for selected events.
-        chk_play_sounds = wx.CheckBox(p_events, label=_("&Play sounds for the selected events"))
+        chk_play_sounds = wx.CheckBox(p_sounds, label=_("&Play sounds for the selected events"))
         chk_play_sounds.SetValue(self.playSounds)
-        s_events.Add(chk_play_sounds, flag=wx.ALL, border=5)
+        s_sounds.Add(chk_play_sounds, flag=wx.ALL, border=5)
+
+        sl_s1 = wx.StaticLine(p_sounds)
+        s_sounds.Add(sl_s1, flag=wx.EXPAND|wx.ALL, border=5)
+
+        chk_s_comments = wx.CheckBox(p_sounds, label=_("&Comments"))
+        chk_s_followers = wx.CheckBox(p_sounds, label=_("&Followers"))
+        chk_s_gifts = wx.CheckBox(p_sounds, label=_("&Gifts"))
+        chk_s_likes = wx.CheckBox(p_sounds, label=_("&Likes"))
+        chk_s_requests = wx.CheckBox(p_sounds, label=_("&Requests"))
+        chk_s_shares = wx.CheckBox(p_sounds, label=_("&Shares"))
+        chk_s_visitors = wx.CheckBox(p_sounds, label=_("&Visitors"))
+
+        chk_s_comments.SetValue(self.sound_prefs.get("comments", True))
+        chk_s_requests.SetValue(self.sound_prefs.get("requests", True))
+        chk_s_followers.SetValue(self.sound_prefs.get("followers", False))
+        chk_s_gifts.SetValue(self.sound_prefs.get("gifts", False))
+        chk_s_likes.SetValue(self.sound_prefs.get("likes", False))
+        chk_s_shares.SetValue(self.sound_prefs.get("shares", False))
+        chk_s_visitors.SetValue(self.sound_prefs.get("visitors", False))
+
+        sound_sub_chks = [chk_s_comments, chk_s_followers, chk_s_gifts, chk_s_likes, chk_s_requests, chk_s_shares, chk_s_visitors]
+        for chk in sound_sub_chks:
+            s_sounds.Add(chk, flag=wx.ALL, border=5)
+
+        sl_s2 = wx.StaticLine(p_sounds)
+        s_sounds.Add(sl_s2, flag=wx.EXPAND|wx.ALL, border=5)
 
         # Translators: Label for volume slider.
-        lbl_volume = wx.StaticText(p_events, label=_("V&olume"))
-        slider_volume = wx.Slider(p_events, value=self.soundVolume, minValue=0, maxValue=100, style=wx.SL_HORIZONTAL, name=_("V&olume"))
-        s_events.Add(lbl_volume, flag=wx.ALL, border=5)
-        s_events.Add(slider_volume, flag=wx.EXPAND | wx.ALL, border=5)
+        lbl_volume = wx.StaticText(p_sounds, label=_("V&olume"))
+        slider_volume = wx.Slider(p_sounds, value=self.soundVolume, minValue=0, maxValue=100, style=wx.SL_HORIZONTAL, name=_("V&olume"))
+        s_sounds.Add(lbl_volume, flag=wx.ALL, border=5)
+        s_sounds.Add(slider_volume, flag=wx.EXPAND | wx.ALL, border=5)
 
         # Translators: Button to learn sounds.
-        btn_learn = wx.Button(p_events, label=_("L&earn sounds"))
+        btn_learn = wx.Button(p_sounds, label=_("L&earn sounds"))
         
         self._learning_thread = None
         self._stop_learning = threading.Event()
 
-        s_events.Add(btn_learn, flag=wx.ALL, border=5)
+        s_sounds.Add(btn_learn, flag=wx.ALL, border=5)
 
         def on_toggle_sounds(evt):
             is_checked = chk_play_sounds.IsChecked()
-            slider_volume.Enable(is_checked)
-            lbl_volume.Enable(is_checked)
-            btn_learn.Enable(is_checked)
+            sl_s1.Show(is_checked)
+            for chk in sound_sub_chks:
+                chk.Show(is_checked)
+            sl_s2.Show(is_checked)
+            lbl_volume.Show(is_checked)
+            slider_volume.Show(is_checked)
+            btn_learn.Show(is_checked)
+            p_sounds.Layout()
             if not is_checked and self._learning_thread and self._learning_thread.is_alive():
                 self._stop_learning.set()
                 btn_learn.SetLabel(_("L&earn sounds"))
@@ -585,77 +647,77 @@ class GlobalPlugin(NVDA_GlobalPlugin):
 
         def on_learn_sounds(evt):
              if self._learning_thread and self._learning_thread.is_alive():
-                 self._stop_learning.set()
-                 btn_learn.SetLabel(_("L&earn sounds"))
-                 return
+                  self._stop_learning.set()
+                  btn_learn.SetLabel(_("L&earn sounds"))
+                  return
 
              self._stop_learning.clear()
              btn_learn.SetLabel(_("St&op"))
 
              try:
-                 initial_vol = slider_volume.GetValue()
+                  initial_vol = slider_volume.GetValue()
              except Exception:
-                 initial_vol = 100
+                  initial_vol = 100
 
              def _learner(vol):
-                 try:
-                     for _wait_step in range(20):
-                         if self._stop_learning.is_set():
-                             return
-                         time.sleep(0.1)
-                         
-                     sequence = [
-                         (_("Comment"), "comments"),
-                         (_("Follower"), "followers"),
-                         (_("Gift"), "gifts"),
-                         (_("Like"), "likes"),
-                         (_("Guest request"), "requests"),
-                         (_("Sharing"), "shares"),
-                         (_("Visitor"), "visitors"),
-                     ]
-                     
-                     client.sound_manager.set_volume(vol)
-                     
-                     for label, event_key in sequence:
-                         if self._stop_learning.is_set():
-                             break
-                         
-                         ui.message(label)
-                         
-                         for _i in range(10):
-                             if self._stop_learning.is_set():
-                                 break
-                             time.sleep(0.1)
-                         
-                         if self._stop_learning.is_set():
-                             break
+                  try:
+                      for _wait_step in range(20):
+                          if self._stop_learning.is_set():
+                              return
+                          time.sleep(0.1)
+                          
+                      sequence = [
+                          (_("Comment"), "comments"),
+                          (_("Follower"), "followers"),
+                          (_("Gift"), "gifts"),
+                          (_("Like"), "likes"),
+                          (_("Guest request"), "requests"),
+                          (_("Sharing"), "shares"),
+                          (_("Visitor"), "visitors"),
+                      ]
+                      
+                      client.sound_manager.set_volume(vol)
+                      
+                      for label, event_key in sequence:
+                          if self._stop_learning.is_set():
+                              break
+                          
+                          ui.message(label)
+                          
+                          for _i in range(10):
+                              if self._stop_learning.is_set():
+                                  break
+                              time.sleep(0.1)
+                          
+                          if self._stop_learning.is_set():
+                              break
 
-                         done = threading.Event()
-                         client.sound_manager.play(event_key, play_file=True, post_delay=0.0, on_complete=lambda d=done: d.set())
-                         
-                         start_wait = time.time()
-                         while not done.is_set():
-                             if self._stop_learning.is_set():
-                                 break
-                             if time.time() - start_wait > 5.0:
-                                 break
-                             time.sleep(0.1)
-                         
-                         if self._stop_learning.is_set():
-                             break
+                          done = threading.Event()
+                          client.sound_manager.play(event_key, play_file=True, post_delay=0.0, on_complete=lambda d=done: d.set())
+                          
+                          start_wait = time.time()
+                          while not done.is_set():
+                              if self._stop_learning.is_set():
+                                  break
+                              if time.time() - start_wait > 5.0:
+                                  break
+                              time.sleep(0.1)
+                          
+                          if self._stop_learning.is_set():
+                              break
 
-                         time.sleep(0.5)
-                 
-                 except Exception:
-                     pass
-                 finally:
-                     wx.CallAfter(btn_learn.SetLabel, _("L&earn sounds"))
-                     
+                          time.sleep(0.5)
+                  
+                  except Exception:
+                      pass
+                  finally:
+                      wx.CallAfter(btn_learn.SetLabel, _("L&earn sounds"))
+                      
              self._learning_thread = threading.Thread(target=_learner, args=(initial_vol,), daemon=True)
              self._learning_thread.start()
 
         btn_learn.Bind(wx.EVT_BUTTON, on_learn_sounds)
-        p_events.SetSizer(s_events)
+        p_sounds.SetSizer(s_sounds)
 
         s_autospeak = wx.BoxSizer(wx.VERTICAL)
         # Translators: Checkbox to enable automatic speaking for selected events.
@@ -710,6 +772,8 @@ class GlobalPlugin(NVDA_GlobalPlugin):
         nb.AddPage(p_events, _("Events"))
         # Translators: Tab name in settings dialog.
         nb.AddPage(p_autospeak, _("Auto speak"))
+        # Translators: Tab name in settings dialog.
+        nb.AddPage(p_sounds, _("Sounds"))
 
         topsizer = wx.BoxSizer(wx.VERTICAL)
         topsizer.Add(nb, 1, wx.EXPAND | wx.ALL, 5)
@@ -769,11 +833,21 @@ class GlobalPlugin(NVDA_GlobalPlugin):
                 "shares": chk_as_shares.IsChecked(),
                 "visitors": chk_as_visitors.IsChecked(),
             }
+            sound_prefs = {
+                "comments": chk_s_comments.IsChecked(),
+                "followers": chk_s_followers.IsChecked(),
+                "gifts": chk_s_gifts.IsChecked(),
+                "likes": chk_s_likes.IsChecked(),
+                "requests": chk_s_requests.IsChecked(),
+                "shares": chk_s_shares.IsChecked(),
+                "visitors": chk_s_visitors.IsChecked(),
+            }
             
             self._save_config(
                 txt_user.GetValue().strip().lstrip('@'), 
                 prefs, 
                 auto_speak_prefs,
+                sound_prefs,
                 chk_clear.IsChecked(), 
                 chk_strip.IsChecked(), 
                 spin_retry.GetValue(), 

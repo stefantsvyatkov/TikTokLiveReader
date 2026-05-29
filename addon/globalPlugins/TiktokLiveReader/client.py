@@ -133,7 +133,7 @@ class LikeManager:
             return
 
         event_key = "likes"
-        sound_enabled = PLAY_SOUNDS and PREFS.get(event_key, False)
+        sound_enabled = PLAY_SOUNDS and SOUND_PREFS.get(event_key, False)
         speech_enabled = AUTO_SPEAK_PREFS.get(event_key, False)
 
         if _connection_time == 0 or (time.time() - _connection_time) < 10.0:
@@ -375,6 +375,12 @@ def _load_config():
             "likes": "false", "shares": "false", "visitors": "false", "requests": "true",
         }
         
+    if "sound_events" not in config:
+        config["sound_events"] = {
+            "comments": "true", "followers": "false", "gifts": "false",
+            "likes": "false", "shares": "false", "visitors": "false", "requests": "true",
+        }
+        
     prefs = {
         "comments": config.getboolean("events", "comments", fallback=True),
         "followers": config.getboolean("events", "followers", fallback=False),
@@ -395,13 +401,24 @@ def _load_config():
         "requests": config.getboolean("auto_speak", "requests", fallback=True),
     }
     
+    sound_prefs = {
+        "comments": config.getboolean("sound_events", "comments", fallback=True),
+        "followers": config.getboolean("sound_events", "followers", fallback=False),
+        "gifts": config.getboolean("sound_events", "gifts", fallback=False),
+        "likes": config.getboolean("sound_events", "likes", fallback=False),
+        "shares": config.getboolean("sound_events", "shares", fallback=False),
+        "visitors": config.getboolean("sound_events", "visitors", fallback=False),
+        "requests": config.getboolean("sound_events", "requests", fallback=True),
+    }
+    
     play_sounds = config.getboolean("sounds", "play_sounds", fallback=False)
     volume = config.getint("sounds", "volume", fallback=100)
     
-    return username, clear_on_start, clean_usernames, prefs, auto_speak_prefs, play_sounds, volume
+    return username, clear_on_start, clean_usernames, prefs, auto_speak_prefs, play_sounds, volume, sound_prefs
 
+SOUND_PREFS = {}
 try:
-    USERNAME, _clear_on_start, CLEAN_USERNAMES, PREFS, AUTO_SPEAK_PREFS, PLAY_SOUNDS, SOUND_VOLUME = _load_config()
+    USERNAME, _clear_on_start, CLEAN_USERNAMES, PREFS, AUTO_SPEAK_PREFS, PLAY_SOUNDS, SOUND_VOLUME, SOUND_PREFS = _load_config()
     sound_manager.set_volume(SOUND_VOLUME)
 except Exception:
     USERNAME = ""
@@ -411,20 +428,23 @@ except Exception:
     AUTO_SPEAK_PREFS = {"comments": True}
     PLAY_SOUNDS = True
     SOUND_VOLUME = 100
+    SOUND_PREFS = {"comments": True, "requests": True}
 
-def update_config(username, prefs, auto_speak_prefs, play_sounds, volume, clear_on_start, clean_usernames):
-    global USERNAME, PREFS, AUTO_SPEAK_PREFS, PLAY_SOUNDS, SOUND_VOLUME, _clear_on_start, CLEAN_USERNAMES
+def update_config(username, prefs, auto_speak_prefs, sound_prefs, play_sounds, volume, clear_on_start, clean_usernames):
+    global USERNAME, PREFS, AUTO_SPEAK_PREFS, PLAY_SOUNDS, SOUND_VOLUME, _clear_on_start, CLEAN_USERNAMES, SOUND_PREFS
     
-    if getattr(globals(), 'PLAY_SOUNDS', False) and not play_sounds:
+    if not play_sounds:
         try:
             with sound_manager._queue.mutex:
                 sound_manager._queue.queue.clear()
+            winsound.PlaySound(None, winsound.SND_PURGE)
         except Exception:
             pass
 
     USERNAME = username
     PREFS = prefs
     AUTO_SPEAK_PREFS = auto_speak_prefs
+    SOUND_PREFS = sound_prefs
     PLAY_SOUNDS = play_sounds
     SOUND_VOLUME = volume
     _clear_on_start = clear_on_start
@@ -563,7 +583,7 @@ def _handle_speech_and_sound(event_key, speak_text):
     if SETTINGS_OPEN:
         return
         
-    sound_enabled = PLAY_SOUNDS and PREFS.get(event_key, False)
+    sound_enabled = PLAY_SOUNDS and SOUND_PREFS.get(event_key, False)
     speech_enabled = AUTO_SPEAK_PREFS.get(event_key, False)
     
     if _connection_time == 0:
@@ -1089,9 +1109,9 @@ def _runner(username, on_connect_cb, on_retry_cb, on_fail_cb, max_attempts=3):
 
 def connect(username=None, on_connect=None, on_retry=None, on_fail=None, retry_count=3):
     global _top_thread_started, USERNAME, CLEAN_USERNAMES, _thread, _should_run, _stats_thread, _known_comments, _known_events
-    global _known_followers, _known_shares, PREFS, AUTO_SPEAK_PREFS, PLAY_SOUNDS, SOUND_VOLUME, _processed_ids, _connection_time
+    global _known_followers, _known_shares, PREFS, AUTO_SPEAK_PREFS, PLAY_SOUNDS, SOUND_VOLUME, _processed_ids, _connection_time, SOUND_PREFS
     
-    USERNAME, clear_on_start, CLEAN_USERNAMES, PREFS, AUTO_SPEAK_PREFS, PLAY_SOUNDS, SOUND_VOLUME = _load_config()
+    USERNAME, clear_on_start, CLEAN_USERNAMES, PREFS, AUTO_SPEAK_PREFS, PLAY_SOUNDS, SOUND_VOLUME, SOUND_PREFS = _load_config()
     sound_manager.set_volume(SOUND_VOLUME)
     sound_manager.start()
     sound_manager.clear()

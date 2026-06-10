@@ -332,3 +332,8 @@ msgstr "TikTok Live Reader memungkinkan pengguna NVDA untuk memantau siaran TikT
 #. Translators: Announced when trying to turn on the add-on or save settings with an invalid username.
 msgid "Please enter a valid username"
 msgstr "Silakan masukkan nama pengguna yang valid"
+
+#. Translators: Tab name in settings dialog.
+msgid "Sounds"
+msgstr "Suara"
+

@@ -62,12 +62,11 @@ def load_runtime(lib_dir):
 				if _has_conflict_prefix(module_name):
 					sys.modules.pop(module_name, None)
 
-			# Bootstrap-load TikTok package tree once in isolated context.
-			import TikTokLive  # noqa: F401
-			import httpx  # noqa: F401
-			import websockets  # noqa: F401
+			import TikTokLive
+			import httpx
+			import websockets
 			try:
-				import google.protobuf  # noqa: F401
+				import google.protobuf
 			except Exception:
 				pass
 

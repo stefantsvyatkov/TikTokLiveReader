@@ -55,7 +55,7 @@ TikTok Live Reader allows hosts or viewers to monitor essential stream data with
 
 <h2 align="center">Settings</h2>
 
-TikTok Live Reader has its own settings window, which can be opened with the shortcut NVDA+Shift+Control+L. It contains 3 tabs:
+TikTok Live Reader has its own settings window, which can be opened with the shortcut NVDA+Shift+Control+L. It contains 4 tabs:
 
 <h3 align="center">General</h3>
 
@@ -70,17 +70,20 @@ This section includes the following settings:
 
 <h3 align="center">Events</h3>
 
-This section contains checkboxes to determine which data is recorded in events.txt (Comments, Followers, Gifts, Likes, Requests, Shares, and Visitors). Additional settings:
-
-<ul>
-<li>Play sounds for the selected events - Plays a specific short sound (e.g., for a new comment or gift). This can be toggled with NVDA+Shift+Control+P.</li>
-<li>Volume - Adjusts notification sound levels.</li>
-<li>Learn sounds - Plays a description of the sounds so the users get used to the different audio cues.</li>
-</ul>
+This section contains checkboxes to determine which data is recorded in events.txt (Comments, Followers, Gifts, Likes, Requests, Shares, and Visitors).
 
 <h3 align="center">Auto speak</h3>
 
-This section defines which data is announced when the Auto speak function is enabled. Activate it via NVDA+Shift+Control+S or with the "Auto speak selected events" check box. When it's active, specific events can be selected for automatic reading (e.g., "New follower: Username").
+This section defines which data is announced when the Auto speak function is enabled. Activate it via NVDA+Shift+Control+S or with the Auto speak selected events check box. When it's active, specific events can be selected for automatic reading (e.g., "New follower: Username").
+
+<h3 align="center">Sounds</h3>
+
+This section determines which live events will trigger short audio cues. For this feature to work, you must first enable the Play sounds for the selected events option. Once activated, the checkboxes will appear, arranged in the exact same order as in the previous two sections. You can also toggle sounds on and off using the NVDA+Shift+Control+P shortcut. The following options are also available:
+
+<ul>
+<li>Volume - This slider determines the loudness of the event audio cues.</li>
+<li>Learn sounds - Plays a description of the audio cues so the user can preview them.</li>
+</ul>
 
 Sounds and messages are played with a one-second pause between them and are stored in temporary files to ensure they are reported in order during high-traffic streams. The sound and auto-speak functions work independently.
 
@@ -123,6 +126,15 @@ Press NVDA+Shift+Control+T to terminate the add-on session.
 
 <h2 align="center">Changelog</h2>
 
+<h3 align="center">Version 1.6</h3>
+
+<ol>
+<li>The add-on is now compatible with NVDA 2026.1.</li>
+<li>The settings in the Events section now only apply to the events.txt file. They determine what types of data are recorded in it.</li>
+<li>A Sounds section has been added, with main toggle Play sounds for the selected events option.</li>
+<li>As a result, the auto-speak function, sound playback, and data recording in the events file operate independently of each other.</li>
+</ol>
+
 <h3 align="center">Version 1.5</h3>
 
 <ol>
@@ -151,7 +163,7 @@ Press NVDA+Shift+Control+T to terminate the add-on session.
 
 <h2 align="center">Final Clarifications</h2>
 
-This add-on was developed with the assistance of language models ChatGPT, Google Gemini, and Claude OPUS 4.6 Thinking. It is distributed under the GNU General Public License 2.0.
+This add-on was developed with the assistance of language models ChatGPT, Google Gemini, and Claude. It is distributed under the GNU General Public License 2.0.
 
 </body>
 </html>

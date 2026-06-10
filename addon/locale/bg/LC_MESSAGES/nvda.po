@@ -328,3 +328,8 @@ msgstr "TikTok Live Reader позволява проследяването на 
 #. Translators: Announced when trying to turn on the add-on or save settings with an invalid username.
 msgid "Please enter a valid username"
 msgstr "Въведете валидно потребителско име"
+
+#. Translators: Tab name in settings dialog.
+msgid "Sounds"
+msgstr "Звуци"
+

@@ -351,14 +351,11 @@ class GlobalPlugin(NVDA_GlobalPlugin):
             else:
                 num = self.index + 1
                 total = len(items)
-                # Translators: Announced when navigating items. {item} is the content, {num} is current position, {total} is total count.
                 ui.message(_("{item} ({num} of {total})").format(item=items[self.index], num=num, total=total))
         else:
-            # Translators: Announced when there is no entry at the current position.
             ui.message(_("No entries"))
 
 
-    # Translators: Description shown in NVDA Input Gestures dialog.
     @script(description=_("Toggle TikTok Live Reader on or off"), category="TikTok Live Reader")
     def script_toggleActive(self, gesture):
         if self._settingsDialog:
@@ -366,7 +363,6 @@ class GlobalPlugin(NVDA_GlobalPlugin):
             
         test_username = self.username.strip().lstrip('@')
         if not self.active and len(test_username) < 2:
-            # Translators: Announced when trying to turn on the add-on or save settings with an invalid username.
             ui.message(_("Please enter a valid username"))
             return
             
@@ -380,20 +376,16 @@ class GlobalPlugin(NVDA_GlobalPlugin):
                 self.speech_manager.start()
             else:
                 self.speech_manager.stop()
-            # Translators: Announced when the addon is turned on.
             ui.message(_("TikTok Live Reader On"))
 
             def on_conn():
                 self._ensure_temp_files_exist()
-                # Translators: Announced when successfully connected to a TikTok live. {username} is the streamer name.
                 ui.message(_("Connected to user: {username}").format(username=self.username))
 
             def on_retry():
-                # Translators: Announced when attempting to reconnect.
                 ui.message(_("Attempting to connect..."))
 
             def on_fail():
-                # Translators: Announced when connection fails after all retries.
                 ui.message(_("Connection unsuccessful."))
                 self.active = False
                 self._unbind_nav()
@@ -404,7 +396,6 @@ class GlobalPlugin(NVDA_GlobalPlugin):
             client.connect(username=self.username, on_connect=on_conn, on_retry=on_retry, on_fail=on_fail, retry_count=self.retryCount)
         else:
             self._unbind_nav()
-            # Translators: Announced when the addon is turned off.
             ui.message(_("TikTok Live Reader Off"))
             client.disconnect()
             self.speech_manager.stop()
@@ -437,7 +428,6 @@ class GlobalPlugin(NVDA_GlobalPlugin):
         except Exception:
             pass
 
-    # Translators: Description shown in NVDA Input Gestures dialog.
     @script(description=_("Toggle automatic speaking of new events"), category="TikTok Live Reader")
     def script_toggleAutoSpeak(self, gesture):
         if not self.active:
@@ -458,15 +448,12 @@ class GlobalPlugin(NVDA_GlobalPlugin):
         )
         
         if self.autoSpeak:
-            # Translators: Announced when auto speak is enabled.
             ui.message(_("Auto speak On"))
             self.speech_manager.start()
         else:
-            # Translators: Announced when auto speak is disabled.
             ui.message(_("Auto speak Off"))
             self.speech_manager.stop()
 
-    # Translators: Description shown in NVDA Input Gestures dialog.
     @script(
         description=_("Toggle sound playback for selected events"),
         category="TikTok Live Reader"
@@ -493,13 +480,10 @@ class GlobalPlugin(NVDA_GlobalPlugin):
         client.update_config(self.username, self.prefs, self.auto_speak_prefs, self.sound_prefs, self.playSounds, self.soundVolume, self.clearOnStart, self.cleanUsernames)
         
         if self.playSounds:
-            # Translators: Announced when sounds are enabled.
             ui.message(_("Sounds On"))
         else:
-            # Translators: Announced when sounds are disabled.
             ui.message(_("Sounds Off"))
 
-    # Translators: Description shown in NVDA Input Gestures dialog.
     @script(description=_("Open TikTok Live Reader settings"), category="TikTok Live Reader")
     def script_openSettingsDialog(self, gesture):
         if self._settingsDialog:
@@ -520,7 +504,6 @@ class GlobalPlugin(NVDA_GlobalPlugin):
             
         client.sound_manager.start()
             
-        # Translators: Title of the settings dialog.
         dlg = wx.Dialog(gui.mainFrame, title=_("TikTok Live Reader Settings"))
         self._settingsDialog = dlg
         nb = wx.Notebook(dlg)
@@ -532,18 +515,14 @@ class GlobalPlugin(NVDA_GlobalPlugin):
 
         s_general = wx.BoxSizer(wx.VERTICAL)
         
-        # Translators: Label for the username text field in settings.
         lbl_user = wx.StaticText(p_general, label=_("&User name"))
         txt_user = wx.TextCtrl(p_general, value=self.username)
-        # Translators: Checkbox label in settings.
         chk_clear = wx.CheckBox(p_general, label=_("&Clear text files on startup"))
-        # Translators: Checkbox label in settings.
         chk_strip = wx.CheckBox(p_general, label=_("Cl&ean user names"))
 
         chk_clear.SetValue(self.clearOnStart)
         chk_strip.SetValue(self.cleanUsernames)
 
-        # Translators: Label for the retry count spinner in settings.
         lbl_retry = wx.StaticText(p_general, label=_("Connection &retry count"))
         spin_retry = wx.SpinCtrl(p_general, value=str(self.retryCount), min=1, max=10)
         
@@ -577,7 +556,6 @@ class GlobalPlugin(NVDA_GlobalPlugin):
         p_events.SetSizer(s_events)
 
         s_sounds = wx.BoxSizer(wx.VERTICAL)
-        # Translators: Checkbox to enable playing sounds for selected events.
         chk_play_sounds = wx.CheckBox(p_sounds, label=_("&Play sounds for the selected events"))
         chk_play_sounds.SetValue(self.playSounds)
         s_sounds.Add(chk_play_sounds, flag=wx.ALL, border=5)
@@ -608,13 +586,11 @@ class GlobalPlugin(NVDA_GlobalPlugin):
         sl_s2 = wx.StaticLine(p_sounds)
         s_sounds.Add(sl_s2, flag=wx.EXPAND|wx.ALL, border=5)
 
-        # Translators: Label for volume slider.
         lbl_volume = wx.StaticText(p_sounds, label=_("V&olume"))
         slider_volume = wx.Slider(p_sounds, value=self.soundVolume, minValue=0, maxValue=100, style=wx.SL_HORIZONTAL, name=_("V&olume"))
         s_sounds.Add(lbl_volume, flag=wx.ALL, border=5)
         s_sounds.Add(slider_volume, flag=wx.EXPAND | wx.ALL, border=5)
 
-        # Translators: Button to learn sounds.
         btn_learn = wx.Button(p_sounds, label=_("L&earn sounds"))
         
         self._learning_thread = None
@@ -720,7 +696,6 @@ class GlobalPlugin(NVDA_GlobalPlugin):
         p_sounds.SetSizer(s_sounds)
 
         s_autospeak = wx.BoxSizer(wx.VERTICAL)
-        # Translators: Checkbox to enable automatic speaking for selected events.
         chk_auto_speak = wx.CheckBox(p_autospeak, label=_("&Auto speak selected events"))
         chk_auto_speak.SetValue(self.autoSpeak)
         s_autospeak.Add(chk_auto_speak, flag=wx.ALL, border=5)
@@ -766,13 +741,9 @@ class GlobalPlugin(NVDA_GlobalPlugin):
         
         p_autospeak.SetSizer(s_autospeak)
 
-        # Translators: Tab name in settings dialog.
         nb.AddPage(p_general, _("General"))
-        # Translators: Tab name in settings dialog.
         nb.AddPage(p_events, _("Events"))
-        # Translators: Tab name in settings dialog.
         nb.AddPage(p_autospeak, _("Auto speak"))
-        # Translators: Tab name in settings dialog.
         nb.AddPage(p_sounds, _("Sounds"))
 
         topsizer = wx.BoxSizer(wx.VERTICAL)
@@ -783,7 +754,6 @@ class GlobalPlugin(NVDA_GlobalPlugin):
         def on_ok(evt):
             val = txt_user.GetValue().strip().lstrip('@')
             if len(val) < 2 or not re.match(r'^[a-zA-Z0-9_\.\-]+$', val):
-                # Translators: Announced when trying to turn on the add-on or save settings with an invalid username.
                 ui.message(_("Please enter a valid username"))
                 txt_user.SetFocus()
                 return
@@ -791,7 +761,6 @@ class GlobalPlugin(NVDA_GlobalPlugin):
             
         btn_ok.Bind(wx.EVT_BUTTON, on_ok)
         
-        # Translators: Cancel button label in the settings dialog.
         btn_cancel = wx.Button(dlg, wx.ID_CANCEL, _("Cancel"))
         btn_ok.SetDefault()
         btn_sizer.AddButton(btn_ok)
@@ -908,7 +877,6 @@ class GlobalPlugin(NVDA_GlobalPlugin):
             return
         items = self._load_items()
         if not items:
-            # Translators: Announced when a file has no entries.
             ui.message(_("No entries"))
             return
         if self.index == -1:
@@ -979,7 +947,6 @@ class GlobalPlugin(NVDA_GlobalPlugin):
         name, _path = self._get_current_file()
         ui.message(name)
 
-    # Translators: Description shown in NVDA Input Gestures dialog.
     @script(description=_("Clear all log files and reset positions"), category=_("TikTok Live Reader"))
     def script_clearTextFiles(self, gesture):
         if not self.active:
@@ -995,18 +962,14 @@ class GlobalPlugin(NVDA_GlobalPlugin):
             pass
             
         client.reset_accumulators()
-        # Translators: Announced after clearing all log files.
         ui.message(_("All files cleared."))
 
-    # Translators: Description shown in NVDA Input Gestures dialog.
     @script(description=_("Report the current number of live viewers"), category=_("TikTok Live Reader"))
     def script_reportViewers(self, gesture):
         if not self.active:
-            # Translators: Announced when trying to use a feature while the addon is off.
             ui.message(_("Addon is not active."))
             return
         count = getattr(client, "viewer_count", 0)
-        # Translators: Announced when reporting viewer count. {count} is the number.
         ui.message(_("{count} viewers").format(count=count))
 
     def terminate(self):

@@ -7,3 +7,5 @@ releases/
 .vscode/
 *.nvda-addon
 /[0-9]*.[0-9]*.[0-9]*.json
+tiktoklive_events_bg.html
+addon/globalPlugins/TiktokLiveReader/positions.json

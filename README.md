@@ -13,8 +13,10 @@ This add-on connects to TikTok Live streams and extracts information in real tim
 ---
 
 ## Documentation
-* [English Documentation](doc/en/readme.html)
-* [Ръководство на български](doc/bg/readme.html)
+
+* [English Documentation](https://stefantsvyatkov.github.io/TikTokLiveReader/addon/doc/en/readme.html)
+* [Bulgarian Documentation](https://stefantsvyatkov.github.io/TikTokLiveReader/addon/doc/bg/readme.html)
 
 ## License
+
 Distributed under the **GNU General Public License 2.0.

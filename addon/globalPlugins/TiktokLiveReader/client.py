@@ -115,6 +115,7 @@ class LikeManager:
         if count <= 0:
             return
         
+        # Translators: Singular and plural forms for likes in the logs.
         likes_word = _nt("like", "likes", count)
         log_line = f"{user}: {count} {likes_word}  {datetime.datetime.now().strftime('%H:%M:%S')}"
         try:
@@ -507,6 +508,7 @@ def _ensure_files_exist():
 
 def update_stats_file():
     with open(STATS_FILE, "w", encoding="utf-8") as f:
+        # Translators: Stats file lines. {count} represents the respective count.
         f.write(_t("Viewers: {count}").format(count=viewer_count) + "\n")
         f.write(_t("Visitors: {count}").format(count=total_viewers) + "\n")
         f.write(_t("Likes: {count}").format(count=total_likes) + "\n")
@@ -699,6 +701,7 @@ async def on_follow(event):
     log_line = f"{nm}  {datetime.datetime.now().strftime('%H:%M:%S')}"
     with open(FOLLOWERS_FILE, "a", encoding="utf-8") as f:
         f.write(log_line + "\n")
+    # Translators: Announced when a new user follows the streamer. {name} is the user's name.
     speak_msg = _t("New follower: {name}").format(name=nm)
     log_msg = f"{speak_msg}  {datetime.datetime.now().strftime('%H:%M:%S')}"
     
@@ -779,6 +782,7 @@ async def on_share(event):
         f.write(log_line + "\n")
         
     if PREFS.get("shares", False):
+        # Translators: Announced when a user shares the live stream. {name} is the user's name.
         msg = _t("{name} shared the live").format(name=display_name)
         log_msg = f"{msg}  {datetime.datetime.now().strftime('%H:%M:%S')}"
         _log_to_events(log_msg)
@@ -821,6 +825,7 @@ async def on_join(event):
     with open(VISITORS_FILE, "a", encoding="utf-8") as f:
         f.write(log_line + "\n")
     if PREFS.get("visitors", False):
+        # Translators: Announced when a user joins the live stream. {name} is the user's name.
         msg = _t("{name} joined").format(name=display_name)
         log_msg = f"{msg}  {datetime.datetime.now().strftime('%H:%M:%S')}"
         _log_to_events(log_msg)
@@ -933,6 +938,7 @@ async def on_guest_request(event):
             return
         _requests_log[user_name] = now
             
+        # Translators: Announced when someone requests to join the live stream. {name} is the user's name.
         speak_msg = _t("Guest request: {name}").format(name=user_name)
         
         log_line = f"{user_name}  {datetime.datetime.now().strftime('%H:%M:%S')}"

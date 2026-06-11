@@ -351,6 +351,7 @@ class GlobalPlugin(NVDA_GlobalPlugin):
             else:
                 num = self.index + 1
                 total = len(items)
+                # Translators: Announced when navigating list items. {item} is content, {num} is current position, {total} is total count.
                 ui.message(_("{item} ({num} of {total})").format(item=items[self.index], num=num, total=total))
         else:
             ui.message(_("No entries"))
@@ -380,6 +381,7 @@ class GlobalPlugin(NVDA_GlobalPlugin):
 
             def on_conn():
                 self._ensure_temp_files_exist()
+                # Translators: Announced when successfully connected to a TikTok live. {username} is the streamer's name.
                 ui.message(_("Connected to user: {username}").format(username=self.username))
 
             def on_retry():
@@ -844,6 +846,7 @@ class GlobalPlugin(NVDA_GlobalPlugin):
                         
                     def on_conn():
                         self._ensure_temp_files_exist()
+                        # Translators: Announced when successfully connected to a TikTok live. {username} is the streamer's name.
                         ui.message(_("Connected to user: {username}").format(username=self.username))
                     def on_retry():
                         ui.message(_("Attempting to connect..."))
@@ -970,6 +973,7 @@ class GlobalPlugin(NVDA_GlobalPlugin):
             ui.message(_("Addon is not active."))
             return
         count = getattr(client, "viewer_count", 0)
+        # Translators: Announced when reporting live viewer count. {count} is the number of viewers.
         ui.message(_("{count} viewers").format(count=count))
 
     def terminate(self):

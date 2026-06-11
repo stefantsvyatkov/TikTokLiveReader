@@ -2,7 +2,6 @@
 <html lang="id">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>TikTok Live Reader</title>
 <style>
 body {
@@ -26,19 +25,19 @@ li {
 
 <h1 align="center">TikTok Live Reader</h1>
 
-<p>Add-on ini terhubung ke siaran TikTok Live dan mengekstrak informasi secara real-time. Add-on menggunakan library Python TikTokLive untuk mengakses siaran live tertentu. Fitur-fitur berikut didukung:</p>
+Add-on ini terhubung ke siaran TikTok Live dan mengekstrak informasi secara real-time. Add-on menggunakan library Python TikTokLive untuk mengakses siaran live tertentu. Fitur-fitur berikut didukung:
 
 <ul>
 <li>Menyimpan data hasil ekstraksi ke dalam file teks, yang dibuat di folder Documents\TikTok live.</li>
 <li>Melacak peristiwa: komentar, pengikut baru, hadiah (gift), likes, share, pengunjung, dan permintaan tamu.</li>
 <li>File events yang dapat merekam berbagai jenis data secara bersamaan.</li>
-<li>Notifikasi audio untuk peristiwa terpilih, seperti komentar mới, hadiah, dll.</li>
+<li>Notifikasi audio untuk peristiwa terpilih, seperti komentar baru, hadiah, dll.</li>
 <li>Statistik siaran: menampilkan jumlah penonton saat ini, total pengunjung sesi, total likes, pengikut baru, dan diamond yang terkumpul.</li>
 <li>Peringkat Top Gifters: mengurutkan pengguna dari yang paling aktif hingga yang paling sedikit berdasarkan diamond yang dikirim.</li>
 <li>Peringkat Top Likers: mengurutkan pengguna berdasarkan total likes selama siaran.</li>
 </ul>
 
-<p>TikTok Live Reader membantu host atau penonton memantau data penting siaran tanpa alat eksternal. Data disimpan dalam file teks yang terletak di folder Documents\TikTok live и dapat ditinjau kembali nanti. Add-on mengekstrak tipe data berikut ke dalam file terpisah:</p>
+TikTok Live Reader membantu host atau penonton memantau data penting siaran tanpa alat eksternal. Data disimpan dalam file teks yang terletak di folder Documents\TikTok live dan dapat ditinjau kembali nanti. Add-on mengekstrak tipe data berikut ke dalam file terpisah:
 
 <ul>
 <li>comments.txt - Mencatat semua komentar yang terdeteksi selama live beserta timestamp.</li>
@@ -56,11 +55,11 @@ li {
 
 <h2 align="center">Pengaturan</h2>
 
-<p>TikTok Live Reader memiliki jendela pengaturan sendiri, yang dapat dibuka dengan pintasan NVDA+Shift+Control+L. Jendela ini memiliki 3 tab:</p>
+TikTok Live Reader memiliki jendela pengaturan sendiri, yang dapat dibuka dengan pintasan NVDA+Shift+Control+L. Jendela ini memiliki 4 tab:
 
 <h3 align="center">General</h3>
 
-<p>Bagian ini mencakup pengaturan berikut:</p>
+Bagian ini mencakup pengaturan berikut:
 
 <ul>
 <li>Username - Masukkan username host TikTok tanpa simbol @.</li>
@@ -71,23 +70,26 @@ li {
 
 <h3 align="center">Events</h3>
 
-<p>Bagian ini berisi kotak centang untuk menentukan data mana yang dicatat di events.txt (Komentar, Pengikut, Hadiah, Likes, Permintaan, Share, dan Pengunjung). Pengaturan tambahan:</p>
-
-<ul>
-<li>Play sounds for the selected events - Memutar suara singkat khusus (misalnya untuk komentar atau hadiah baru). Fitur ini dapat diaktifkan/dinonaktifkan dengan NVDA+Shift+Control+P.</li>
-<li>Volume - Mengatur level suara notifikasi.</li>
-<li>Learn sounds - Memutar deskripsi suara agar pengguna dapat mengenal suara-suara audio yang berbeda.</li>
-</ul>
+Bagian ini berisi kotak centang untuk menentukan data mana yang dicatat di events.txt (Comments, Followers, Gifts, Likes, Requests, Shares, dan Visitors).
 
 <h3 align="center">Auto speak</h3>
 
-<p>Bagian ini menentukan data mana yang diumumkan saat fungsi Auto speak aktif. Aktifkan dengan NVDA+Shift+Control+S atau kotak centang "Auto speak selected events". Saat aktif, peristiwa tertentu dapat dipilih untuk dibacakan otomatis (misalnya "New follower: Username").</p>
+Bagian ini menentukan data mana yang diumumkan saat fungsi Auto speak aktif. Aktifkan dengan NVDA+Shift+Control+S atau kotak centang "Auto speak selected events". Saat aktif, peristiwa tertentu dapat dipilih untuk dibacakan otomatis (misalnya "New follower: Username").</p>
 
-<p>Suara dan pesan diputar dengan jeda satu detik dan disimpan dalam file sementara untuk memastikan pelaporan tetap berurutan saat traffic live tinggi. Fungsi suara dan Auto speak bekerja secara independen.</p>
+<h3 align="center">Sounds</h3>
+
+Bagian ini menentukan peristiwa live mana yang akan memicu isyarat audio pendek. Agar fitur ini berfungsi, Anda harus mengaktifkan opsi "Play sounds for the selected events" terlebih dahulu. Setelah diaktifkan, kotak centang akan muncul, disusun dalam urutan yang persis sama dengan dua bagian sebelumnya. Anda juga dapat mengaktifkan/menonaktifkan suara menggunakan pintasan NVDA+Shift+Control+P. Opsi berikut juga tersedia:
+
+<ul>
+<li>Volume - Penggeser ini menentukan tingkat kekerasan suara notifikasi peristiwa.</li>
+<li>Learn sounds - Memutar deskripsi suara agar pengguna dapat mendengarnya terlebih dahulu.</li>
+</ul>
+
+Suara dan pesan diputar dengan jeda satu detik dan disimpan dalam file sementara untuk memastikan pelaporan tetap berurutan saat traffic live tinggi. Fungsi suara dan Auto speak bekerja secara independen.
 
 <h2 align="center">Cara menggunakan add-on</h2>
 
-<p>Tekan NVDA+Shift+Control+T dan klien TikTok Live Reader akan mencoba terhubung. Status koneksi diumumkan otomatis. Setelah terhubung, hotkey berikut tersedia:</p>
+Tekan NVDA+Shift+Control+T dan klien TikTok Live Reader akan mencoba terhubung. Status koneksi diumumkan otomatis. Setelah terhubung, hotkey berikut tersedia:
 
 <ul>
 <li>Control+Shift+Panah Kanan - File berikutnya (misalnya Comments, Events, Followers, dll).</li>
@@ -102,7 +104,7 @@ li {
 <li>NVDA+Shift+Control+R - Menghapus isi file teks dan file sementara.</li>
 </ul>
 
-<p>Tekan NVDA+Shift+Control+T untuk mengakhiri sesi add-on.</p>
+Tekan NVDA+Shift+Control+T untuk mengakhiri sesi add-on.
 
 <h2 align="center">Catatan</h2>
 
@@ -123,6 +125,15 @@ li {
 </ul>
 
 <h2 align="center">Daftar Perubahan</h2>
+
+<h3 align="center">Versi 1.6</h3>
+
+<ol>
+<li>Add-on sekarang kompatibel dengan NVDA 2026.1.</li>
+<li>Pengaturan di bagian Events sekarang hanya berlaku untuk file events.txt. Ini menentukan jenis data apa saja yang akan dicatat di dalamnya.</li>
+<li>Bagian Sounds telah ditambahkan, dengan opsi pengalih utama "Play sounds for the selected events".</li>
+<li>Sebagai hasilnya, fungsi bicara otomatis (auto-speak), pemutaran suara, dan perekaman data dalam file events bekerja secara independen satu sama lain.</li>
+</ol>
 
 <h3 align="center">Versi 1.5</h3>
 
@@ -152,7 +163,7 @@ li {
 
 <h2 align="center">Klarifikasi Akhir</h2>
 
-<p>Add-on ini dikembangkan dengan bantuan model bahasa ChatGPT, Google Gemini, dan Claude OPUS 4.6 Thinking. Didistribusikan di bawah lisensi GNU General Public License 2.0.</p>
+This add-on was developed with the assistance of language models ChatGPT, Google Gemini, and Claude. It is distributed under the GNU General Public License 2.0.
 
 </body>
 </html>

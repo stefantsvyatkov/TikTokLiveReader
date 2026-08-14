@@ -16,6 +16,7 @@ from globalPluginHandler import GlobalPlugin as NVDA_GlobalPlugin
 from scriptHandler import script
 import addonHandler
 import gui
+from gui import message
 import ui
 import wx
 
@@ -954,7 +955,28 @@ class GlobalPlugin(NVDA_GlobalPlugin):
     def script_clearTextFiles(self, gesture):
         if not self.active:
             return
-            
+
+        # Translators: Confirmation shown before clearing the contents of all text files.
+        yes_button = message.DefaultButton.YES.value._replace(
+            callback=self._clear_text_files_after_confirmation,
+        )
+        no_button = message.DefaultButton.NO.value._replace(
+            defaultFocus=True,
+            fallbackAction=True,
+        )
+        dialog = message.MessageDialog(
+            gui.mainFrame,
+            _("Are you sure you want to delete the contents of all text files?"),
+            _("TikTok Live Reader"),
+            message.DialogType.WARNING,
+            buttons=(yes_button, no_button),
+        )
+        dialog.Show()
+
+    def _clear_text_files_after_confirmation(self, payload=None):
+        if not self.active:
+            return
+
         self._cleanup_temp_files(hard_reset=True)
         client.sound_manager.clear()
         client._clear_all_text_files()

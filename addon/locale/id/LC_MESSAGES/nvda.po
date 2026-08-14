@@ -189,6 +189,10 @@ msgstr "File berikutnya"
 msgid "Clear all log files and reset positions"
 msgstr "Bersihkan semua file log dan reset posisi"
 
+#. Translators: Confirmation shown before clearing the contents of all text files.
+msgid "Are you sure you want to delete the contents of all text files?"
+msgstr "Apakah Anda yakin ingin menghapus isi semua file teks?"
+
 #. Translators: Announced after clearing all log files.
 msgid "All files cleared."
 msgstr "Semua file dibersihkan."

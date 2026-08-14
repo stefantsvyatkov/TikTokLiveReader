@@ -45,7 +45,8 @@ LIB_DIR = BASE_DIR / "lib"
 _RUNTIME = load_runtime(str(LIB_DIR))
 
 CONFIG_PATH = BASE_DIR / "config.ini"
-LOG_DIR = Path.home() / "Documents" / "TikTok live"
+DEFAULT_LOG_DIR = Path.home() / "Documents" / "TikTok live"
+LOG_DIR = DEFAULT_LOG_DIR
 COMMENTS_FILE = LOG_DIR / "comments.txt"
 FOLLOWERS_FILE = LOG_DIR / "followers.txt"
 GIFTS_FILE = LOG_DIR / "gifts.txt"
@@ -58,6 +59,31 @@ SHARES_FILE = LOG_DIR / "shares.txt"
 REQUESTS_FILE = LOG_DIR / "requests.txt"
 EVENTS_FILE = LOG_DIR / "events.txt"
 SPEECH_BUFFER_FILE = BASE_DIR / "speechbuffer.json"
+
+
+def set_log_directory(directory):
+    global LOG_DIR, COMMENTS_FILE, FOLLOWERS_FILE, GIFTS_FILE, LIKES_FILE, STATS_FILE
+    global TOP_GIFTERS_FILE, TOP_LIKES_FILE, VISITORS_FILE, SHARES_FILE, REQUESTS_FILE, EVENTS_FILE
+
+    try:
+        new_dir = Path(str(directory).strip()).expanduser()
+        if not new_dir.is_absolute():
+            raise ValueError("text_files_destination must be an absolute path")
+    except Exception:
+        new_dir = DEFAULT_LOG_DIR
+
+    LOG_DIR = new_dir
+    COMMENTS_FILE = LOG_DIR / "comments.txt"
+    FOLLOWERS_FILE = LOG_DIR / "followers.txt"
+    GIFTS_FILE = LOG_DIR / "gifts.txt"
+    LIKES_FILE = LOG_DIR / "likes.txt"
+    STATS_FILE = LOG_DIR / "stats.txt"
+    TOP_GIFTERS_FILE = LOG_DIR / "top gifters.txt"
+    TOP_LIKES_FILE = LOG_DIR / "top likes.txt"
+    VISITORS_FILE = LOG_DIR / "visitors.txt"
+    SHARES_FILE = LOG_DIR / "shares.txt"
+    REQUESTS_FILE = LOG_DIR / "requests.txt"
+    EVENTS_FILE = LOG_DIR / "events.txt"
 
 _known_gifts = {}
 
@@ -497,7 +523,11 @@ def reset_accumulators():
     _known_gifts.clear()
 
 def _ensure_files_exist():
-    LOG_DIR.mkdir(parents=True, exist_ok=True)
+    try:
+        LOG_DIR.mkdir(parents=True, exist_ok=True)
+    except Exception:
+        set_log_directory(DEFAULT_LOG_DIR)
+        LOG_DIR.mkdir(parents=True, exist_ok=True)
     for file in [
         COMMENTS_FILE, FOLLOWERS_FILE, GIFTS_FILE, TOP_GIFTERS_FILE,
         STATS_FILE, TOP_LIKES_FILE, LIKES_FILE, VISITORS_FILE, SHARES_FILE, REQUESTS_FILE, EVENTS_FILE
@@ -1116,7 +1146,10 @@ def _runner(username, on_connect_cb, on_retry_cb, on_fail_cb, max_attempts=3):
 def connect(username=None, on_connect=None, on_retry=None, on_fail=None, retry_count=3):
     global _top_thread_started, USERNAME, CLEAN_USERNAMES, _thread, _should_run, _stats_thread, _known_comments, _known_events
     global _known_followers, _known_shares, PREFS, AUTO_SPEAK_PREFS, PLAY_SOUNDS, SOUND_VOLUME, _processed_ids, _connection_time, SOUND_PREFS
-    
+
+    if _thread and _thread.is_alive():
+        return
+
     USERNAME, clear_on_start, CLEAN_USERNAMES, PREFS, AUTO_SPEAK_PREFS, PLAY_SOUNDS, SOUND_VOLUME, SOUND_PREFS = _load_config()
     sound_manager.set_volume(SOUND_VOLUME)
     sound_manager.start()

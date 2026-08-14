@@ -133,6 +133,18 @@ msgstr "Pengaturan TikTok Live Reader"
 msgid "&User name"
 msgstr "&Nama pengguna"
 
+msgid "Text files &destination"
+msgstr "&Lokasi file teks"
+
+msgid "Text files destination"
+msgstr "Lokasi file teks"
+
+msgid "&Browse..."
+msgstr "&Telusuri..."
+
+msgid "Select text files destination"
+msgstr "Pilih lokasi file teks"
+
 #. Translators: Checkbox label in settings.
 msgid "&Clear text files on startup"
 msgstr "&Bersihkan file teks saat startup"

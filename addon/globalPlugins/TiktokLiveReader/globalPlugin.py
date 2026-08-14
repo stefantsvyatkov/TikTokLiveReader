@@ -28,9 +28,18 @@ ADDON_DIR = Path(__file__).resolve().parent
 CONFIG_FILE = ADDON_DIR / "config.ini"
 POS_FILE = ADDON_DIR / "positions.json"
 
-LOG_DIR = Path.home() / "Documents" / "TikTok live"
-STATS_FILE = LOG_DIR / "stats.txt"
+DEFAULT_LOG_DIR = Path.home() / "Documents" / "TikTok live"
 SPEECH_BUFFER_FILE = ADDON_DIR / "speechbuffer.json"
+
+
+def _resolve_destination(raw):
+    try:
+        p = Path(str(raw).strip()).expanduser()
+        if not p.is_absolute():
+            raise ValueError("text_files_destination must be an absolute path")
+        return str(p)
+    except Exception:
+        return str(DEFAULT_LOG_DIR)
 
 
 
@@ -164,9 +173,10 @@ class GlobalPlugin(NVDA_GlobalPlugin):
         self.speech_manager = SpeechManager(self)
         self.currentFileIndex = 0
         self.filePositions = {i: -1 for i in range(len(FILES))}
-        self.username, self.prefs, self.auto_speak_prefs, self.sound_prefs, self.clearOnStart, self.cleanUsernames, self.retryCount, self.playSounds, self.soundVolume, self.autoSpeak = self._load_config()
+        self.username, self.prefs, self.auto_speak_prefs, self.sound_prefs, self.clearOnStart, self.cleanUsernames, self.retryCount, self.playSounds, self.soundVolume, self.autoSpeak, self.textFilesDestination = self._load_config()
         self.autoSpeakDelay = 1.0
-        
+
+        client.set_log_directory(self.textFilesDestination)
         client.update_config(self.username, self.prefs, self.auto_speak_prefs, self.sound_prefs, self.playSounds, self.soundVolume, self.clearOnStart, self.cleanUsernames)
 
         if not self.clearOnStart:
@@ -184,6 +194,8 @@ class GlobalPlugin(NVDA_GlobalPlugin):
             
             if "main" not in cfg:
                 cfg["main"] = {"username": ""}
+            if "text_files_destination" not in cfg["main"]:
+                cfg["main"]["text_files_destination"] = str(DEFAULT_LOG_DIR)
                 
             if "events" not in cfg:
                 if "auto_read" in cfg:
@@ -268,14 +280,21 @@ class GlobalPlugin(NVDA_GlobalPlugin):
                 cfg.getint("behavior", "retry_count", fallback=3),
                 cfg.getboolean("sounds", "play_sounds", fallback=False),
                 cfg.getint("sounds", "volume", fallback=100),
-                cfg.getboolean("auto_speak", "enabled", fallback=False), 
+                cfg.getboolean("auto_speak", "enabled", fallback=False),
+                _resolve_destination(cfg.get("main", "text_files_destination", fallback=str(DEFAULT_LOG_DIR))),
             )
         except Exception as e:
-            return ("", {}, {}, {}, True, False, 3, False, 100, False)
+            return ("", {}, {}, {}, True, False, 3, False, 100, False, str(DEFAULT_LOG_DIR))
 
-    def _save_config(self, username, prefs, auto_speak_prefs, sound_prefs, clear_on_start, clean_usernames, retry_count, play_sounds, volume):
+    def _save_config(self, username, prefs, auto_speak_prefs, sound_prefs, clear_on_start, clean_usernames, retry_count, play_sounds, volume, text_files_destination=None):
+        if text_files_destination is None:
+            text_files_destination = self.textFilesDestination
+        text_files_destination = _resolve_destination(text_files_destination)
         cfg = configparser.ConfigParser()
-        cfg["main"] = {"username": username}
+        cfg["main"] = {
+            "username": username,
+            "text_files_destination": text_files_destination,
+        }
         cfg["events"] = {k: "true" if v else "false" for k, v in prefs.items()}
         cfg["auto_speak"] = {k: "true" if v else "false" for k, v in auto_speak_prefs.items()}
         cfg["auto_speak"]["enabled"] = "true" if self.autoSpeak else "false"
@@ -300,6 +319,7 @@ class GlobalPlugin(NVDA_GlobalPlugin):
         self.retryCount = retry_count
         self.playSounds = play_sounds
         self.soundVolume = volume
+        self.textFilesDestination = text_files_destination
         
         client.update_config(self.username, self.prefs, self.auto_speak_prefs, self.sound_prefs, self.playSounds, self.soundVolume, self.clearOnStart, self.cleanUsernames)
 
@@ -335,7 +355,7 @@ class GlobalPlugin(NVDA_GlobalPlugin):
 
     def _get_current_file(self):
         name, filename = FILES[self.currentFileIndex]
-        return _(name), LOG_DIR / filename
+        return _(name), client.LOG_DIR / filename
 
     def _load_items(self):
         _label, file = self._get_current_file()
@@ -396,6 +416,7 @@ class GlobalPlugin(NVDA_GlobalPlugin):
                 self.speech_manager.stop()
                 self._cleanup_temp_files()
 
+            client.set_log_directory(self.textFilesDestination)
             client.connect(username=self.username, on_connect=on_conn, on_retry=on_retry, on_fail=on_fail, retry_count=self.retryCount)
         else:
             self._unbind_nav()
@@ -520,6 +541,36 @@ class GlobalPlugin(NVDA_GlobalPlugin):
         
         lbl_user = wx.StaticText(p_general, label=_("&User name"))
         txt_user = wx.TextCtrl(p_general, value=self.username)
+        lbl_destination = wx.StaticText(p_general, label=_("Text files &destination"))
+        destination_row = wx.FlexGridSizer(rows=1, cols=2, vgap=0, hgap=5)
+        destination_row.AddGrowableCol(0, 1)
+        txt_destination = wx.TextCtrl(
+            p_general,
+            value=self.textFilesDestination,
+            size=(400, -1),
+        )
+        txt_destination.Bind(wx.EVT_CHAR, lambda evt: None)
+        txt_destination.Bind(wx.EVT_TEXT_PASTE, lambda evt: None)
+        btn_browse_destination = wx.Button(p_general, label=_("&Browse..."))
+        destination_row.Add(txt_destination, flag=wx.EXPAND)
+        destination_row.Add(btn_browse_destination, flag=wx.ALIGN_CENTER_VERTICAL)
+
+        def on_browse_destination(evt):
+            current_directory = txt_destination.GetValue()
+            if not Path(current_directory).is_dir():
+                current_directory = str(DEFAULT_LOG_DIR)
+            current_directory = _resolve_destination(current_directory)
+            with wx.DirDialog(
+                dlg,
+                _("Select text files destination"),
+                defaultPath=current_directory,
+                style=wx.DD_DEFAULT_STYLE | wx.DD_DIR_MUST_EXIST,
+            ) as directory_dialog:
+                if directory_dialog.ShowModal() == wx.ID_OK:
+                    txt_destination.SetValue(directory_dialog.GetPath())
+                    txt_destination.SetFocus()
+
+        btn_browse_destination.Bind(wx.EVT_BUTTON, on_browse_destination)
         chk_clear = wx.CheckBox(p_general, label=_("&Clear text files on startup"))
         chk_strip = wx.CheckBox(p_general, label=_("Cl&ean user names"))
 
@@ -531,6 +582,8 @@ class GlobalPlugin(NVDA_GlobalPlugin):
         
         s_general.Add(lbl_user, flag=wx.ALL, border=5)
         s_general.Add(txt_user, flag=wx.EXPAND | wx.ALL, border=5)
+        s_general.Add(lbl_destination, flag=wx.LEFT | wx.RIGHT | wx.TOP, border=5)
+        s_general.Add(destination_row, flag=wx.EXPAND | wx.ALL, border=5)
         s_general.Add(chk_clear, flag=wx.ALL, border=5)
         s_general.Add(chk_strip, flag=wx.ALL, border=5)
         s_general.Add(lbl_retry, flag=wx.ALL, border=5)
@@ -824,7 +877,8 @@ class GlobalPlugin(NVDA_GlobalPlugin):
                 chk_strip.IsChecked(), 
                 spin_retry.GetValue(), 
                 chk_play_sounds.IsChecked(),
-                slider_volume.GetValue()
+                slider_volume.GetValue(),
+                txt_destination.GetValue(),
             )
             
             new_username = txt_user.GetValue().strip().lstrip('@')
@@ -859,6 +913,7 @@ class GlobalPlugin(NVDA_GlobalPlugin):
                         self.speech_manager.stop()
                         self._cleanup_temp_files()
                         
+                    client.set_log_directory(self.textFilesDestination)
                     client.connect(username=self.username, on_connect=on_conn, on_retry=on_retry, on_fail=on_fail, retry_count=self.retryCount)
                 else:
                     if self.autoSpeak:

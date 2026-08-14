@@ -133,6 +133,18 @@ msgstr "Настройки на TikTok Live Reader"
 msgid "&User name"
 msgstr "&Потребителско име"
 
+msgid "Text files &destination"
+msgstr "&Местоположение на текстовите файлове"
+
+msgid "Text files destination"
+msgstr "Местоположение на текстовите файлове"
+
+msgid "&Browse..."
+msgstr "&Преглед..."
+
+msgid "Select text files destination"
+msgstr "Изберете местоположение на текстовите файлове"
+
 #. Translators: Checkbox label in settings.
 msgid "&Clear text files on startup"
 msgstr "&Изчистване на файловете при стартиране"

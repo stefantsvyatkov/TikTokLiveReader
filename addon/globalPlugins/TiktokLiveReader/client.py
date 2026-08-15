@@ -10,8 +10,6 @@ if not hasattr(winsound, "SND_SYNC"):
     winsound.SND_SYNC = 0x0000
 if not hasattr(winsound, "SND_ASYNC"):
     winsound.SND_ASYNC = 0x0001
-if not hasattr(winsound, "SND_filename"):
-    pass
 if not hasattr(winsound, "SND_FILENAME"):
     winsound.SND_FILENAME = 0x00020000
 if not hasattr(winsound, "SND_MEMORY"):
@@ -156,26 +154,7 @@ class LikeManager:
         
         speak_line = f"{user}: {count} {likes_word}"
 
-        if SETTINGS_OPEN:
-            return
-
-        event_key = "likes"
-        sound_enabled = PLAY_SOUNDS and SOUND_PREFS.get(event_key, False)
-        speech_enabled = AUTO_SPEAK_PREFS.get(event_key, False)
-
-        if _connection_time == 0 or (time.time() - _connection_time) < 10.0:
-            sound_enabled = False
-            speech_enabled = False
-
-        if sound_enabled or speech_enabled:
-            cb = None
-            if speech_enabled:
-                def _on_complete():
-                    _speak_text(speak_line)
-
-                cb = _on_complete
-
-            sound_manager.play(event_key, play_file=sound_enabled, on_complete=cb)
+        _handle_speech_and_sound("likes", speak_line)
 
     def stop(self):
         with self._lock:
@@ -233,7 +212,8 @@ class SoundManager:
         self._queue.put((fname, play_file, on_complete, post_delay))
 
     def _worker(self):
-        while self._running:
+        me = threading.current_thread()
+        while self._running and self._thread is me:
             try:
                 item = self._queue.get(timeout=1.0)
             except queue.Empty:
@@ -329,6 +309,49 @@ class SoundManager:
 
 sound_manager = SoundManager(BASE_DIR)
 
+MAX_TRACKED_ITEMS = 50000
+MAX_PROCESSED_IDS = 10000
+MAX_TIMESTAMP_ITEMS = 5000
+
+
+class BoundedSet:
+    """Set that forgets the oldest entries instead of dropping everything at once."""
+
+    def __init__(self, limit):
+        self._limit = limit
+        self._items = {}
+
+    def add(self, item):
+        self._items[item] = None
+        while len(self._items) > self._limit:
+            del self._items[next(iter(self._items))]
+
+    def clear(self):
+        self._items.clear()
+
+    def __contains__(self, item):
+        return item in self._items
+
+    def __len__(self):
+        return len(self._items)
+
+
+def _prune_timestamps(mapping, max_age):
+    if len(mapping) <= MAX_TIMESTAMP_ITEMS:
+        return
+    cutoff = time.time() - max_age
+    for key in [k for k, v in mapping.items() if v < cutoff]:
+        del mapping[key]
+
+
+def _remember_user(uid, name):
+    if not uid or not name:
+        return
+    _known_users[str(uid)] = name
+    while len(_known_users) > MAX_TRACKED_ITEMS:
+        del _known_users[next(iter(_known_users))]
+
+
 top_gifters = {}
 top_likers = {}
 total_likes = 0
@@ -337,14 +360,13 @@ total_diamonds = 0
 visitors = set()
 viewer_count = 0
 total_viewers = 0
-_known_processed_ids = set()
-_known_comments = set()
-_known_events = set()
+_known_comments = BoundedSet(MAX_TRACKED_ITEMS)
+_known_events = BoundedSet(MAX_TRACKED_ITEMS)
 _requests_log = {}
 _known_users = {}
-_known_followers = set()
+_known_followers = BoundedSet(MAX_TRACKED_ITEMS)
 _known_shares = {}
-_processed_ids = set()
+_processed_ids = BoundedSet(MAX_PROCESSED_IDS)
 _connection_time = 0
 
 AUTO_SPEAK_PREFS = {}
@@ -369,87 +391,103 @@ def _is_processed(event):
         if uid in _processed_ids:
             return True
         _processed_ids.add(uid)
-        if len(_processed_ids) > 10000:
-            _processed_ids.clear() 
     return False
 
-def _load_config():
+DEFAULT_EVENT_PREFS = {
+    "comments": True,
+    "followers": False,
+    "gifts": False,
+    "likes": False,
+    "requests": True,
+    "shares": False,
+    "visitors": False,
+}
+
+EVENT_SECTIONS = ("events", "auto_speak", "sound_events")
+
+DEFAULT_BEHAVIOR = (
+    ("clear_on_start", "true"),
+    ("clean_usernames", "false"),
+    ("retry_count", "3"),
+)
+
+DEFAULT_SOUNDS = (
+    ("play_sounds", "false"),
+    ("volume", "100"),
+)
+
+
+def read_config_file():
     config = configparser.ConfigParser()
     if CONFIG_PATH.exists():
         config.read(CONFIG_PATH, encoding="utf-8")
-        username = config.get("main", "username", fallback="")
-    else:
-        username = ""
-        config["main"] = {"username": "your_username_here"}
-        with open(CONFIG_PATH, "w", encoding="utf-8") as f:
-            config.write(f)
-            
-    clear_on_start = config.getboolean("behavior", "clear_on_start", fallback=True)
-    clean_usernames = config.getboolean("behavior", "clean_usernames", fallback=False)
-    
     if "events" not in config and "auto_read" in config:
         config["events"] = config["auto_read"]
-        
-    if "events" not in config:
-        config["events"] = {
-            "comments": "true", "followers": "false", "gifts": "false",
-            "likes": "false", "shares": "false", "visitors": "false", "requests": "true",
-        }
-        
-    if "auto_speak" not in config:
-        config["auto_speak"] = {
-            "comments": "true", "followers": "false", "gifts": "false",
-            "likes": "false", "shares": "false", "visitors": "false", "requests": "true",
-        }
-        
-    if "sound_events" not in config:
-        config["sound_events"] = {
-            "comments": "true", "followers": "false", "gifts": "false",
-            "likes": "false", "shares": "false", "visitors": "false", "requests": "true",
-        }
-        
-    prefs = {
-        "comments": config.getboolean("events", "comments", fallback=True),
-        "followers": config.getboolean("events", "followers", fallback=False),
-        "gifts": config.getboolean("events", "gifts", fallback=False),
-        "likes": config.getboolean("events", "likes", fallback=False),
-        "shares": config.getboolean("events", "shares", fallback=False),
-        "visitors": config.getboolean("events", "visitors", fallback=False),
-        "requests": config.getboolean("events", "requests", fallback=True),
+    return config
+
+
+def apply_config_defaults(config):
+    if "main" not in config:
+        config["main"] = {"username": ""}
+    if "text_files_destination" not in config["main"]:
+        config["main"]["text_files_destination"] = str(DEFAULT_LOG_DIR)
+
+    for section in EVENT_SECTIONS:
+        if section not in config:
+            config[section] = {}
+        for key, value in DEFAULT_EVENT_PREFS.items():
+            if key not in config[section]:
+                config[section][key] = "true" if value else "false"
+
+    for section, defaults in (("behavior", DEFAULT_BEHAVIOR), ("sounds", DEFAULT_SOUNDS)):
+        if section not in config:
+            config[section] = {}
+        for key, value in defaults:
+            if key not in config[section]:
+                config[section][key] = value
+
+    return config
+
+
+def _section_prefs(config, section):
+    return {
+        key: config.getboolean(section, key, fallback=value)
+        for key, value in DEFAULT_EVENT_PREFS.items()
     }
-    
-    auto_speak_prefs = {
-        "comments": config.getboolean("auto_speak", "comments", fallback=True),
-        "followers": config.getboolean("auto_speak", "followers", fallback=False),
-        "gifts": config.getboolean("auto_speak", "gifts", fallback=False),
-        "likes": config.getboolean("auto_speak", "likes", fallback=False),
-        "shares": config.getboolean("auto_speak", "shares", fallback=False),
-        "visitors": config.getboolean("auto_speak", "visitors", fallback=False),
-        "requests": config.getboolean("auto_speak", "requests", fallback=True),
+
+
+def read_settings(config=None):
+    if config is None:
+        config = read_config_file()
+    return {
+        "username": config.get("main", "username", fallback=""),
+        "text_files_destination": config.get("main", "text_files_destination", fallback=str(DEFAULT_LOG_DIR)),
+        "prefs": _section_prefs(config, "events"),
+        "auto_speak_prefs": _section_prefs(config, "auto_speak"),
+        "sound_prefs": _section_prefs(config, "sound_events"),
+        "auto_speak_enabled": config.getboolean("auto_speak", "enabled", fallback=False),
+        "clear_on_start": config.getboolean("behavior", "clear_on_start", fallback=True),
+        "clean_usernames": config.getboolean("behavior", "clean_usernames", fallback=False),
+        "retry_count": config.getint("behavior", "retry_count", fallback=3),
+        "play_sounds": config.getboolean("sounds", "play_sounds", fallback=False),
+        "volume": config.getint("sounds", "volume", fallback=100),
     }
-    
-    sound_prefs = {
-        "comments": config.getboolean("sound_events", "comments", fallback=True),
-        "followers": config.getboolean("sound_events", "followers", fallback=False),
-        "gifts": config.getboolean("sound_events", "gifts", fallback=False),
-        "likes": config.getboolean("sound_events", "likes", fallback=False),
-        "shares": config.getboolean("sound_events", "shares", fallback=False),
-        "visitors": config.getboolean("sound_events", "visitors", fallback=False),
-        "requests": config.getboolean("sound_events", "requests", fallback=True),
-    }
-    
-    play_sounds = config.getboolean("sounds", "play_sounds", fallback=False)
-    volume = config.getint("sounds", "volume", fallback=100)
-    
-    return username, clear_on_start, clean_usernames, prefs, auto_speak_prefs, play_sounds, volume, sound_prefs
 
 SOUND_PREFS = {}
 try:
-    USERNAME, _clear_on_start, CLEAN_USERNAMES, PREFS, AUTO_SPEAK_PREFS, PLAY_SOUNDS, SOUND_VOLUME, SOUND_PREFS = _load_config()
+    _settings = read_settings()
+    USERNAME = _settings["username"]
+    CLEAR_ON_START = _settings["clear_on_start"]
+    CLEAN_USERNAMES = _settings["clean_usernames"]
+    PREFS = _settings["prefs"]
+    AUTO_SPEAK_PREFS = _settings["auto_speak_prefs"]
+    SOUND_PREFS = _settings["sound_prefs"]
+    PLAY_SOUNDS = _settings["play_sounds"]
+    SOUND_VOLUME = _settings["volume"]
     sound_manager.set_volume(SOUND_VOLUME)
 except Exception:
     USERNAME = ""
-    _clear_on_start = True
+    CLEAR_ON_START = True
     CLEAN_USERNAMES = False
     PREFS = {"comments": True}
     AUTO_SPEAK_PREFS = {"comments": True}
@@ -458,7 +496,7 @@ except Exception:
     SOUND_PREFS = {"comments": True, "requests": True}
 
 def update_config(username, prefs, auto_speak_prefs, sound_prefs, play_sounds, volume, clear_on_start, clean_usernames):
-    global USERNAME, PREFS, AUTO_SPEAK_PREFS, PLAY_SOUNDS, SOUND_VOLUME, _clear_on_start, CLEAN_USERNAMES, SOUND_PREFS
+    global USERNAME, PREFS, AUTO_SPEAK_PREFS, PLAY_SOUNDS, SOUND_VOLUME, CLEAR_ON_START, CLEAN_USERNAMES, SOUND_PREFS
     
     if not play_sounds:
         try:
@@ -474,7 +512,7 @@ def update_config(username, prefs, auto_speak_prefs, sound_prefs, play_sounds, v
     SOUND_PREFS = sound_prefs
     PLAY_SOUNDS = play_sounds
     SOUND_VOLUME = volume
-    _clear_on_start = clear_on_start
+    CLEAR_ON_START = clear_on_start
     CLEAN_USERNAMES = clean_usernames
     sound_manager.set_volume(volume)
 
@@ -522,12 +560,24 @@ def reset_accumulators():
     _processed_ids.clear()
     _known_gifts.clear()
 
+def resolve_usable_directory(directory):
+    for candidate in (directory, DEFAULT_LOG_DIR):
+        try:
+            path = Path(str(candidate).strip()).expanduser()
+            if not path.is_absolute():
+                continue
+            path.mkdir(parents=True, exist_ok=True)
+            return path
+        except Exception:
+            continue
+    return DEFAULT_LOG_DIR
+
+def ensure_log_directory():
+    set_log_directory(resolve_usable_directory(LOG_DIR))
+    return LOG_DIR
+
 def _ensure_files_exist():
-    try:
-        LOG_DIR.mkdir(parents=True, exist_ok=True)
-    except Exception:
-        set_log_directory(DEFAULT_LOG_DIR)
-        LOG_DIR.mkdir(parents=True, exist_ok=True)
+    ensure_log_directory()
     for file in [
         COMMENTS_FILE, FOLLOWERS_FILE, GIFTS_FILE, TOP_GIFTERS_FILE,
         STATS_FILE, TOP_LIKES_FILE, LIKES_FILE, VISITORS_FILE, SHARES_FILE, REQUESTS_FILE, EVENTS_FILE
@@ -536,17 +586,42 @@ def _ensure_files_exist():
             with open(file, "w", encoding="utf-8"):
                 pass
 
-def update_stats_file():
-    with open(STATS_FILE, "w", encoding="utf-8") as f:
-        # Translators: Stats file lines. {count} represents the respective count.
-        f.write(_t("Viewers: {count}").format(count=viewer_count) + "\n")
-        f.write(_t("Visitors: {count}").format(count=total_viewers) + "\n")
-        f.write(_t("Likes: {count}").format(count=total_likes) + "\n")
-        f.write(_t("Followers: {count}").format(count=total_followers) + "\n")
-        f.write(_t("Diamonds: {count}").format(count=total_diamonds) + "\n")
+STATS_MIN_INTERVAL = 1.0
+_stats_lock = threading.Lock()
+_stats_dirty = False
+_stats_last_write = 0.0
 
-def update_top_files():
-    while not _stop_event.is_set():
+def _write_stats_file():
+    try:
+        with open(STATS_FILE, "w", encoding="utf-8") as f:
+            # Translators: Stats file lines. {count} represents the respective count.
+            f.write(_t("Viewers: {count}").format(count=viewer_count) + "\n")
+            f.write(_t("Visitors: {count}").format(count=total_viewers) + "\n")
+            f.write(_t("Likes: {count}").format(count=total_likes) + "\n")
+            f.write(_t("Followers: {count}").format(count=total_followers) + "\n")
+            f.write(_t("Diamonds: {count}").format(count=total_diamonds) + "\n")
+    except Exception:
+        pass
+
+def update_stats_file(force=False):
+    global _stats_dirty, _stats_last_write
+    with _stats_lock:
+        now = time.time()
+        if not force and (now - _stats_last_write) < STATS_MIN_INTERVAL:
+            _stats_dirty = True
+            return
+        _stats_dirty = False
+        _stats_last_write = now
+        _write_stats_file()
+
+def flush_stats_file():
+    with _stats_lock:
+        if not _stats_dirty:
+            return
+    update_stats_file(force=True)
+
+def _write_top_files():
+    try:
         if top_gifters:
             sorted_gifters = sorted(top_gifters.items(), key=lambda x: x[1], reverse=True)
             with open(TOP_GIFTERS_FILE, "w", encoding="utf-8") as f:
@@ -557,7 +632,17 @@ def update_top_files():
             with open(TOP_LIKES_FILE, "w", encoding="utf-8") as f:
                 for user, likes in sorted_likers:
                     f.write(f"{user}: {likes}\n")
-        _stop_event.wait(10)
+    except Exception:
+        pass
+
+def update_top_files():
+    ticks = 0
+    while not _stop_event.is_set():
+        if ticks % 10 == 0:
+            _write_top_files()
+        flush_stats_file()
+        ticks += 1
+        _stop_event.wait(1)
 
 def _log_to_events(log_text):
     event_text = log_text.rsplit("  ", 1)[0]
@@ -582,8 +667,7 @@ def _extract_comment_payload(event):
     nickname = getattr(user, "nickname", None) or getattr(user, "unique_id", None) or "someone"
     nickname = _sanitize_name(nickname)
     uid = getattr(user, "id", getattr(user, "uid", None))
-    if uid:
-        _known_users[str(uid)] = nickname
+    _remember_user(uid, nickname)
 
     comment_text = (
         getattr(event, "comment", None)
@@ -618,14 +702,9 @@ def _handle_speech_and_sound(event_key, speak_text):
     sound_enabled = PLAY_SOUNDS and SOUND_PREFS.get(event_key, False)
     speech_enabled = AUTO_SPEAK_PREFS.get(event_key, False)
     
-    if _connection_time == 0:
+    if _connection_time == 0 or (time.time() - _connection_time) < 10.0:
         sound_enabled = False
         speech_enabled = False
-    elif (time.time() - _connection_time) < 10.0:
-        if sound_enabled:
-            sound_enabled = False
-        if speech_enabled:
-            speech_enabled = False
 
     if sound_enabled or speech_enabled:
         cb = None
@@ -634,10 +713,8 @@ def _handle_speech_and_sound(event_key, speak_text):
                 _speak_text(speak_text)
 
             cb = _on_complete
-            
+
         sound_manager.play(event_key, play_file=sound_enabled, on_complete=cb)
-    else:
-        pass
 
 def _track_user(event):
     user = getattr(event, "user", None)
@@ -645,7 +722,7 @@ def _track_user(event):
         uid = getattr(user, "id", getattr(user, "uid", None))
         nn = getattr(user, "nick_name", getattr(user, "nickname", None))
         if uid and nn:
-            _known_users[str(uid)] = _sanitize_name(nn)
+            _remember_user(uid, _sanitize_name(nn))
 
 def _apply_like_event(ev):
     global total_likes
@@ -681,8 +758,7 @@ def _apply_like_event(ev):
     increment = inc_val if (isinstance(inc_val, int) and inc_val > 0) else 1
     
     top_likers[user_name] = top_likers.get(user_name, 0) + increment
-    update_stats_file()
-    
+
     current_user_total = top_likers[user_name]
     like_manager.add_like(user_name, current_user_total)
 
@@ -762,6 +838,7 @@ async def on_gift(event):
     if now - _known_gifts.get(gift_key, 0) < 1.0:
         return
     _known_gifts[gift_key] = now
+    _prune_timestamps(_known_gifts, 1.0)
     
     if diamonds > 0:
         total_diamonds += diamonds
@@ -805,6 +882,7 @@ async def on_share(event):
     if now - _known_shares.get(display_name, 0) < 1.0:
         return
     _known_shares[display_name] = now
+    _prune_timestamps(_known_shares, 1.0)
     
     log_line = f"{display_name}  {datetime.datetime.now().strftime('%H:%M:%S')}"
     
@@ -889,7 +967,7 @@ async def on_guest_request(event):
             if nn:
                 sanitized = _sanitize_name(nn)
                 if sanitized:
-                    if uid: _known_users[str(uid)] = sanitized
+                    _remember_user(uid, sanitized)
                     return sanitized
             if uid and str(uid) in _known_users:
                 return _known_users[str(uid)]
@@ -967,6 +1045,7 @@ async def on_guest_request(event):
         if now - _requests_log.get(user_name, 0) < 10.0:
             return
         _requests_log[user_name] = now
+        _prune_timestamps(_requests_log, 10.0)
             
         # Translators: Announced when someone requests to join the live stream. {name} is the user's name.
         speak_msg = _t("Guest request: {name}").format(name=user_name)
@@ -1146,23 +1225,32 @@ def _runner(username, on_connect_cb, on_retry_cb, on_fail_cb, max_attempts=3):
 def connect(username=None, on_connect=None, on_retry=None, on_fail=None, retry_count=3):
     global _top_thread_started, USERNAME, CLEAN_USERNAMES, _thread, _should_run, _stats_thread, _known_comments, _known_events
     global _known_followers, _known_shares, PREFS, AUTO_SPEAK_PREFS, PLAY_SOUNDS, SOUND_VOLUME, _processed_ids, _connection_time, SOUND_PREFS
+    global CLEAR_ON_START
 
     if _thread and _thread.is_alive():
         return
 
-    USERNAME, clear_on_start, CLEAN_USERNAMES, PREFS, AUTO_SPEAK_PREFS, PLAY_SOUNDS, SOUND_VOLUME, SOUND_PREFS = _load_config()
+    settings = read_settings()
+    USERNAME = settings["username"]
+    CLEAR_ON_START = settings["clear_on_start"]
+    CLEAN_USERNAMES = settings["clean_usernames"]
+    PREFS = settings["prefs"]
+    AUTO_SPEAK_PREFS = settings["auto_speak_prefs"]
+    SOUND_PREFS = settings["sound_prefs"]
+    PLAY_SOUNDS = settings["play_sounds"]
+    SOUND_VOLUME = settings["volume"]
     sound_manager.set_volume(SOUND_VOLUME)
     sound_manager.start()
     sound_manager.clear()
     _clear_speech_buffer()
-    _known_comments = set()
-    _known_events = set()
-    _processed_ids = set()
+    _known_comments.clear()
+    _known_events.clear()
+    _processed_ids.clear()
     _known_gifts.clear()
     _connection_time = 0
-    _known_followers = set()
-    _known_shares = {}
-    if not clear_on_start:
+    _known_followers.clear()
+    _known_shares.clear()
+    if not CLEAR_ON_START:
         try:
             for ln in COMMENTS_FILE.read_text(encoding="utf-8").splitlines():
                 ln = ln.strip()
@@ -1183,10 +1271,10 @@ def connect(username=None, on_connect=None, on_retry=None, on_fail=None, retry_c
         return
 
     _ensure_files_exist()
-    if clear_on_start:
+    if CLEAR_ON_START:
         _clear_all_text_files()
         reset_accumulators()
-        update_stats_file()
+        update_stats_file(force=True)
 
     _stop_event.clear()
     
@@ -1206,6 +1294,7 @@ def connect(username=None, on_connect=None, on_retry=None, on_fail=None, retry_c
 def disconnect():
     global _thread, client, _should_run, _top_thread_started, _stats_thread
     _should_run = False
+    flush_stats_file()
     _stop_event.set()
     
     _stats_thread = None

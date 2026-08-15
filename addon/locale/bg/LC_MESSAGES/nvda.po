@@ -73,6 +73,11 @@ msgstr "Посетители"
 msgid "{item} ({num} of {total})"
 msgstr "{item} ({num} от {total})"
 
+#. Translators: Announced when the folder holding the text files cannot be reached,
+#. for example when it is on a removable drive that has been unplugged.
+msgid "The text files folder is not available"
+msgstr "Папката с текстовите файлове не е достъпна"
+
 #. Translators: Announced when there are no entries.
 msgid "No entries"
 msgstr "Няма записи"

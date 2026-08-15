@@ -42,6 +42,25 @@ def _resolve_destination(raw):
         return str(DEFAULT_LOG_DIR)
 
 
+def _add_event_checkboxes(parent, sizer, values):
+    labels = (
+        ("comments", _("&Comments")),
+        ("followers", _("&Followers")),
+        ("gifts", _("&Gifts")),
+        ("likes", _("&Likes")),
+        ("requests", _("&Requests")),
+        ("shares", _("&Shares")),
+        ("visitors", _("&Visitors")),
+    )
+    checks = {}
+    for key, label in labels:
+        chk = wx.CheckBox(parent, label=label)
+        chk.SetValue(bool(values.get(key, client.DEFAULT_EVENT_PREFS[key])))
+        sizer.Add(chk, flag=wx.ALL, border=5)
+        checks[key] = chk
+    return checks
+
+
 
 FILES = [
     ("Comments", "comments.txt"),
@@ -113,12 +132,13 @@ class SpeechManager:
             pass
 
     def _worker(self):
-        
+        me = threading.current_thread()
+
         last_pos = 0
         if SPEECH_BUFFER_FILE.exists():
             last_pos = SPEECH_BUFFER_FILE.stat().st_size
-            
-        while self._running:
+
+        while self._running and self._thread is me:
             if not SPEECH_BUFFER_FILE.exists():
                 time.sleep(0.5)
                 continue
@@ -135,7 +155,7 @@ class SpeechManager:
                         last_pos = f.tell()
                         
                     for line in lines:
-                        if not self._running:
+                        if not self._running or self._thread is not me:
                             break
                         line = line.strip()
                         if not line:
@@ -188,102 +208,25 @@ class GlobalPlugin(NVDA_GlobalPlugin):
 
     def _load_config(self):
         try:
-            cfg = configparser.ConfigParser()
-            if CONFIG_FILE.exists():
-                cfg.read(CONFIG_FILE, encoding="utf-8")
-            
-            if "main" not in cfg:
-                cfg["main"] = {"username": ""}
-            if "text_files_destination" not in cfg["main"]:
-                cfg["main"]["text_files_destination"] = str(DEFAULT_LOG_DIR)
-                
-            if "events" not in cfg:
-                if "auto_read" in cfg:
-                    cfg["events"] = cfg["auto_read"]
-                else:
-                    cfg["events"] = {
-                        "comments": "true",
-                        "followers": "false",
-                        "gifts": "false",
-                        "likes": "false",
-                        "shares": "false",
-                        "visitors": "false",
-                        "requests": "true",
-                    }
-            elif "requests" not in cfg["events"]:
-                cfg["events"]["requests"] = "true"
-    
-            if "auto_speak" not in cfg:
-                cfg["auto_speak"] = {
-                    "comments": "true",
-                    "followers": "false",
-                    "gifts": "false",
-                    "likes": "false",
-                    "shares": "false",
-                    "visitors": "false",
-                    "requests": "true",
-                }
-            elif "requests" not in cfg["auto_speak"]:
-                cfg["auto_speak"]["requests"] = "true"
-                
-            if "sound_events" not in cfg:
-                cfg["sound_events"] = {
-                    "comments": "true",
-                    "followers": "false",
-                    "gifts": "false",
-                    "likes": "false",
-                    "shares": "false",
-                    "visitors": "false",
-                    "requests": "true",
-                }
-    
-            if "behavior" not in cfg:
-                cfg["behavior"] = {"clear_on_start": "true", "clean_usernames": "false", "retry_count": "3"}
-                
-            if "sounds" not in cfg:
-                cfg["sounds"] = {"play_sounds": "false", "volume": "100"}
-    
+            cfg = client.apply_config_defaults(client.read_config_file())
             with open(CONFIG_FILE, "w", encoding="utf-8") as f:
                 cfg.write(f)
-                
+
+            settings = client.read_settings(cfg)
             return (
-                cfg.get("main", "username", fallback=""),
-                {
-                    "comments": cfg.getboolean("events", "comments", fallback=True),
-                    "followers": cfg.getboolean("events", "followers", fallback=False),
-                    "gifts": cfg.getboolean("events", "gifts", fallback=False),
-                    "likes": cfg.getboolean("events", "likes", fallback=False),
-                    "requests": cfg.getboolean("events", "requests", fallback=True),
-                    "shares": cfg.getboolean("events", "shares", fallback=False),
-                    "visitors": cfg.getboolean("events", "visitors", fallback=False),
-                },
-                {
-                    "comments": cfg.getboolean("auto_speak", "comments", fallback=True),
-                    "followers": cfg.getboolean("auto_speak", "followers", fallback=False),
-                    "gifts": cfg.getboolean("auto_speak", "gifts", fallback=False),
-                    "likes": cfg.getboolean("auto_speak", "likes", fallback=False),
-                    "requests": cfg.getboolean("auto_speak", "requests", fallback=True),
-                    "shares": cfg.getboolean("auto_speak", "shares", fallback=False),
-                    "visitors": cfg.getboolean("auto_speak", "visitors", fallback=False),
-                },
-                {
-                    "comments": cfg.getboolean("sound_events", "comments", fallback=True),
-                    "followers": cfg.getboolean("sound_events", "followers", fallback=False),
-                    "gifts": cfg.getboolean("sound_events", "gifts", fallback=False),
-                    "likes": cfg.getboolean("sound_events", "likes", fallback=False),
-                    "requests": cfg.getboolean("sound_events", "requests", fallback=True),
-                    "shares": cfg.getboolean("sound_events", "shares", fallback=False),
-                    "visitors": cfg.getboolean("sound_events", "visitors", fallback=False),
-                },
-                cfg.getboolean("behavior", "clear_on_start", fallback=True),
-                cfg.getboolean("behavior", "clean_usernames", fallback=False),
-                cfg.getint("behavior", "retry_count", fallback=3),
-                cfg.getboolean("sounds", "play_sounds", fallback=False),
-                cfg.getint("sounds", "volume", fallback=100),
-                cfg.getboolean("auto_speak", "enabled", fallback=False),
-                _resolve_destination(cfg.get("main", "text_files_destination", fallback=str(DEFAULT_LOG_DIR))),
+                settings["username"],
+                settings["prefs"],
+                settings["auto_speak_prefs"],
+                settings["sound_prefs"],
+                settings["clear_on_start"],
+                settings["clean_usernames"],
+                settings["retry_count"],
+                settings["play_sounds"],
+                settings["volume"],
+                settings["auto_speak_enabled"],
+                _resolve_destination(settings["text_files_destination"]),
             )
-        except Exception as e:
+        except Exception:
             return ("", {}, {}, {}, True, False, 3, False, 100, False, str(DEFAULT_LOG_DIR))
 
     def _save_config(self, username, prefs, auto_speak_prefs, sound_prefs, clear_on_start, clean_usernames, retry_count, play_sounds, volume, text_files_destination=None):
@@ -362,8 +305,20 @@ class GlobalPlugin(NVDA_GlobalPlugin):
         try:
             with file.open("r", encoding="utf-8") as f:
                 return [ln.strip() for ln in f if ln.strip()]
-        except FileNotFoundError:
+        except OSError:
             return []
+
+    def _report_no_items(self):
+        try:
+            available = client.LOG_DIR.is_dir()
+        except Exception:
+            available = False
+        if available:
+            ui.message(_("No entries"))
+        else:
+            # Translators: Announced when the folder holding the text files cannot be reached,
+            # for example when it is on a removable drive that has been unplugged.
+            ui.message(_("The text files folder is not available"))
 
     def _speak_current(self, items):
         if 0 <= self.index < len(items):
@@ -544,6 +499,7 @@ class GlobalPlugin(NVDA_GlobalPlugin):
         lbl_destination = wx.StaticText(p_general, label=_("Text files &destination"))
         destination_row = wx.FlexGridSizer(rows=1, cols=2, vgap=0, hgap=5)
         destination_row.AddGrowableCol(0, 1)
+        self.textFilesDestination = str(client.resolve_usable_directory(self.textFilesDestination))
         txt_destination = wx.TextCtrl(
             p_general,
             value=self.textFilesDestination,
@@ -591,24 +547,7 @@ class GlobalPlugin(NVDA_GlobalPlugin):
         p_general.SetSizer(s_general)
 
         s_events = wx.BoxSizer(wx.VERTICAL)
-        chk_ev_comments = wx.CheckBox(p_events, label=_("&Comments"))
-        chk_ev_followers = wx.CheckBox(p_events, label=_("&Followers"))
-        chk_ev_gifts = wx.CheckBox(p_events, label=_("&Gifts"))
-        chk_ev_likes = wx.CheckBox(p_events, label=_("&Likes"))
-        chk_ev_requests = wx.CheckBox(p_events, label=_("&Requests"))
-        chk_ev_shares = wx.CheckBox(p_events, label=_("&Shares"))
-        chk_ev_visitors = wx.CheckBox(p_events, label=_("&Visitors"))
-
-        chk_ev_comments.SetValue(self.prefs.get("comments", True))
-        chk_ev_requests.SetValue(self.prefs.get("requests", True))
-        chk_ev_followers.SetValue(self.prefs.get("followers", False))
-        chk_ev_gifts.SetValue(self.prefs.get("gifts", False))
-        chk_ev_likes.SetValue(self.prefs.get("likes", False))
-        chk_ev_shares.SetValue(self.prefs.get("shares", False))
-        chk_ev_visitors.SetValue(self.prefs.get("visitors", False))
-
-        for chk in [chk_ev_comments, chk_ev_followers, chk_ev_gifts, chk_ev_likes, chk_ev_requests, chk_ev_shares, chk_ev_visitors]:
-            s_events.Add(chk, flag=wx.ALL, border=5)
+        event_checks = _add_event_checkboxes(p_events, s_events, self.prefs)
         p_events.SetSizer(s_events)
 
         s_sounds = wx.BoxSizer(wx.VERTICAL)
@@ -619,25 +558,8 @@ class GlobalPlugin(NVDA_GlobalPlugin):
         sl_s1 = wx.StaticLine(p_sounds)
         s_sounds.Add(sl_s1, flag=wx.EXPAND|wx.ALL, border=5)
 
-        chk_s_comments = wx.CheckBox(p_sounds, label=_("&Comments"))
-        chk_s_followers = wx.CheckBox(p_sounds, label=_("&Followers"))
-        chk_s_gifts = wx.CheckBox(p_sounds, label=_("&Gifts"))
-        chk_s_likes = wx.CheckBox(p_sounds, label=_("&Likes"))
-        chk_s_requests = wx.CheckBox(p_sounds, label=_("&Requests"))
-        chk_s_shares = wx.CheckBox(p_sounds, label=_("&Shares"))
-        chk_s_visitors = wx.CheckBox(p_sounds, label=_("&Visitors"))
-
-        chk_s_comments.SetValue(self.sound_prefs.get("comments", True))
-        chk_s_requests.SetValue(self.sound_prefs.get("requests", True))
-        chk_s_followers.SetValue(self.sound_prefs.get("followers", False))
-        chk_s_gifts.SetValue(self.sound_prefs.get("gifts", False))
-        chk_s_likes.SetValue(self.sound_prefs.get("likes", False))
-        chk_s_shares.SetValue(self.sound_prefs.get("shares", False))
-        chk_s_visitors.SetValue(self.sound_prefs.get("visitors", False))
-
-        sound_sub_chks = [chk_s_comments, chk_s_followers, chk_s_gifts, chk_s_likes, chk_s_requests, chk_s_shares, chk_s_visitors]
-        for chk in sound_sub_chks:
-            s_sounds.Add(chk, flag=wx.ALL, border=5)
+        sound_checks = _add_event_checkboxes(p_sounds, s_sounds, self.sound_prefs)
+        sound_sub_chks = list(sound_checks.values())
 
         sl_s2 = wx.StaticLine(p_sounds)
         s_sounds.Add(sl_s2, flag=wx.EXPAND|wx.ALL, border=5)
@@ -759,27 +681,8 @@ class GlobalPlugin(NVDA_GlobalPlugin):
         sl_as1 = wx.StaticLine(p_autospeak)
         s_autospeak.Add(sl_as1, flag=wx.EXPAND|wx.ALL, border=5)
 
-
-        
-        chk_as_comments = wx.CheckBox(p_autospeak, label=_("&Comments"))
-        chk_as_followers = wx.CheckBox(p_autospeak, label=_("&Followers"))
-        chk_as_gifts = wx.CheckBox(p_autospeak, label=_("&Gifts"))
-        chk_as_likes = wx.CheckBox(p_autospeak, label=_("&Likes"))
-        chk_as_requests = wx.CheckBox(p_autospeak, label=_("&Requests"))
-        chk_as_shares = wx.CheckBox(p_autospeak, label=_("&Shares"))
-        chk_as_visitors = wx.CheckBox(p_autospeak, label=_("&Visitors"))
-
-        chk_as_comments.SetValue(self.auto_speak_prefs.get("comments", True))
-        chk_as_requests.SetValue(self.auto_speak_prefs.get("requests", True))
-        chk_as_followers.SetValue(self.auto_speak_prefs.get("followers", False))
-        chk_as_gifts.SetValue(self.auto_speak_prefs.get("gifts", False))
-        chk_as_likes.SetValue(self.auto_speak_prefs.get("likes", False))
-        chk_as_shares.SetValue(self.auto_speak_prefs.get("shares", False))
-        chk_as_visitors.SetValue(self.auto_speak_prefs.get("visitors", False))
-
-        sub_chks = [chk_as_comments, chk_as_followers, chk_as_gifts, chk_as_likes, chk_as_requests, chk_as_shares, chk_as_visitors]
-        for chk in sub_chks:
-            s_autospeak.Add(chk, flag=wx.ALL, border=5)
+        auto_speak_checks = _add_event_checkboxes(p_autospeak, s_autospeak, self.auto_speak_prefs)
+        sub_chks = list(auto_speak_checks.values())
 
         sl_as2 = wx.StaticLine(p_autospeak)
         s_autospeak.Add(sl_as2, flag=wx.EXPAND|wx.ALL, border=5)
@@ -840,34 +743,11 @@ class GlobalPlugin(NVDA_GlobalPlugin):
         if res == wx.ID_OK:
             self.autoSpeak = chk_auto_speak.IsChecked()
             
-            prefs = {
-                "comments": chk_ev_comments.IsChecked(),
-                "followers": chk_ev_followers.IsChecked(),
-                "gifts": chk_ev_gifts.IsChecked(),
-                "likes": chk_ev_likes.IsChecked(),
-                "requests": chk_ev_requests.IsChecked(),
-                "shares": chk_ev_shares.IsChecked(),
-                "visitors": chk_ev_visitors.IsChecked(),
-            }
-            auto_speak_prefs = {
-                "comments": chk_as_comments.IsChecked(),
-                "followers": chk_as_followers.IsChecked(),
-                "gifts": chk_as_gifts.IsChecked(),
-                "likes": chk_as_likes.IsChecked(),
-                "requests": chk_as_requests.IsChecked(),
-                "shares": chk_as_shares.IsChecked(),
-                "visitors": chk_as_visitors.IsChecked(),
-            }
-            sound_prefs = {
-                "comments": chk_s_comments.IsChecked(),
-                "followers": chk_s_followers.IsChecked(),
-                "gifts": chk_s_gifts.IsChecked(),
-                "likes": chk_s_likes.IsChecked(),
-                "requests": chk_s_requests.IsChecked(),
-                "shares": chk_s_shares.IsChecked(),
-                "visitors": chk_s_visitors.IsChecked(),
-            }
-            
+            prefs = {k: chk.IsChecked() for k, chk in event_checks.items()}
+            auto_speak_prefs = {k: chk.IsChecked() for k, chk in auto_speak_checks.items()}
+            sound_prefs = {k: chk.IsChecked() for k, chk in sound_checks.items()}
+
+
             self._save_config(
                 txt_user.GetValue().strip().lstrip('@'), 
                 prefs, 
@@ -936,7 +816,7 @@ class GlobalPlugin(NVDA_GlobalPlugin):
             return
         items = self._load_items()
         if not items:
-            ui.message(_("No entries"))
+            self._report_no_items()
             return
         if self.index == -1:
             self.index = 0
@@ -951,7 +831,7 @@ class GlobalPlugin(NVDA_GlobalPlugin):
             return
         items = self._load_items()
         if not items:
-            ui.message(_("No entries"))
+            self._report_no_items()
             return
         if self.index == -1:
             self.index = 0
@@ -966,7 +846,7 @@ class GlobalPlugin(NVDA_GlobalPlugin):
             return
         items = self._load_items()
         if not items:
-            ui.message(_("No entries"))
+            self._report_no_items()
             return
         self.index = 0
         self._persist_index()
@@ -978,7 +858,7 @@ class GlobalPlugin(NVDA_GlobalPlugin):
             return
         items = self._load_items()
         if not items:
-            ui.message(_("No entries"))
+            self._report_no_items()
             return
         self.index = len(items) - 1
         self._persist_index()

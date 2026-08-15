@@ -1,15 +1,9 @@
 from pathlib import Path
 import configparser
-import datetime
-import difflib
 import json
-import platform
-import queue
 import re
-import subprocess
 import threading
 import time
-import winreg
 
 from . import client
 from globalPluginHandler import GlobalPlugin as NVDA_GlobalPlugin
@@ -25,8 +19,10 @@ addonHandler.initTranslation()
 client._cached_translate = _
 
 ADDON_DIR = Path(__file__).resolve().parent
-CONFIG_FILE = ADDON_DIR / "config.ini"
-POS_FILE = ADDON_DIR / "positions.json"
+# Settings live in NVDA's config folder so that updating the add-on,
+# which replaces the add-on folder, no longer wipes them.
+CONFIG_FILE = client.CONFIG_PATH
+POS_FILE = client.POSITIONS_PATH
 
 DEFAULT_LOG_DIR = Path.home() / "Documents" / "TikTok live"
 SPEECH_BUFFER_FILE = ADDON_DIR / "speechbuffer.json"
@@ -193,6 +189,7 @@ class GlobalPlugin(NVDA_GlobalPlugin):
         self.speech_manager = SpeechManager(self)
         self.currentFileIndex = 0
         self.filePositions = {i: -1 for i in range(len(FILES))}
+        client.migrate_user_files()
         self.username, self.prefs, self.auto_speak_prefs, self.sound_prefs, self.clearOnStart, self.cleanUsernames, self.retryCount, self.playSounds, self.soundVolume, self.autoSpeak, self.textFilesDestination, self.backupSessions = self._load_config()
         self.autoSpeakDelay = 1.0
         self._sessionConnected = False
@@ -229,7 +226,22 @@ class GlobalPlugin(NVDA_GlobalPlugin):
                 settings["backup_sessions"],
             )
         except Exception:
-            return ("", {}, {}, {}, True, False, 3, False, 100, False, str(DEFAULT_LOG_DIR), False)
+            d = client.DEFAULT_BEHAVIOR
+            s = client.DEFAULT_SOUNDS
+            return (
+                "",
+                dict(client.DEFAULT_EVENT_PREFS),
+                dict(client.DEFAULT_EVENT_PREFS),
+                dict(client.DEFAULT_EVENT_PREFS),
+                d["clear_on_start"],
+                d["clean_usernames"],
+                d["retry_count"],
+                s["play_sounds"],
+                s["volume"],
+                False,
+                str(DEFAULT_LOG_DIR),
+                d["backup_sessions"],
+            )
 
     def _save_config(self, username, prefs, auto_speak_prefs, sound_prefs, clear_on_start, clean_usernames, retry_count, play_sounds, volume, text_files_destination=None, backup_sessions=None):
         if text_files_destination is None:
@@ -339,6 +351,36 @@ class GlobalPlugin(NVDA_GlobalPlugin):
             ui.message(_("No entries"))
 
 
+    def _connection_callbacks(self):
+        def on_conn():
+            self._ensure_temp_files_exist()
+            self._sessionConnected = True
+            # Translators: Announced when successfully connected to a TikTok live. {username} is the streamer's name.
+            ui.message(_("Connected to user: {username}").format(username=self.username))
+
+        def on_retry():
+            ui.message(_("Attempting to connect..."))
+
+        def stop_session():
+            self.active = False
+            self._unbind_nav()
+            client.disconnect()
+            self.speech_manager.stop()
+
+        def on_fail():
+            ui.message(_("Connection unsuccessful."))
+            stop_session()
+            self._cleanup_temp_files()
+
+        def on_live_end():
+            # Translators: Announced when the streamer has ended the live.
+            ui.message(_("The live has ended"))
+            stop_session()
+            self._archive_session(self.username)
+            self._cleanup_temp_files()
+
+        return on_conn, on_retry, on_fail, on_live_end
+
     def _archive_session(self, username):
         if not self.backupSessions or not self._sessionConnected:
             return
@@ -367,25 +409,9 @@ class GlobalPlugin(NVDA_GlobalPlugin):
                 self.speech_manager.stop()
             ui.message(_("TikTok Live Reader On"))
 
-            def on_conn():
-                self._ensure_temp_files_exist()
-                self._sessionConnected = True
-                # Translators: Announced when successfully connected to a TikTok live. {username} is the streamer's name.
-                ui.message(_("Connected to user: {username}").format(username=self.username))
-
-            def on_retry():
-                ui.message(_("Attempting to connect..."))
-
-            def on_fail():
-                ui.message(_("Connection unsuccessful."))
-                self.active = False
-                self._unbind_nav()
-                client.disconnect()
-                self.speech_manager.stop()
-                self._cleanup_temp_files()
-
+            on_conn, on_retry, on_fail, on_live_end = self._connection_callbacks()
             client.set_log_directory(self.textFilesDestination)
-            client.connect(username=self.username, on_connect=on_conn, on_retry=on_retry, on_fail=on_fail, retry_count=self.retryCount)
+            client.connect(username=self.username, on_connect=on_conn, on_retry=on_retry, on_fail=on_fail, on_live_end=on_live_end, retry_count=self.retryCount)
         else:
             self._unbind_nav()
             ui.message(_("TikTok Live Reader Off"))
@@ -798,22 +824,9 @@ class GlobalPlugin(NVDA_GlobalPlugin):
                     if self.autoSpeak:
                         self.speech_manager.start()
                         
-                    def on_conn():
-                        self._ensure_temp_files_exist()
-                        # Translators: Announced when successfully connected to a TikTok live. {username} is the streamer's name.
-                        ui.message(_("Connected to user: {username}").format(username=self.username))
-                    def on_retry():
-                        ui.message(_("Attempting to connect..."))
-                    def on_fail():
-                        ui.message(_("Connection unsuccessful."))
-                        self.active = False
-                        self._unbind_nav()
-                        client.disconnect()
-                        self.speech_manager.stop()
-                        self._cleanup_temp_files()
-                        
+                    on_conn, on_retry, on_fail, on_live_end = self._connection_callbacks()
                     client.set_log_directory(self.textFilesDestination)
-                    client.connect(username=self.username, on_connect=on_conn, on_retry=on_retry, on_fail=on_fail, retry_count=self.retryCount)
+                    client.connect(username=self.username, on_connect=on_conn, on_retry=on_retry, on_fail=on_fail, on_live_end=on_live_end, retry_count=self.retryCount)
                 else:
                     if self.autoSpeak:
                         self.speech_manager.start()

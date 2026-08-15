@@ -78,6 +78,10 @@ msgstr "{item} ({num} от {total})"
 msgid "The text files folder is not available"
 msgstr "Папката с текстовите файлове не е достъпна"
 
+#. Translators: Announced when the streamer has ended the live.
+msgid "The live has ended"
+msgstr "Лайфът приключи"
+
 #. Translators: Announced when there are no entries.
 msgid "No entries"
 msgstr "Няма записи"

@@ -43,7 +43,53 @@ BASE_DIR = Path(__file__).resolve().parent
 LIB_DIR = BASE_DIR / "lib"
 _RUNTIME = load_runtime(str(LIB_DIR))
 
-CONFIG_PATH = BASE_DIR / "config.ini"
+def user_config_dir():
+    """NVDA's own configuration folder, which survives add-on updates.
+
+    Falls back to the add-on folder when NVDA is not available, so the module
+    stays importable outside NVDA.
+    """
+    try:
+        import NVDAState
+
+        path = Path(NVDAState.WritePaths.configDir)
+        if path.is_dir():
+            return path
+    except Exception:
+        pass
+    try:
+        import globalVars
+
+        path = Path(globalVars.appArgs.configPath)
+        if path.is_dir():
+            return path
+    except Exception:
+        pass
+    return BASE_DIR
+
+
+CONFIG_DIR = user_config_dir()
+CONFIG_PATH = CONFIG_DIR / "tiktokLiveReader.ini"
+POSITIONS_PATH = CONFIG_DIR / "tiktokLiveReader-positions.json"
+
+# Where these files lived up to version 1.7, inside the add-on folder.
+LEGACY_CONFIG_PATH = BASE_DIR / "config.ini"
+LEGACY_POSITIONS_PATH = BASE_DIR / "positions.json"
+
+
+def migrate_user_files():
+    """Copy settings left in the add-on folder to their new home, once."""
+    for new_path, old_path in (
+        (CONFIG_PATH, LEGACY_CONFIG_PATH),
+        (POSITIONS_PATH, LEGACY_POSITIONS_PATH),
+    ):
+        try:
+            if new_path == old_path or new_path.exists() or not old_path.is_file():
+                continue
+            new_path.parent.mkdir(parents=True, exist_ok=True)
+            shutil.copy2(str(old_path), str(new_path))
+        except Exception:
+            pass
 DEFAULT_LOG_DIR = Path.home() / "Documents" / "TikTok live"
 LOG_DIR = DEFAULT_LOG_DIR
 COMMENTS_FILE = LOG_DIR / "comments.txt"
@@ -396,27 +442,33 @@ def _is_processed(event):
 
 DEFAULT_EVENT_PREFS = {
     "comments": True,
-    "followers": False,
-    "gifts": False,
-    "likes": False,
+    "followers": True,
+    "gifts": True,
+    "likes": True,
     "requests": True,
-    "shares": False,
+    "shares": True,
     "visitors": False,
 }
 
 EVENT_SECTIONS = ("events", "auto_speak", "sound_events")
 
-DEFAULT_BEHAVIOR = (
-    ("clear_on_start", "true"),
-    ("clean_usernames", "false"),
-    ("retry_count", "3"),
-    ("backup_sessions", "false"),
-)
+DEFAULT_BEHAVIOR = {
+    "clear_on_start": True,
+    "clean_usernames": True,
+    "retry_count": 3,
+    "backup_sessions": False,
+}
 
-DEFAULT_SOUNDS = (
-    ("play_sounds", "false"),
-    ("volume", "100"),
-)
+DEFAULT_SOUNDS = {
+    "play_sounds": False,
+    "volume": 70,
+}
+
+
+def _as_ini(value):
+    if isinstance(value, bool):
+        return "true" if value else "false"
+    return str(value)
 
 
 def read_config_file():
@@ -444,9 +496,9 @@ def apply_config_defaults(config):
     for section, defaults in (("behavior", DEFAULT_BEHAVIOR), ("sounds", DEFAULT_SOUNDS)):
         if section not in config:
             config[section] = {}
-        for key, value in defaults:
+        for key, value in defaults.items():
             if key not in config[section]:
-                config[section][key] = value
+                config[section][key] = _as_ini(value)
 
     return config
 
@@ -468,12 +520,12 @@ def read_settings(config=None):
         "auto_speak_prefs": _section_prefs(config, "auto_speak"),
         "sound_prefs": _section_prefs(config, "sound_events"),
         "auto_speak_enabled": config.getboolean("auto_speak", "enabled", fallback=False),
-        "clear_on_start": config.getboolean("behavior", "clear_on_start", fallback=True),
-        "clean_usernames": config.getboolean("behavior", "clean_usernames", fallback=False),
-        "retry_count": config.getint("behavior", "retry_count", fallback=3),
-        "backup_sessions": config.getboolean("behavior", "backup_sessions", fallback=False),
-        "play_sounds": config.getboolean("sounds", "play_sounds", fallback=False),
-        "volume": config.getint("sounds", "volume", fallback=100),
+        "clear_on_start": config.getboolean("behavior", "clear_on_start", fallback=DEFAULT_BEHAVIOR["clear_on_start"]),
+        "clean_usernames": config.getboolean("behavior", "clean_usernames", fallback=DEFAULT_BEHAVIOR["clean_usernames"]),
+        "retry_count": config.getint("behavior", "retry_count", fallback=DEFAULT_BEHAVIOR["retry_count"]),
+        "backup_sessions": config.getboolean("behavior", "backup_sessions", fallback=DEFAULT_BEHAVIOR["backup_sessions"]),
+        "play_sounds": config.getboolean("sounds", "play_sounds", fallback=DEFAULT_SOUNDS["play_sounds"]),
+        "volume": config.getint("sounds", "volume", fallback=DEFAULT_SOUNDS["volume"]),
     }
 
 SOUND_PREFS = {}
@@ -490,13 +542,13 @@ try:
     sound_manager.set_volume(SOUND_VOLUME)
 except Exception:
     USERNAME = ""
-    CLEAR_ON_START = True
-    CLEAN_USERNAMES = False
-    PREFS = {"comments": True}
-    AUTO_SPEAK_PREFS = {"comments": True}
-    PLAY_SOUNDS = True
-    SOUND_VOLUME = 100
-    SOUND_PREFS = {"comments": True, "requests": True}
+    CLEAR_ON_START = DEFAULT_BEHAVIOR["clear_on_start"]
+    CLEAN_USERNAMES = DEFAULT_BEHAVIOR["clean_usernames"]
+    PREFS = dict(DEFAULT_EVENT_PREFS)
+    AUTO_SPEAK_PREFS = dict(DEFAULT_EVENT_PREFS)
+    PLAY_SOUNDS = DEFAULT_SOUNDS["play_sounds"]
+    SOUND_VOLUME = DEFAULT_SOUNDS["volume"]
+    SOUND_PREFS = dict(DEFAULT_EVENT_PREFS)
 
 def update_config(username, prefs, auto_speak_prefs, sound_prefs, play_sounds, volume, clear_on_start, clean_usernames):
     global USERNAME, PREFS, AUTO_SPEAK_PREFS, PLAY_SOUNDS, SOUND_VOLUME, CLEAR_ON_START, CLEAN_USERNAMES, SOUND_PREFS
@@ -1101,10 +1153,11 @@ def setup():
     _ensure_files_exist()
     return True
 
-def _runner(username, on_connect_cb, on_retry_cb, on_fail_cb, max_attempts=3):
+def _runner(username, on_connect_cb, on_retry_cb, on_fail_cb, max_attempts=3, on_live_end_cb=None):
     global client
     attempts = 0
     connected_once = False
+    live_ended = False
 
     try:
         with runtime_scope(_RUNTIME):
@@ -1153,12 +1206,18 @@ def _runner(username, on_connect_cb, on_retry_cb, on_fail_cb, max_attempts=3):
                 from TikTokLive.events import GuestInviteEvent
             except ImportError:
                 GuestInviteEvent = None
+
+            try:
+                from TikTokLive.events import LiveEndEvent
+            except ImportError:
+                LiveEndEvent = None
     except Exception as e:
         if on_fail_cb:
             on_fail_cb()
         return
 
     while _should_run:
+        ended_cleanly = False
         try:
             with runtime_scope(_RUNTIME):
                 client = TikTokLiveClient(unique_id=username)
@@ -1226,8 +1285,16 @@ def _runner(username, on_connect_cb, on_retry_cb, on_fail_cb, max_attempts=3):
                     _connection_time = time.time()
                     if on_connect_cb:
                         on_connect_cb()
-                        
+
                 client.add_listener(ConnectEvent, on_connected)
+
+                async def on_stream_end(event):
+                    nonlocal live_ended
+                    live_ended = True
+
+                if LiveEndEvent:
+                    client.add_listener(LiveEndEvent, wrap(on_stream_end))
+                client.add_listener("LiveEndEvent", wrap(on_stream_end))
                 
                 global _client_loop
                 import asyncio
@@ -1238,14 +1305,23 @@ def _runner(username, on_connect_cb, on_retry_cb, on_fail_cb, max_attempts=3):
                     asyncio.set_event_loop(_client_loop)
                 
                 client.run()
-            
+
+            ended_cleanly = True
+
         except Exception:
-            import traceback
-            pass
-        
+            ended_cleanly = False
+
         if not _should_run:
             break
-            
+
+        # The stream is over either when the library says so, or when run()
+        # returned without error after we had been connected. Either signal
+        # alone is enough, so a missing LiveEndEvent cannot hide the ending.
+        if live_ended or (ended_cleanly and connected_once):
+            if on_live_end_cb:
+                on_live_end_cb()
+            break
+
         attempts += 1
         if attempts < max_attempts:
             if on_retry_cb:
@@ -1256,7 +1332,7 @@ def _runner(username, on_connect_cb, on_retry_cb, on_fail_cb, max_attempts=3):
                 on_fail_cb()
             break
 
-def connect(username=None, on_connect=None, on_retry=None, on_fail=None, retry_count=3):
+def connect(username=None, on_connect=None, on_retry=None, on_fail=None, retry_count=3, on_live_end=None):
     global _top_thread_started, USERNAME, CLEAN_USERNAMES, _thread, _should_run, _stats_thread, _known_comments, _known_events
     global _known_followers, _known_shares, PREFS, AUTO_SPEAK_PREFS, PLAY_SOUNDS, SOUND_VOLUME, _processed_ids, _connection_time, SOUND_PREFS
     global CLEAR_ON_START
@@ -1322,7 +1398,7 @@ def connect(username=None, on_connect=None, on_retry=None, on_fail=None, retry_c
     with _run_lock:
         if _thread and _thread.is_alive():
             return
-        _thread = threading.Thread(target=_runner, args=(final_user, on_connect, on_retry, on_fail, retry_count), daemon=True)
+        _thread = threading.Thread(target=_runner, args=(final_user, on_connect, on_retry, on_fail, retry_count, on_live_end), daemon=True)
         _thread.start()
 
 def disconnect():

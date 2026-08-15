@@ -63,7 +63,21 @@ i18nSources: list[str] = pythonSources + ["buildVars.py"]
 # Paths are relative to the addon directory, not to the root directory of your addon sources.
 # You can either list every file (using ""/") as a path separator,
 # or use glob expressions.
-excludedFiles: list[str] = [".git/*", ".gitignore", "**/*.pyc", "**/__pycache__", "**/*.bak", ".vscode/*"]
+excludedFiles: list[str] = [
+	".git/*",
+	".gitignore",
+	"**/*.pyc",
+	"**/__pycache__",
+	"**/*.bak",
+	".vscode/*",
+	# Runtime files: they are recreated with proper defaults on first run,
+	# and shipping the developer's copies would leak local settings.
+	"**/config.ini",
+	"**/positions.json",
+	"**/speechbuffer.json",
+	# pip console script wrappers; never imported by the add-on.
+	"**/lib/bin/*",
+]
 
 # Base language for the NVDA add-on
 # If your add-on is written in a language other than english, modify this variable.

@@ -78,6 +78,10 @@ msgstr "{item} ({num} dari {total})"
 msgid "The text files folder is not available"
 msgstr "Folder file teks tidak tersedia"
 
+#. Translators: Announced when the streamer has ended the live.
+msgid "The live has ended"
+msgstr "Siaran live telah berakhir"
+
 #. Translators: Announced when there are no entries.
 msgid "No entries"
 msgstr "Tidak ada entri"

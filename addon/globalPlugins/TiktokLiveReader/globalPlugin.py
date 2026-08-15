@@ -193,8 +193,9 @@ class GlobalPlugin(NVDA_GlobalPlugin):
         self.speech_manager = SpeechManager(self)
         self.currentFileIndex = 0
         self.filePositions = {i: -1 for i in range(len(FILES))}
-        self.username, self.prefs, self.auto_speak_prefs, self.sound_prefs, self.clearOnStart, self.cleanUsernames, self.retryCount, self.playSounds, self.soundVolume, self.autoSpeak, self.textFilesDestination = self._load_config()
+        self.username, self.prefs, self.auto_speak_prefs, self.sound_prefs, self.clearOnStart, self.cleanUsernames, self.retryCount, self.playSounds, self.soundVolume, self.autoSpeak, self.textFilesDestination, self.backupSessions = self._load_config()
         self.autoSpeakDelay = 1.0
+        self._sessionConnected = False
 
         client.set_log_directory(self.textFilesDestination)
         client.update_config(self.username, self.prefs, self.auto_speak_prefs, self.sound_prefs, self.playSounds, self.soundVolume, self.clearOnStart, self.cleanUsernames)
@@ -225,13 +226,16 @@ class GlobalPlugin(NVDA_GlobalPlugin):
                 settings["volume"],
                 settings["auto_speak_enabled"],
                 _resolve_destination(settings["text_files_destination"]),
+                settings["backup_sessions"],
             )
         except Exception:
-            return ("", {}, {}, {}, True, False, 3, False, 100, False, str(DEFAULT_LOG_DIR))
+            return ("", {}, {}, {}, True, False, 3, False, 100, False, str(DEFAULT_LOG_DIR), False)
 
-    def _save_config(self, username, prefs, auto_speak_prefs, sound_prefs, clear_on_start, clean_usernames, retry_count, play_sounds, volume, text_files_destination=None):
+    def _save_config(self, username, prefs, auto_speak_prefs, sound_prefs, clear_on_start, clean_usernames, retry_count, play_sounds, volume, text_files_destination=None, backup_sessions=None):
         if text_files_destination is None:
             text_files_destination = self.textFilesDestination
+        if backup_sessions is None:
+            backup_sessions = self.backupSessions
         text_files_destination = _resolve_destination(text_files_destination)
         cfg = configparser.ConfigParser()
         cfg["main"] = {
@@ -246,6 +250,7 @@ class GlobalPlugin(NVDA_GlobalPlugin):
             "clear_on_start": "true" if clear_on_start else "false",
             "clean_usernames": "true" if clean_usernames else "false",
             "retry_count": str(retry_count),
+            "backup_sessions": "true" if backup_sessions else "false",
         }
         cfg["sounds"] = {
             "play_sounds": "true" if play_sounds else "false",
@@ -263,7 +268,8 @@ class GlobalPlugin(NVDA_GlobalPlugin):
         self.playSounds = play_sounds
         self.soundVolume = volume
         self.textFilesDestination = text_files_destination
-        
+        self.backupSessions = backup_sessions
+
         client.update_config(self.username, self.prefs, self.auto_speak_prefs, self.sound_prefs, self.playSounds, self.soundVolume, self.clearOnStart, self.cleanUsernames)
 
     def _load_positions_json(self):
@@ -333,6 +339,12 @@ class GlobalPlugin(NVDA_GlobalPlugin):
             ui.message(_("No entries"))
 
 
+    def _archive_session(self, username):
+        if not self.backupSessions or not self._sessionConnected:
+            return
+        self._sessionConnected = False
+        client.archive_session(username)
+
     @script(description=_("Toggle TikTok Live Reader on or off"), category="TikTok Live Reader")
     def script_toggleActive(self, gesture):
         if self._settingsDialog:
@@ -357,6 +369,7 @@ class GlobalPlugin(NVDA_GlobalPlugin):
 
             def on_conn():
                 self._ensure_temp_files_exist()
+                self._sessionConnected = True
                 # Translators: Announced when successfully connected to a TikTok live. {username} is the streamer's name.
                 ui.message(_("Connected to user: {username}").format(username=self.username))
 
@@ -378,6 +391,7 @@ class GlobalPlugin(NVDA_GlobalPlugin):
             ui.message(_("TikTok Live Reader Off"))
             client.disconnect()
             self.speech_manager.stop()
+            self._archive_session(self.username)
             self._cleanup_temp_files()
 
     def _cleanup_temp_files(self, hard_reset=False):
@@ -529,9 +543,11 @@ class GlobalPlugin(NVDA_GlobalPlugin):
         btn_browse_destination.Bind(wx.EVT_BUTTON, on_browse_destination)
         chk_clear = wx.CheckBox(p_general, label=_("&Clear text files on startup"))
         chk_strip = wx.CheckBox(p_general, label=_("Cl&ean user names"))
+        chk_backup = wx.CheckBox(p_general, label=_("&Archive each live session"))
 
         chk_clear.SetValue(self.clearOnStart)
         chk_strip.SetValue(self.cleanUsernames)
+        chk_backup.SetValue(self.backupSessions)
 
         lbl_retry = wx.StaticText(p_general, label=_("Connection &retry count"))
         spin_retry = wx.SpinCtrl(p_general, value=str(self.retryCount), min=1, max=10)
@@ -542,6 +558,7 @@ class GlobalPlugin(NVDA_GlobalPlugin):
         s_general.Add(destination_row, flag=wx.EXPAND | wx.ALL, border=5)
         s_general.Add(chk_clear, flag=wx.ALL, border=5)
         s_general.Add(chk_strip, flag=wx.ALL, border=5)
+        s_general.Add(chk_backup, flag=wx.ALL, border=5)
         s_general.Add(lbl_retry, flag=wx.ALL, border=5)
         s_general.Add(spin_retry, flag=wx.ALL, border=5)
         p_general.SetSizer(s_general)
@@ -759,6 +776,7 @@ class GlobalPlugin(NVDA_GlobalPlugin):
                 chk_play_sounds.IsChecked(),
                 slider_volume.GetValue(),
                 txt_destination.GetValue(),
+                chk_backup.IsChecked(),
             )
             
             new_username = txt_user.GetValue().strip().lstrip('@')
@@ -768,6 +786,7 @@ class GlobalPlugin(NVDA_GlobalPlugin):
                     self.active = False
                     self._unbind_nav()
                     client.disconnect()
+                    self._archive_session(old_username)
                     self._cleanup_temp_files(hard_reset=True)
                     
                     self.active = True
@@ -938,6 +957,7 @@ class GlobalPlugin(NVDA_GlobalPlugin):
             client.disconnect()
             if hasattr(self, "speech_manager"):
                 self.speech_manager.stop()
+            self._archive_session(self.username)
         except Exception:
             pass
         return super().terminate()

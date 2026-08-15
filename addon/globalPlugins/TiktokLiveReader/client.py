@@ -5,6 +5,7 @@ import threading
 import time
 import unicodedata
 import json
+import shutil
 import winsound
 if not hasattr(winsound, "SND_SYNC"):
     winsound.SND_SYNC = 0x0000
@@ -409,6 +410,7 @@ DEFAULT_BEHAVIOR = (
     ("clear_on_start", "true"),
     ("clean_usernames", "false"),
     ("retry_count", "3"),
+    ("backup_sessions", "false"),
 )
 
 DEFAULT_SOUNDS = (
@@ -469,6 +471,7 @@ def read_settings(config=None):
         "clear_on_start": config.getboolean("behavior", "clear_on_start", fallback=True),
         "clean_usernames": config.getboolean("behavior", "clean_usernames", fallback=False),
         "retry_count": config.getint("behavior", "retry_count", fallback=3),
+        "backup_sessions": config.getboolean("behavior", "backup_sessions", fallback=False),
         "play_sounds": config.getboolean("sounds", "play_sounds", fallback=False),
         "volume": config.getint("sounds", "volume", fallback=100),
     }
@@ -532,11 +535,14 @@ def _sanitize_name(name):
                 out.append(ch)
     return "".join(out).strip()
 
+def _session_files():
+    return [
+        COMMENTS_FILE, EVENTS_FILE, FOLLOWERS_FILE, GIFTS_FILE, LIKES_FILE, REQUESTS_FILE,
+        SHARES_FILE, STATS_FILE, TOP_GIFTERS_FILE, TOP_LIKES_FILE, VISITORS_FILE
+    ]
+
 def _clear_all_text_files():
-    for file in [
-        COMMENTS_FILE, FOLLOWERS_FILE, GIFTS_FILE, TOP_GIFTERS_FILE,
-        STATS_FILE, TOP_LIKES_FILE, LIKES_FILE, VISITORS_FILE, EVENTS_FILE, SHARES_FILE, REQUESTS_FILE
-    ]:
+    for file in _session_files():
         with open(file, "w", encoding="utf-8"):
             pass
 
@@ -578,13 +584,41 @@ def ensure_log_directory():
 
 def _ensure_files_exist():
     ensure_log_directory()
-    for file in [
-        COMMENTS_FILE, FOLLOWERS_FILE, GIFTS_FILE, TOP_GIFTERS_FILE,
-        STATS_FILE, TOP_LIKES_FILE, LIKES_FILE, VISITORS_FILE, SHARES_FILE, REQUESTS_FILE, EVENTS_FILE
-    ]:
+    for file in _session_files():
         if not file.exists():
             with open(file, "w", encoding="utf-8"):
                 pass
+
+BACKUPS_DIR_NAME = "Backups"
+_INVALID_NAME_CHARS = '<>:"/\\|?*'
+
+def _safe_folder_name(name):
+    cleaned = "".join(ch for ch in str(name) if ch not in _INVALID_NAME_CHARS and ord(ch) >= 32)
+    return cleaned.strip().rstrip(".")
+
+def archive_session(username):
+    """Copy the finished session's text files into Backups/<date time host>/."""
+    try:
+        sources = [f for f in _session_files() if f.is_file()]
+        if not sources or not any(f.stat().st_size > 0 for f in sources):
+            return None
+
+        host = _safe_folder_name(username) or "unknown"
+        stamp = datetime.datetime.now().strftime("%Y-%m-%d %H-%M-%S")
+        base = LOG_DIR / BACKUPS_DIR_NAME / f"{stamp} {host}"
+
+        target = base
+        suffix = 2
+        while target.exists():
+            target = base.with_name(f"{base.name} ({suffix})")
+            suffix += 1
+
+        target.mkdir(parents=True, exist_ok=True)
+        for file in sources:
+            shutil.copy2(str(file), str(target / file.name))
+        return target
+    except Exception:
+        return None
 
 STATS_MIN_INTERVAL = 1.0
 _stats_lock = threading.Lock()

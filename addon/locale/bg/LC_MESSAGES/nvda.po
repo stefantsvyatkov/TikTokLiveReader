@@ -154,6 +154,10 @@ msgstr "Изберете местоположение на текстовите 
 msgid "&Clear text files on startup"
 msgstr "&Изчистване на файловете при стартиране"
 
+#. Translators: General settings checkbox. Keeps a copy of each finished session in a Backups folder.
+msgid "&Archive each live session"
+msgstr "&Архивиране на всяка лайв сесия"
+
 #. Translators: Checkbox label in settings.
 msgid "Cl&ean user names"
 msgstr "&Опростяване на потребителските имена"

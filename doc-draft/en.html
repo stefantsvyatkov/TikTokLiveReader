@@ -1,0 +1,67 @@
+<!-- ============================================================
+     DRAFT for addon/doc/en/readme.html — version 1.7
+     Each block says where it goes. Edit freely.
+     ============================================================ -->
+
+
+<!-- ============================================================
+     BLOCK 1 — "General" section
+     Add these two items to the <ul> list, in this order:
+     "Text files destination" goes AFTER "Username",
+     "Archive each live session" goes AFTER "Clean usernames".
+     This matches the order of the controls in the dialog itself.
+     ============================================================ -->
+
+<li>Text files destination - Sets the folder the text files are written to. By default this is Documents\TikTok live. Use the Browse button to pick a different folder. The field cannot be typed into, so an invalid path can never be entered. A new location takes effect the next time the add-on connects, so an active session is never interrupted.</li>
+
+<li>Archive each live session - When enabled, a Backups folder is created inside the text files destination. When the add-on is switched off, each finished session is copied into its own subfolder there, named with the date, time and host, for example 2026-08-15 21-40-03 username. Sessions therefore appear in chronological order, with the newest at the bottom. The original text files stay where they are. If a connection failed and nothing was collected, no folder is created.</li>
+
+
+<!-- ============================================================
+     BLOCK 2 — "How to use the add-on" section
+     REPLACE the existing NVDA+Shift+Control+R line with this one:
+     ============================================================ -->
+
+<li>NVDA+Shift+Control+R - Clears content of the text and temporary files. A confirmation question is shown first, so the command cannot be triggered by accident.</li>
+
+
+<!-- ============================================================
+     BLOCK 3 — "Changelog" section
+     Add at the TOP, just before <h3 align="center">Version 1.6</h3>
+     ============================================================ -->
+
+<h3 align="center">Version 1.7</h3>
+
+<ol>
+<li>A confirmation question is now shown before all files are deleted with NVDA+Shift+Control+R. The aim is to prevent the command from being triggered by accident.</li>
+<li>A setting has been added for choosing where the text files are stored. The default location is still Documents\TikTok live, but it can now be changed by the user.</li>
+<li>An Archive each live session option has been added. A Backups folder is created in the main text files directory. Subfolders holding the text files of every past live session are added to it. Their names contain the date, time and host.</li>
+<li>Refactoring and optimisation of part of the code, improved stability, and several bugs fixed.</li>
+</ol>
+
+
+<!-- ============================================================
+     BLOCK 4 — FIX for an older mistake (not a 1.7 change)
+     The file list says "top gifts.txt" but the real file is called
+     "top gifters.txt". The same mistake exists in all three languages.
+     REPLACE "top gifts.txt" with "top gifters.txt".
+     ============================================================ -->
+
+
+<!-- ============================================================
+     BLOCK 5 — OPTIONAL, your call
+     If you want to document what happens when the folder becomes
+     unreachable (for example the text files are on a flash drive
+     that has been unplugged), this line fits in the "Notes" section:
+     ============================================================ -->
+
+<li>If the text files folder becomes unreachable, for example when it is on a removable drive that has been unplugged, the add-on announces that the folder is not available while you browse the records. The next time it starts, it automatically falls back to the default folder.</li>
+
+
+<!-- ============================================================
+     BLOCK 6 — OPTIONAL
+     Only if you raise the minimum NVDA version to 2025.1,
+     this line can be added to the version 1.7 list:
+     ============================================================ -->
+
+<li>The minimum supported NVDA version is now 2025.1.</li>

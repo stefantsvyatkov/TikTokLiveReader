@@ -1,0 +1,77 @@
+<!-- ============================================================
+     DRAFT / KONSEP untuk addon/doc/id/readme.html — versi 1.7
+
+     ВНИМАНИЕ: този превод не е правен от носител на езика.
+     Спазена е терминологията от съществуващия индонезийски файл
+     (имената на настройките остават на английски, описанията са
+     на индонезийски). Добре е MuhammadGagah да го прегледа.
+
+     NOTE: this Indonesian draft was not written by a native speaker.
+     It follows the conventions already used in the existing file:
+     setting names stay in English, descriptions are in Indonesian.
+     Please have MuhammadGagah review it before release.
+     ============================================================ -->
+
+
+<!-- ============================================================
+     BLOK 1 — bagian "General"
+     Tambahkan dua item ini ke daftar <ul>, dengan urutan berikut:
+     "Text files destination" SETELAH "Username",
+     "Archive each live session" SETELAH "Clean usernames".
+     Urutan ini sama dengan urutan kontrol pada jendela pengaturan.
+     ============================================================ -->
+
+<li>Text files destination - Menentukan folder tempat file teks disimpan. Secara bawaan lokasinya adalah Documents\TikTok live. Gunakan tombol Browse untuk memilih folder lain. Kolom ini tidak dapat diketik secara manual, sehingga lokasi yang tidak valid tidak dapat dimasukkan. Lokasi baru mulai berlaku pada koneksi berikutnya, sehingga sesi yang sedang aktif tidak pernah terputus.</li>
+
+<li>Archive each live session - Jika diaktifkan, folder Backups akan dibuat di dalam lokasi file teks. Saat add-on dinonaktifkan, setiap sesi yang telah selesai disalin ke subfolder tersendiri di dalamnya, dengan nama yang berisi tanggal, waktu, dan host, misalnya 2026-08-15 21-40-03 username. Dengan demikian sesi tersusun secara kronologis, dan yang terbaru berada di paling bawah. File teks asli tetap berada di tempatnya. Jika koneksi gagal dan tidak ada data yang terkumpul, folder tidak akan dibuat.</li>
+
+
+<!-- ============================================================
+     BLOK 2 — bagian "Cara menggunakan add-on"
+     GANTI baris NVDA+Shift+Control+R yang ada dengan baris ini:
+     ============================================================ -->
+
+<li>NVDA+Shift+Control+R - Menghapus isi file teks dan file sementara. Pertanyaan konfirmasi akan ditampilkan terlebih dahulu, sehingga perintah ini tidak dapat dipicu secara tidak sengaja.</li>
+
+
+<!-- ============================================================
+     BLOK 3 — bagian "Daftar Perubahan"
+     Tambahkan di ATAS, tepat sebelum <h3 align="center">Versi 1.6</h3>
+     ============================================================ -->
+
+<h3 align="center">Versi 1.7</h3>
+
+<ol>
+<li>Pertanyaan konfirmasi kini ditampilkan sebelum semua file dihapus dengan NVDA+Shift+Control+R. Tujuannya adalah mencegah perintah ini dipicu secara tidak sengaja.</li>
+<li>Pengaturan untuk memilih lokasi penyimpanan file teks telah ditambahkan. Lokasi bawaannya tetap Documents\TikTok live, tetapi kini dapat diubah oleh pengguna.</li>
+<li>Opsi Archive each live session telah ditambahkan. Folder Backups dibuat di dalam direktori utama file teks. Subfolder yang berisi file teks dari setiap sesi live sebelumnya ditambahkan ke dalamnya. Namanya berisi tanggal, waktu, dan host.</li>
+<li>Refaktorisasi dan optimisasi sebagian kode, stabilitas yang ditingkatkan, serta perbaikan beberapa bug.</li>
+</ol>
+
+
+<!-- ============================================================
+     BLOK 4 — PERBAIKAN kesalahan lama (bukan perubahan 1.7)
+     Daftar file menyebut "top gifts.txt", padahal nama file
+     sebenarnya adalah "top gifters.txt". Kesalahan yang sama
+     ada di ketiga bahasa.
+     GANTI "top gifts.txt" dengan "top gifters.txt".
+     ============================================================ -->
+
+
+<!-- ============================================================
+     BLOK 5 — OPSIONAL
+     Jika ingin mendokumentasikan apa yang terjadi saat folder
+     tidak dapat dijangkau (misalnya file teks berada di flash disk
+     yang dicabut), baris ini cocok untuk bagian "Catatan":
+     ============================================================ -->
+
+<li>Jika folder file teks tidak dapat dijangkau, misalnya ketika berada di media lepasan yang telah dicabut, add-on akan mengumumkan bahwa folder tersebut tidak tersedia saat Anda menelusuri catatan. Pada penggunaan berikutnya, add-on secara otomatis kembali ke folder bawaan.</li>
+
+
+<!-- ============================================================
+     BLOK 6 — OPSIONAL
+     Hanya jika versi minimum NVDA dinaikkan ke 2025.1,
+     baris ini dapat ditambahkan ke daftar versi 1.7:
+     ============================================================ -->
+
+<li>Versi NVDA minimum yang didukung kini adalah 2025.1.</li>

@@ -28,7 +28,8 @@ li {
 Add-on ini terhubung ke siaran TikTok Live dan mengekstrak informasi secara real-time. Add-on menggunakan library Python TikTokLive untuk mengakses siaran live tertentu. Fitur-fitur berikut didukung:
 
 <ul>
-<li>Menyimpan data hasil ekstraksi ke dalam file teks, yang dibuat di folder Documents\TikTok live.</li>
+<li>Menyimpan data hasil ekstraksi ke dalam file teks. Secara default, file dibuat di folder Documents\TikTok live.</li>
+<li>Mengarsipkan sesi live yang telah selesai dalam subfolder Backups, berdasarkan tanggal, waktu, dan host.</li>
 <li>Melacak peristiwa: komentar, pengikut baru, hadiah (gift), likes, share, pengunjung, dan permintaan tamu.</li>
 <li>File events yang dapat merekam berbagai jenis data secara bersamaan.</li>
 <li>Notifikasi audio untuk peristiwa terpilih, seperti komentar baru, hadiah, dll.</li>
@@ -47,7 +48,7 @@ TikTok Live Reader membantu host atau penonton memantau data penting siaran tanp
 <li>requests.txt - Mencatat semua permintaan bergabung yang dikirimkan kepada host.</li>
 <li>shares.txt - Mencatat pengguna yang membagikan siaran live beserta timestamp.</li>
 <li>stats.txt - Menampilkan penonton saat ini, pengikut baru, total likes, pengunjung sesi, dan total diamond.</li>
-<li>top gifts.txt - Peringkat pengguna yang mengirim hadiah, dari yang paling aktif sampai paling sedikit.</li>
+<li>top gifters.txt - Peringkat pengguna yang mengirim hadiah, dari yang paling aktif sampai paling sedikit.</li>
 <li>top likes.txt - Peringkat pengguna berdasarkan total likes.</li>
 <li>visitors.txt - Mencatat semua pengunjung yang masuk selama sesi berjalan beserta timestamp.</li>
 <li>events.txt - Terletak di antara file komentar dan pengikut selama navigasi keyboard, file ini mencatat berbagai jenis peristiwa yang ditentukan dalam pengaturan. Tujuannya adalah untuk melacak komentar, pengikut, hadiah, likes, permintaan, share, atau pengunjung dengan mudah di satu tempat.</li>
@@ -63,8 +64,10 @@ Bagian ini mencakup pengaturan berikut:
 
 <ul>
 <li>Username - Masukkan username host TikTok tanpa simbol @.</li>
+<li>Lokasi file teks - Pilih tempat penyimpanan file teks. Lokasi default adalah Documents\TikTok live. Perubahan berlaku saat koneksi berikutnya.</li>
 <li>Clear files on startup - Menghapus isi file teks saat add-on dimulai.</li>
 <li>Clean usernames - Opsi ini menghapus elemen yang tidak perlu dari nama pengguna. Banyak pengguna TikTok menggunakan emoji dan simbol Unicode yang menghambat screen reader. Saat aktif, nama hanya akan berisi huruf, angka, dan tanda baca.</li>
+<li>Arsipkan setiap sesi live - Menyalin setiap sesi yang selesai ke subfolder bertanggal dalam Backups saat add-on dimatikan.</li>
 <li>Connection retry count - Menentukan berapa kali add-on mencoba tersambung ke siaran live.</li>
 </ul>
 
@@ -101,10 +104,12 @@ Tekan NVDA+Shift+Control+T dan klien TikTok Live Reader akan mencoba terhubung. 
 <li>NVDA+Shift+Control+V - Melaporkan jumlah penonton saat ini.</li>
 <li>NVDA+Shift+Control+S - Mengaktifkan atau menonaktifkan Auto speak.</li>
 <li>NVDA+Shift+Control+P - Mengaktifkan atau menonaktifkan suara.</li>
-<li>NVDA+Shift+Control+R - Menghapus isi file teks dan file sementara.</li>
+<li>NVDA+Shift+Control+R - Menghapus isi file teks setelah konfirmasi.</li>
 </ul>
 
 Tekan NVDA+Shift+Control+T untuk mengakhiri sesi add-on.
+
+Data yang terkumpul tersedia di folder file teks yang dipilih. Jika pengarsipan sesi diaktifkan, sesi yang selesai disimpan dalam subfolder Backups.
 
 <h2 align="center">Catatan</h2>
 
@@ -125,6 +130,15 @@ Tekan NVDA+Shift+Control+T untuk mengakhiri sesi add-on.
 </ul>
 
 <h2 align="center">Daftar Perubahan</h2>
+
+<h3 align="center">Versi 1.7</h3>
+
+<ol>
+<li>Menambahkan konfirmasi sebelum menghapus semua file dengan NVDA+Shift+Control+R.</li>
+<li>Menambahkan pengaturan untuk memilih lokasi file teks. Lokasi default tetap Documents\TikTok live.</li>
+<li>Menambahkan opsi untuk mengarsipkan setiap sesi live dalam subfolder bertanggal di Backups.</li>
+<li>Melakukan refaktor dan optimasi kode untuk meningkatkan stabilitas dan memperbaiki bug.</li>
+</ol>
 
 <h3 align="center">Versi 1.6</h3>
 

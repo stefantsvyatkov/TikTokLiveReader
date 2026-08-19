@@ -268,11 +268,11 @@ msgstr "Peristiwa"
 
 #. Translators: File name shown when navigating files.
 msgid "&Shares"
-msgstr "&Bagikan"
+msgstr "&Berbagi"
 
 #. Translators: File name shown when navigating files.
 msgid "Shares"
-msgstr "Bagikan"
+msgstr "Berbagi"
 
 #. Translators: Announced when a user shares the live. {name} is their display name.
 msgid "{name} shared the live"
@@ -317,12 +317,12 @@ msgstr "Pengunjung"
 #. Translators: Checkbox to enable automatic speaking for selected events.
 #: addon\globalPlugins\TiktokLiveReader\globalPlugin.py:597
 msgid "&Auto speak selected events"
-msgstr "Bicara otomatis pada kejadian yang dipilih"
+msgstr "&Bacakan peristiwa yang dipilih secara otomatis"
 
 #. Translators: Description shown in NVDA Input Gestures dialog.
 #: addon\globalPlugins\TiktokLiveReader\globalPlugin.py:411
 msgid "Toggle sound playback for selected events"
-msgstr "Ubah pemutaran suara pada kejadian terpilih"
+msgstr "Aktif/nonaktifkan suara untuk peristiwa yang dipilih"
 
 #. Translators: Announced when sounds are enabled.
 #: addon\globalPlugins\TiktokLiveReader\globalPlugin.py:433
@@ -356,7 +356,7 @@ msgstr "Permintaan"
 
 #. Translators: Long description to be shown for this add-on on add-on information from add-on store
 msgid "TikTok Live Reader allows NVDA users to monitor TikTok Live streams in real time. The add-on extracts comments, gifts, followers, likes, shares, guest requests, and viewer statistics, saving them to text files. They can be read with keyboard shortcuts during the live session. Audio notifications and auto speak functionality are also supported."
-msgstr "TikTok Live Reader memungkinkan pengguna NVDA untuk memantau siaran TikTok Live secara waktu nyata. Add-on ini mengekstraksi komentar, hadiah, pengikut, suka, bagian, permintaan bergabung, dan statistik penonton, menyimpannya ke dalam file teks. Mereka dapat dibaca dengan pintasan keyboard selama sesi live. Notifikasi audio dan fungsionalitas bicara otomatis juga didukung."
+msgstr "TikTok Live Reader memungkinkan pengguna NVDA memantau siaran TikTok Live secara waktu nyata. Add-on ini mengekstraksi komentar, hadiah, pengikut, suka, pembagian live, permintaan bergabung, dan statistik penonton, lalu menyimpannya dalam file teks. Data dapat dibaca dengan pintasan keyboard selama sesi live. Notifikasi audio dan pembacaan otomatis juga didukung."
 
 #. Translators: Announced when trying to turn on the add-on or save settings with an invalid username.
 msgid "Please enter a valid username"

@@ -28,7 +28,8 @@ li {
 This add-on connects to TikTok Live streams and extracts information from them in real time. It uses the TikTokLive Python library to access a specific live stream. The following features are supported:
 
 <ul>
-<li>Saving extracted data into text files, created in the Documents\TikTok live folder.</li>
+<li>Saving extracted data into text files. By default, they are created in the Documents\TikTok live folder.</li>
+<li>Archiving completed live sessions in a Backups subfolder, organized by date, time, and host.</li>
 <li>Tracking events: comments, new followers, gifts, likes, shares, visitors, and guest requests.</li>
 <li>An events file that can record multiple types of data simultaneously.</li>
 <li>Audio notifications for selected events, such as new comments, gifts, etc.</li>
@@ -37,7 +38,7 @@ This add-on connects to TikTok Live streams and extracts information from them i
 <li>Top Likers leaderboard: ranks users based on their total likes during the stream.</li>
 </ul>
 
-TikTok Live Reader allows hosts or viewers to monitor essential stream data without external tools. The data is saved in text files, located in Documents\Tiktok live folder. They can be reviewed later. The add-on extracts the following data types into separate files:
+TikTok Live Reader allows hosts or viewers to monitor essential stream data without external tools. The data is saved in text files located in the Documents\TikTok live folder. They can be reviewed later. The add-on extracts the following data types into separate files:
 
 <ul>
 <li>comments.txt - Records all comments detected during the live stream with timestamps.</li>
@@ -47,7 +48,7 @@ TikTok Live Reader allows hosts or viewers to monitor essential stream data with
 <li>requests.txt - Registers all join requests sent to the host.</li>
 <li>shares.txt - Records the users who shared the live stream along with the timestamp.</li>
 <li>stats.txt - Shows current viewers, new followers, total likes, session visitors, and total diamonds received.</li>
-<li>top gifts.txt - A leaderboard of users who sent gifts, ranked from most to least active.</li>
+<li>top gifters.txt - A leaderboard of users who sent gifts, ranked from most to least active.</li>
 <li>top likes.txt - A leaderboard of users ranked by their total likes.</li>
 <li>visitors.txt - Records all visitors who entered the stream during the current session with timestamps.</li>
 <li>events.txt - Positioned between comments and followers during keyboard navigation, this file logs various event types defined in the settings. The goal is to easily track comments, followers, gifts, likes, requests, shares or visitors in one place.</li>
@@ -63,8 +64,10 @@ This section includes the following settings:
 
 <ul>
 <li>Username - Enter the TikTok host's username without the @ symbol.</li>
+<li>Text files destination - Select where text files are saved. The default is Documents\TikTok live. Changes take effect on the next live session.</li>
 <li>Clear files on startup - Deletes the content of text files when the add-on starts.</li>
 <li>Clean usernames - This option removes unnecessary elements from usernames. Many TikTok users use emojis and Unicode symbols that impede screen readers. When enabled, names are stripped down to only letters, numbers, and punctuation.</li>
+<li>Archive each live session - Copies each completed session to a dated subfolder in Backups when the add-on is turned off.</li>
 <li>Connection retry count - Defines how many times the add-on should try to connect to the live stream.</li>
 </ul>
 
@@ -101,10 +104,10 @@ Press NVDA+Shift+Control+T and the TikTok Live Reader client will try to connect
 <li>NVDA+Shift+Control+V - Reports current viewers.</li>
 <li>NVDA+Shift+Control+S - Toggles Auto speak on or off.</li>
 <li>NVDA+Shift+Control+P - Toggles sounds on or off.</li>
-<li>NVDA+Shift+Control+R - Clears content of the text and temporary files.</li>
+<li>NVDA+Shift+Control+R - Clears the text files after confirmation.</li>
 </ul>
 
-Press NVDA+Shift+Control+T to terminate the add-on session.
+Press NVDA+Shift+Control+T to terminate the add-on session. The collected data is available in Documents\TikTok live folder by default. If session archiving is enabled, completed sessions are stored in its Backups subfolder.
 
 <h2 align="center">Notes</h2>
 
@@ -112,7 +115,7 @@ Press NVDA+Shift+Control+T to terminate the add-on session.
 <li>Opening settings temporarily disables auto-speak and sounds, but data logging continues in the background.</li>
 <li>If the username is changed in settings, the add-on attempts to connect to the new user after saving.</li>
 <li>When automatic file clearing on startup is disabled, files will still contain data from the last live stream. If you want to clear them at the beginning of the current session, press NVDA+Shift+Control+R.</li>
-<li>If manual clearing is disabled, the add-on remembers your last position in the files (e.g., line 45 in comments).</li>
+<li>If automatic clearing is disabled, the add-on remembers your last position in the files (e.g., line 45 in comments).</li>
 </ul>
 
 <h2 align="center">Limitations</h2>
@@ -125,6 +128,16 @@ Press NVDA+Shift+Control+T to terminate the add-on session.
 </ul>
 
 <h2 align="center">Changelog</h2>
+
+<h3 align="center">Version 1.8</h3>
+
+<ol>
+<li>Added a confirmation prompt before clearing all files with NVDA+Shift+Control+R.</li>
+<li>Text files can now be saved to a custom folder. The default remains Documents\TikTok live.</li>
+<li>A new option for archiving each live session in dated subfolders under Backups.</li>
+<li>Minimum supported NVDA version is now 2025.1.</li>
+<li>Refactored and optimized parts of the code, improving stability and fixing bugs.</li>
+</ol>
 
 <h3 align="center">Version 1.6</h3>
 
@@ -148,7 +161,7 @@ Press NVDA+Shift+Control+T to terminate the add-on session.
 <li>Added access keys (Alt + letter) for all settings.</li>
 <li>Optimized the Audio volume slider logic. Its label is now Volume.</li>
 <li>Settings are now saved dynamically. Background logging continues while the settings window is opened.</li>
-<li>Automatic connection to the new user if it's changed in active session.</li>
+<li>Automatically connects to the new user if the username is changed during an active session.</li>
 <li>Added support for tracking guest join requests. They are saved in requests.txt file.</li>
 <li>A new "Requests" option in settings and a corresponding sound notification for the event.</li>
 <li>Added username field validation: must be at least two characters and can contain only Latin letters, numbers, dots and underscores.</li>

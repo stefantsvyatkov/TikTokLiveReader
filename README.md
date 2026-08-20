@@ -1,8 +1,9 @@
 # TikTok Live Reader
 
-This add-on connects to TikTok Live streams and extracts information in real time. It uses the TikTokLive Python library to access a specific live stream. The following features are supported:
+This add-on connects to TikTok live streams and extracts information in real time. It uses the TikTokLive Python library to access a specific live stream. The following features are supported:
 
 * Logging extracted data into text files created in the `Documents\TikTok live` folder.
+* Archiving completed live sessions in a `Backups` subfolder, organized by date, time, and host.
 * Tracking events: comments, new followers, gifts, likes, guest requests, shares, and visitors.
 * An events file that can record multiple types of data simultaneously.
 * Audio notifications for selected events, such as new comments, gifts, etc.

@@ -66,6 +66,8 @@ _known_followers = BoundedSet(MAX_TRACKED_ITEMS)
 _known_users = {}
 _requests_log = {}
 _seen_messages = BoundedSet(MAX_MESSAGE_IDS)
+# User ids in the last guest applicant queue seen; None before the first.
+_applicants = None
 
 _stats_lock = threading.Lock()
 _stats_dirty = False
@@ -153,7 +155,8 @@ def _nickname(person, default):
 
 def forget_seen():
 	"""Start a connection: nothing has been seen yet."""
-	global connection_time
+	global connection_time, _applicants
+	_applicants = None
 	_comments_logged_before.clear()
 	_events_logged_before.clear()
 	_seen_messages.clear()
@@ -432,8 +435,27 @@ REQUEST_KINDS = (
 )
 
 
+def _newcomers(applied):
+	"""The applicants not in the previous queue: a link layer list change carries
+	the whole queue, and 1.8 named whoever in it it knew, often someone who had
+	applied long before (F28). Nobody at the first queue: they applied before."""
+	global _applicants
+	current = {person.user_id: person for person in applied if person.user_id}
+	previous, _applicants = _applicants, set(current)
+	if previous is None:
+		return []
+	return [person for user_id, person in current.items() if user_id not in previous]
+
+
 def _on_link(event):
 	try:
+		if event.has_list_change:
+			for person in _newcomers(event.applied):
+				name = _name_of(person)
+				if name:
+					_report_request(name)
+			return
+
 		user_name = None
 		is_request = False
 
@@ -461,16 +483,6 @@ def _on_link(event):
 					user_name = name
 					break
 
-		if not user_name and event.has_list_change:
-			if event.list_change_type is not None and event.list_change_type not in (1, 2):
-				return
-			for person in event.applied:
-				name = _name_of(person)
-				if name:
-					user_name = name
-					is_request = True
-					break
-
 		if "Apply" in event.message_type or "APPLY" in event.message_type:
 			is_request = True
 		if event.m_type in ("1", "2"):
@@ -480,23 +492,25 @@ def _on_link(event):
 		if event.kind in REQUEST_KINDS:
 			is_request = True
 
-		if not is_request or not user_name:
-			return
-
-		now = time.time()
-		if now - _requests_log.get(user_name, 0) < 10.0:
-			return
-		_requests_log[user_name] = now
-		_prune_timestamps(_requests_log, 10.0)
-
-		# Translators: Announced when someone requests to join the live stream. {name} is the user's name.
-		speak_msg = _("Guest request: {name}").format(name=user_name)
-		store.append(store.REQUESTS, f"{user_name}  {_now()}")
-		if _settings.events.get("requests", True):
-			_log_to_events(f"{speak_msg}  {_now()}")
-		_announce("requests", speak_msg)
+		if is_request and user_name:
+			_report_request(user_name)
 	except Exception:
 		log.exception("TikTok Live Reader: guest request")
+
+
+def _report_request(user_name):
+	now = time.time()
+	if now - _requests_log.get(user_name, 0) < 10.0:
+		return
+	_requests_log[user_name] = now
+	_prune_timestamps(_requests_log, 10.0)
+
+	# Translators: Announced when someone requests to join the live stream. {name} is the user's name.
+	speak_msg = _("Guest request: {name}").format(name=user_name)
+	store.append(store.REQUESTS, f"{user_name}  {_now()}")
+	if _settings.events.get("requests", True):
+		_log_to_events(f"{speak_msg}  {_now()}")
+	_announce("requests", speak_msg)
 
 
 _HANDLERS = {

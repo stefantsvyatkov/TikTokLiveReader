@@ -128,6 +128,19 @@ def guest_request(who):
 
 
 @_in_runtime
+def applicant_queue(*people):
+	"""A link layer list change with these people waiting to join, as user ids."""
+	queue = [proto.LinkLayerListUser(link_user=proto.Player(room_id=1, uid=person.id)) for person in people]
+	return _message(
+		proto_events.LinkLayerEvent(
+			list_content=proto.LinkListChangeContent(
+				list_change_type=2, user_list=proto.AllListUser(applied_list=queue)
+			)
+		)
+	)
+
+
+@_in_runtime
 def live_ended():
 	return _message(proto_events.ControlEvent(action=ControlAction.CONTROL_ACTION_STREAM_ENDED))
 

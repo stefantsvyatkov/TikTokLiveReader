@@ -200,6 +200,26 @@ class ConnectionLifecycle(unittest.TestCase):
 		)
 
 
+class GuestRequests(unittest.TestCase):
+	def test_the_newcomer_in_the_applicant_queue_is_announced(self):
+		# F28: the queue holds everyone waiting; 1.8 named the first person it knew.
+		carol = f.user("Carol")
+		r = f.run_session(
+			f.comment(alice, "hi"),
+			f.comment(bob, "hi"),
+			f.comment(carol, "hi"),
+			f.applicant_queue(alice),
+			f.applicant_queue(alice, bob),
+			f.applicant_queue(carol, alice, bob),
+			f.applicant_queue(carol, bob),
+		)
+		self.assertEqual(logged(r, "requests.txt"), ["Bob", "Carol"])
+
+	def test_who_waited_before_connecting_is_not_announced(self):
+		r = f.run_session(f.comment(alice, "hi"), f.applicant_queue(alice))
+		self.assertEqual(logged(r, "requests.txt"), [])
+
+
 class EachMessageOnce(unittest.TestCase):
 	"""Duplicates are recognised by TikTok's message id (findings F4, F5, F6, F8,
 	F13, F32, F33): a message delivered twice counts once, two messages twice."""

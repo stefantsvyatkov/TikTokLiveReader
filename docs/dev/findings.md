@@ -94,7 +94,8 @@ are right.
   follower set and the one-second share check hide it.
 - F25 Live. Guest requests carrying only `user_id` (LinkMicMethod) are not
   resolved to a name; real requests may use other message shapes. Needs
-  recordings.
+  recordings: all 277 LinkMicMethod messages recorded by 2026-10-13 are
+  m_type 8 (fan tickets), which the add-on skips.
 - F30 Fixed in phase 3: `store.py` writes and clears under one lock and reads
   with damaged characters replaced; the speech buffer is gone (F19). Before: Text files are appended from several threads (the
   connection thread, one like timer per person) without a lock; Windows emulates
@@ -114,7 +115,12 @@ are right.
   no duplicate check at all, so a repeated like message is counted twice per
   person (and in top likes). Deduplicating every event by message id (F4)
   covers F5, F6, F8, F32 and F33 at once.
-- F28 Live (recorded). A `LinkLayerEvent` list change carries the whole
+- F28 Fixed in phase 3: on a list change the applicants not in the previous
+  queue are announced, by the name the add-on has seen for their id; nobody at
+  the first queue. On islam8qurann's live (19 list changes, a queue of about 25)
+  it finds the 7 newcomers and names those it knows (3 or 4, depending on what
+  it saw before); 1.8 announced 8 requests, mostly of people who had applied
+  long before, two of them twice. Before: A `LinkLayerEvent` list change carries the whole
   applicant queue (`list_content.user_list.applied_list`, user ids only) and the
   guests already linked. The add-on announces the first applicant whose name it
   has seen before, so on a busy live it names someone who applied earlier, not

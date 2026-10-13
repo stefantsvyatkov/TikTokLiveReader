@@ -371,9 +371,7 @@ def run_session(*frames, end="clean", past_grace_period=True, settle_likes=True,
 
 def settle_like_timers():
 	"""Fire the like aggregator's pending timers now instead of after 10 seconds."""
-	for name in list(client.like_manager._timers):
-		client.like_manager._timers[name].cancel()
-		client.like_manager._flush(name)
+	client.like_manager.flush_pending()
 
 
 def read_speech():

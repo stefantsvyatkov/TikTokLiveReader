@@ -52,7 +52,7 @@ live recording.
    [x] 1 `settings.py`, `i18n.py`; [x] 2 `store.py` (the place for the
    F22/F30 lock and tolerant reads); [x] 3 `announcer.py` (F17, F19 are
    fixed there);
-   [ ] 4 `likes.py`; [ ] 5 `tiktok_adapter.py`, `events.py`, `pipeline.py`;
+   [x] 4 `likes.py` (`flush_pending` is the F11 fix); [ ] 5 `tiktok_adapter.py`, `events.py`, `pipeline.py`;
    [ ] 6 `session.py` and the vendor isolation rewritten; [ ] 7 `dialogs.py`,
    `globalPlugin.py` only scripts; [ ] 8 NVDA formatting (needs ruff 0.14.5).
    Phase 4 also runs the smoke with NVDA in Bulgarian (translations come

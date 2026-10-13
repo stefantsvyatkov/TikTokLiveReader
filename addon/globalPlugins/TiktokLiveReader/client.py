@@ -4,7 +4,7 @@ import threading
 import time
 import unicodedata
 
-from . import announcer, settings, store
+from . import announcer, likes, settings, store
 from .i18n import _
 from .vendor_loader import load_runtime, runtime_scope
 
@@ -24,68 +24,19 @@ _top_thread_started = False
 _should_run = False
 
 
-class LikeManager:
-    def __init__(self):
-        self._timers = {}
-        
-        self._baselines = {}
-        self._current_totals = {}
-        
-        self._lock = threading.Lock()
+def _report_likes(user, count):
+    # Translators: Singular and plural forms for likes in the logs.
+    likes_word = _("like") if count == 1 else _("likes")
+    log_line = f"{user}: {count} {likes_word}  {datetime.datetime.now().strftime('%H:%M:%S')}"
+    try:
+        store.append(store.LIKES, log_line)
+    except Exception:
+        pass
+    if _settings.events.get("likes", False):
+        _log_to_events(log_line)
+    _handle_speech_and_sound("likes", f"{user}: {count} {likes_word}")
 
-    def add_like(self, user, current_api_total):
-        with self._lock:
-            if user in self._timers:
-                self._timers[user].cancel()
-                
-            if user not in self._baselines:
-                self._baselines[user] = self._current_totals.get(user, 0)
-                
-            self._current_totals[user] = current_api_total
-            
-            t = threading.Timer(10.0, self._flush, args=[user])
-            t.daemon = True
-            self._timers[user] = t
-            t.start()
-
-    def _flush(self, user):
-        with self._lock:
-            if user in self._timers:
-                del self._timers[user]
-                
-            baseline = self._baselines.pop(user, 0)
-            current = self._current_totals.get(user, 0)
-            
-            count = current - baseline
-            
-        if count <= 0:
-            return
-        
-        # Translators: Singular and plural forms for likes in the logs.
-        likes_word = _("like") if count == 1 else _("likes")
-        log_line = f"{user}: {count} {likes_word}  {datetime.datetime.now().strftime('%H:%M:%S')}"
-        try:
-            store.append(store.LIKES, log_line)
-        except Exception:
-            pass
-            
-        
-        if _settings.events.get("likes", False):
-             _log_to_events(log_line)
-        
-        speak_line = f"{user}: {count} {likes_word}"
-
-        _handle_speech_and_sound("likes", speak_line)
-
-    def stop(self):
-        with self._lock:
-            for t in self._timers.values():
-                t.cancel()
-            self._timers.clear()
-            self._baselines.clear()
-            self._current_totals.clear()
-
-like_manager = LikeManager()
+like_manager = likes.LikeAggregator(_report_likes)
 
 
 MAX_TRACKED_ITEMS = 50000
@@ -251,7 +202,7 @@ def _write_top_files():
             store.write(store.TOP_GIFTERS, "".join(f"{user}: {diamonds} diamonds\n" for user, diamonds in sorted_gifters))
         if top_likers:
             sorted_likers = sorted(top_likers.items(), key=lambda x: x[1], reverse=True)
-            store.write(store.TOP_LIKES, "".join(f"{user}: {likes}\n" for user, likes in sorted_likers))
+            store.write(store.TOP_LIKES, "".join(f"{user}: {count}\n" for user, count in sorted_likers))
     except Exception:
         pass
 
@@ -353,7 +304,7 @@ def _apply_like_event(ev):
     top_likers[user_name] = top_likers.get(user_name, 0) + increment
 
     current_user_total = top_likers[user_name]
-    like_manager.add_like(user_name, current_user_total)
+    like_manager.add(user_name, current_user_total)
 
 async def on_comment(event):
     if not _should_run:

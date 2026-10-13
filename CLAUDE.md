@@ -21,6 +21,7 @@ Store. The user is Bulgarian; answer in Bulgarian and address them with "ти".
   `settings.py` the `Settings` object and `tiktokLiveReader.ini`, `store.py`
   the session's text files (every read and write of them), `announcer.py`
   sounds and speech (the speech buffer, its reader, the sound queue),
+  `likes.py` each person's likes summed until a 10 s pause,
   `i18n.py` the one
   `_` every module imports, `vendor_loader.py` isolates `lib/`, the
   vendored TikTokLive 6.6.5 and its pure-Python dependencies). New and

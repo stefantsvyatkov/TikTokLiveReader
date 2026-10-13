@@ -32,7 +32,10 @@ confirms it.
   deduplication by message id never happens and only the text checks below
   catch duplicates.
 - F5 Pinned. The same comment from the same person is dropped for the rest
-  of the session.
+  of the session. The text check does catch something real: TikTok sends the
+  history (messages from before connecting) twice, in the first frame and a
+  few frames later, with the same message ids (recorded 2026-10-13). The fix is
+  F4, deduplicating by message id, not dropping the check.
 - F6 Pinned. `events.txt` drops a line identical to an earlier one (a second
   share, the same like count again), while the per-type file keeps it.
 - F7 Pinned, live. A gift that cannot streak (`type != 1`) is dropped when
@@ -55,6 +58,12 @@ confirms it.
 - F25 Live. Guest requests carrying only `user_id` (LinkMicMethod) are not
   resolved to a name; real requests may use other message shapes. Needs
   recordings.
+- F28 Live (recorded). A `LinkLayerEvent` list change carries the whole
+  applicant queue (`list_content.user_list.applied_list`, user ids only) and the
+  guests already linked. The add-on announces the first applicant whose name it
+  has seen before, so on a busy live it names someone who applied earlier, not
+  the newcomer; the new applicant is the id missing from the previous list.
+  With one applicant the result is right, which is why it looked fine.
 - F26 `LikeEvent` and `DiggEvent` both feed the like counter in 6.6.5;
   whether TikTok sends both for the same taps needs recordings. The user has
   tuned likes by hand: change only with evidence.

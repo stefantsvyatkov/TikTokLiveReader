@@ -11,6 +11,7 @@ TikTokLiveClient subclass that replays messages instead of connecting.
 """
 
 import asyncio
+import base64
 import contextlib
 import functools
 import itertools
@@ -128,6 +129,34 @@ def frame(*messages):
 	return proto.ProtoMessageFetchResult().parse(bytes(whole))
 
 
+@_in_runtime
+def recorded_frames(path, pace=1.0):
+	"""A recording from tools/record_live.py as frames, with its pauses scaled by ``pace``
+	(0 replays without pauses)."""
+	rows = [json.loads(line) for line in Path(path).read_text(encoding="utf-8").splitlines()]
+	rows = [row for row in rows if not row.get("header")]
+	frames, previous_time = [], None
+	for number, group in itertools.groupby(rows, key=lambda row: row["frame"]):
+		group = list(group)
+		if previous_time is not None and pace:
+			gap = (group[0]["t"] - previous_time) * pace
+			if gap > 0:
+				frames.append(gap)
+		previous_time = group[0]["t"]
+		messages = [
+			proto.ProtoMessageFetchResultBaseProtoMessage(
+				method=row["method"],
+				payload=base64.b64decode(row["payload"]),
+				msg_id=row["msg_id"],
+				is_history=row["is_history"],
+			)
+			for row in group
+		]
+		whole = proto.ProtoMessageFetchResult(messages=messages, is_first=group[0]["is_first"])
+		frames.append(proto.ProtoMessageFetchResult().parse(bytes(whole)))
+	return frames
+
+
 class _ReplayClient(TikTokLive.TikTokLiveClient):
 	"""Replays the current session's frames instead of connecting."""
 
@@ -139,8 +168,10 @@ class _ReplayClient(TikTokLive.TikTokLiveClient):
 		return self._asyncio_loop.run_until_complete(self._replay(session))
 
 	async def _replay(self, session):
-		self.emit(ConnectEvent.get_type(), ConnectEvent(unique_id="host", room_id=1))
-		await self.wait_for_complete()
+		recorded_connect = any(getattr(item, "is_first", False) for item in session.frames)
+		if not recorded_connect:
+			self.emit(ConnectEvent.get_type(), ConnectEvent(unique_id="host", room_id=1))
+			await self.wait_for_complete()
 		if session.past_grace_period:
 			client._connection_time = time.time() - 60
 		for item in session.frames:

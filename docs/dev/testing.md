@@ -44,6 +44,12 @@ does not put the working folder on `sys.path` for `-m unittest tests.x`).
   with one copy of TikTokLive (run each library in its own interpreter) into
   the fields the add-on reads, by meaning, so 7.x renames line up.
 - `tools/compare_libs.py <a> <b>` compares two decodings.
+- `tools/check_addon.py <recording> [pace]` replays a recording through the
+  add-on's real connection thread (`feed.recorded_frames`, pauses scaled by
+  pace; 1 keeps the timing the one- and ten-second rules depend on) and
+  compares its files with what happened, counted once per message id. Output
+  in `artifacts/checks/`. Guest requests have no independent count yet: the
+  link layer carries applicant queues, not single requests (F28).
 
 7.0.1 for the comparison lives in `artifacts/lib-7.0.1` (wheels for cp313
 win_amd64 from PyPI; `protobuf_to_dict.py` copied from the vendored lib).

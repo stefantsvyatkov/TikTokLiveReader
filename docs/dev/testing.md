@@ -57,9 +57,30 @@ win_amd64 from PyPI; `protobuf_to_dict.py` copied from the vendored lib).
 Finding lives: the TikTok LIVE gaming feed works without signing in. Mute the
 page at once (autoplay with sound).
 
-## Still to build
-- Windows Sandbox with portable NVDA 2026.1.1, 2026.2, 2026.3beta4 and the
-  add-on installed, silent synthesizer, speech read from NVDA's log, the
-  vendored TikTokLive swapped for a replaying one. Pattern: BST Radio's
-  `Windows/sandbox` (persistent sandbox, request file, heartbeat, minimized
-  without focus, muted).
+## Windows Sandbox with real NVDA
+
+`sandbox\Run-Sandbox.ps1 [-Scenario smoke] [-Nvda 2026.2,...] [-Recording smoke.jsonl] [-Pace 1]`
+(`-Stop` closes it). Adapted from BST Radio's sandbox: one persistent sandbox,
+started minimised without taking the focus; `artifacts\sandbox` is mapped
+read-only as `C:\Stage`, `artifacts\sandbox-runs` writable as `C:\Runs`; the
+agent writes a heartbeat and takes requests from `request.txt`. Changing
+`SandboxAgent.ps1` needs `-Stop` first (the running agent keeps its old copy).
+
+Per run the agent mutes every playback device of the sandbox (no run without
+it: the sandbox's sound reaches the host), makes a portable NVDA of the
+requested version once (`C:\NVDA\<version>`) and starts it with a fresh
+configuration: silent synthesizer, no welcome or update dialogs, log level 12,
+the staged add-on copied into the add-ons folder, and `tiktokLiveReader.ini`
+(user "host", text files in the run's folder; written without a byte order
+mark, F29). With a recording, the staged add-on's TikTokLive gets
+`_sandbox_replay.py` (`sandbox/replay_client.py`) and exports its client when
+`TIKTOK_REPLAY` is set; the repository's add-on is never changed.
+`sandbox/driver.py` (portable Python 3.13 inside) presses real keys with
+SendInput, reads speech from NVDA's log and writes `results.txt`.
+
+`tools/make_fixtures.py` writes the synthetic recordings to
+`artifacts\sandbox\fixtures`.
+
+Smoke scenario on 2026-10-13: 1.8 passes on 2026.1.1, 2026.2 and
+2026.3beta4; NVDA needs 2.85-2.90 s to answer the next key after switching the
+add-on off (F27).

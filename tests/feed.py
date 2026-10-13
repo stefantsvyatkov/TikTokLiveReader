@@ -157,6 +157,28 @@ def recorded_frames(path, pace=1.0):
 	return frames
 
 
+def write_recording(path, *items, user="host", start=None):
+	"""Write messages (and pauses in seconds) in the recorder's format, one frame per message."""
+	clock = start if start is not None else time.time()
+	with Path(path).open("w", encoding="utf-8") as out:
+		out.write(json.dumps({"header": True, "user": user, "started": "synthetic", "library": "6.6.5"}) + "\n")
+		number = 0
+		for item in items:
+			if isinstance(item, (int, float)):
+				clock += item
+				continue
+			number += 1
+			out.write(json.dumps({
+				"t": round(clock, 3),
+				"frame": number,
+				"is_first": number == 1,
+				"method": item.method,
+				"msg_id": item.msg_id,
+				"is_history": False,
+				"payload": base64.b64encode(item.payload).decode("ascii"),
+			}) + "\n")
+
+
 class _ReplayClient(TikTokLive.TikTokLiveClient):
 	"""Replays the current session's frames instead of connecting."""
 

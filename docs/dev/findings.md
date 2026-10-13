@@ -13,7 +13,9 @@ confirms it.
 - F27 Pinned. Because of F1, `disconnect()` waits its full 3 s join for the
   connection thread. Scripts run on NVDA's main thread, so switching the
   add-on off while connected freezes NVDA for 3 s; so do closing NVDA and
-  changing the user name in the settings during a session.
+  changing the user name in the settings during a session. Measured in real
+  NVDA 2026.1.1, 2026.2 and 2026.3beta4: the next key is answered 2.85-2.90 s
+  later.
 - F3 `ui.message` and gesture rebinding (`_unbind_nav` in the failure and
   live-end callbacks) run on the connection thread instead of NVDA's main
   thread.
@@ -77,6 +79,10 @@ confirms it.
   add-on is never used.
 - F19 Speech goes through `speechbuffer.json`, polled every 0.5 s, although
   writer and reader are in the same process.
+- F29 Pinned. The settings file is read as plain UTF-8: saved with a byte order
+  mark (old Notepad, PowerShell 5's `-Encoding UTF8`), the first section header
+  is not recognised, reading fails and every setting silently falls back to
+  its default. Found by the sandbox, whose agent first wrote the file that way.
 - F20 Settings live in three places kept in sync by hand: the ini file,
   `GlobalPlugin` attributes and `client` module globals.
 - F21 Exceptions are swallowed without logging, so failures cannot be

@@ -65,6 +65,13 @@ class KnownIssues(unittest.TestCase):
 		self.assertEqual(r.files["top gifters.txt"], [])
 		self.assertEqual(r.files["top likes.txt"], [])
 
+	def test_F29_settings_saved_with_a_byte_order_mark_are_ignored(self):
+		plugin, _ = make_plugin(main={"username": "someone"})
+		text = f.client.CONFIG_PATH.read_text(encoding="utf-8")
+		f.client.CONFIG_PATH.write_text("﻿" + text, encoding="utf-8")
+		again = type(plugin)()
+		self.assertEqual(again.username, "")
+
 
 class ConnectionIssues(unittest.TestCase):
 	def test_F1_F27_switching_off_leaves_the_connection_open_and_blocks_three_seconds(self):

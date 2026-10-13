@@ -157,6 +157,8 @@ def disconnect():
 		run, _current = _current, None
 	if run is not None:
 		run.end()
+	# What is written below is not announced any more.
+	pipeline.connection_time = 0
 	# Written before the plugin archives the files: likes still being summed and
 	# the top lists, otherwise written only every 10 s (F11, F12).
 	pipeline.like_manager.flush_pending()

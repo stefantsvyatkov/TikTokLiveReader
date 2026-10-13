@@ -401,7 +401,7 @@ def replaying(*frames, end="clean", past_grace_period=True, clock=None):
 		real_queue_speech(text)
 
 	announcer.queue_speech = queue_speech
-	runtime = adapter.RUNTIME.modules["TikTokLive"]
+	runtime = adapter.runtime().modules["TikTokLive"]
 	real_client_class = runtime.TikTokLiveClient
 	runtime.TikTokLiveClient = _ReplayClient
 	_ReplayClient.session = session

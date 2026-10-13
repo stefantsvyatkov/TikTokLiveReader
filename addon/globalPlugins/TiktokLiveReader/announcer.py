@@ -34,9 +34,9 @@ class SoundManager:
 		self.volume = 100
 		self._player = None
 		self._queue = queue.Queue()
-		self._running = True
-		self._thread = threading.Thread(target=self._worker, daemon=True)
-		self._thread.start()
+		# The worker starts with the first session or the settings dialog (F18).
+		self._running = False
+		self._thread = None
 
 	def set_volume(self, volume):
 		self.volume = max(0, min(100, int(volume)))

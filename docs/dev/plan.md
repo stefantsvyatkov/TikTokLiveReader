@@ -83,6 +83,7 @@ live recording.
    - [x] F35: the settings dialog comes to the front
    - [x] F17: sounds on NVDA's output device
    - [x] F24: one script category
+   - [x] F18: nothing loaded or started before the add-on is used
 4. Stress test in the sandbox on all three NVDA versions, live comparison
    loop.
 5. Version 2.0, minimum 2026.1, changelog draft for the user.

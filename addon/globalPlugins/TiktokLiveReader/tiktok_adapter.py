@@ -5,21 +5,35 @@ once as a social message; the pipeline handles each message once by its id."""
 
 import asyncio
 import contextlib
+import threading
 from pathlib import Path
 
 from . import events, vendor
 
 LIB_DIR = Path(__file__).resolve().parent / "lib"
-RUNTIME = vendor.load(LIB_DIR, "TikTokLive", "httpx", "websockets", optional=("google.protobuf",))
+_runtime = None
+_runtime_lock = threading.Lock()
 
 LINK_EVENTS = ("LinkLayerEvent", "LinkMicMethodEvent", "GuestInviteEvent")
 # Listened to by name; TikTokLive emits no events by these names.
 LINK_MESSAGE_NAMES = ("WebcastLinkLayerMessage", "WebcastLinkMicMethodMessage", "WebcastGuestInviteMessage")
 
 
+def runtime():
+	"""The bundled library, loaded on first use: it takes 0.7 s or more, which
+	NVDA's start should not pay when the add-on is not used (F18)."""
+	global _runtime
+	with _runtime_lock:
+		if _runtime is None:
+			_runtime = vendor.load(
+				LIB_DIR, "TikTokLive", "httpx", "websockets", optional=("google.protobuf",)
+			)
+		return _runtime
+
+
 def library_scope():
 	"""The bundled TikTokLive and its dependencies importable by their names."""
-	return vendor.scope(RUNTIME)
+	return vendor.scope(runtime())
 
 
 def _optional(module, *names):

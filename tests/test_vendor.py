@@ -1,5 +1,6 @@
 """The bundled libraries stay private to the add-on (vendor.py)."""
 
+import subprocess
 import sys
 import tempfile
 import types
@@ -77,13 +78,35 @@ class Isolation(unittest.TestCase):
 		self.assertNotIn(self.runtime.lib_dir, sys.path)
 
 
+STARTING = """
+import sys, threading
+sys.path.insert(0, sys.argv[1])
+from tests import support
+before = threading.active_count()
+plugin = support.load("globalPlugin").GlobalPlugin()
+adapter = sys.modules["tiktokAddon.tiktok_adapter"]
+print(adapter._runtime is None, "TikTokLive" in sys.modules, threading.active_count() - before)
+"""
+
+
 class AddOnLibrary(unittest.TestCase):
+	def test_nvda_start_does_not_load_the_library(self):
+		# F18: in a fresh interpreter, as when NVDA starts.
+		result = subprocess.run(
+			[sys.executable, "-X", "utf8", "-c", STARTING, str(support.REPO)],
+			capture_output=True,
+			text=True,
+			timeout=120,
+		)
+		self.assertEqual(result.stdout.split(), ["True", "False", "0"], result.stderr)
+
 	def test_every_bundled_package_is_private(self):
 		adapter = support.load("tiktok_adapter")
+		names = adapter.runtime().names
 		for name in ("TikTokLive", "httpx", "websockets", "idna", "certifi", "h11", "six", "dateutil"):
-			self.assertIn(name, adapter.RUNTIME.names)
+			self.assertIn(name, names)
 			self.assertNotIn(name, sys.modules)
-		self.assertNotIn("secrets", adapter.RUNTIME.names)
+		self.assertNotIn("secrets", names)
 
 
 if __name__ == "__main__":

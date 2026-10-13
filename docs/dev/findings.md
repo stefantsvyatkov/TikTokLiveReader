@@ -127,7 +127,12 @@ are right.
   settings scenario checks that a sound plays to its end. Before: sounds used
   `winsound` (Windows default device, not NVDA's output
   device) and scale volume in a Python loop over every sample.
-- F18 Importing the add-on at NVDA start imports TikTokLive and its
+- F18 Fixed in phase 3: the bundled library loads on the first switch-on, in
+  the connection thread (`tiktok_adapter.runtime()`), the sound worker starts
+  with the first session or the settings dialog; a test starts the plugin in a
+  fresh interpreter and finds neither. Loading took 0.7 s on a fast machine;
+  NVDA started in the sandbox in 4.5 s instead of 5.0-5.5. Before: importing
+  the add-on at NVDA start imports TikTokLive and its
   dependencies, reads the settings and starts the sound thread, even when the
   add-on is never used.
 - F19 Fixed in phase 3: texts for speech go through an in-memory queue to the

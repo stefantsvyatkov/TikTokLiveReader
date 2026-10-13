@@ -5,9 +5,12 @@ fail on purpose; it then moves to test_pipeline.py with the new expectation.
 Findings marked "needs live data" are only fixed once recordings confirm them.
 """
 
+import time
 import unittest
 
 from . import feed as f
+from . import support
+from .test_plugin import make_plugin, said
 
 alice, bob = f.user("Alice"), f.user("Bob")
 
@@ -61,6 +64,33 @@ class KnownIssues(unittest.TestCase):
 		r = f.run_session(f.gift(alice, "Rose", 1, 1), f.like(bob, 5, 5))
 		self.assertEqual(r.files["top gifters.txt"], [])
 		self.assertEqual(r.files["top likes.txt"], [])
+
+
+class ConnectionIssues(unittest.TestCase):
+	def test_F1_F27_switching_off_leaves_the_connection_open_and_blocks_three_seconds(self):
+		plugin, _ = make_plugin()
+		with f.replaying(end="hold") as session:
+			plugin.script_toggleActive(None)
+			self.assertTrue(f.wait_until(said("Connected to user: host")))
+			started = time.perf_counter()
+			plugin.script_toggleActive(None)
+			self.assertGreaterEqual(time.perf_counter() - started, 2.9)
+			self.assertTrue(session.threads[0].is_alive())
+
+	def test_F2_old_connection_ending_switches_off_the_new_session(self):
+		plugin, _ = make_plugin()
+		with f.replaying(end="hold") as old:
+			plugin.script_toggleActive(None)
+			self.assertTrue(f.wait_until(said("Connected to user: host")))
+			plugin.script_toggleActive(None)
+			support.spoken.clear()
+			with f.replaying(end="hold") as new:
+				plugin.script_toggleActive(None)
+				self.assertTrue(f.wait_until(said("Connected to user: host")))
+				old.release.set()
+				self.assertTrue(f.wait_until(said("The live has ended")), support.spoken)
+				self.assertFalse(plugin.active)
+				new.release.set()
 
 
 if __name__ == "__main__":

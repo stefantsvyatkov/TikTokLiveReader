@@ -15,10 +15,23 @@ a recorder without delays; speech is read back from the speech buffer. A
 number among the frames is a pause. `past_grace_period` skips the 10 second
 silence after connecting; `settle_likes` lets the like timers fire.
 
+`feed.replaying(...)` is the same replay as a context manager; with
+`end="hold"` the connection stays open until the test sets `release`, and,
+like the real client in 1.8, switching the add-on off does not end it (F1).
+
 - `test_feed.py` - the feed decodes like a live connection.
+- `test_plugin.py` - the scripts: on/off, navigation, positions, clearing,
+  toggles, archiving, settings file.
 - `test_pipeline.py` - behaviour to keep.
 - `test_known_issues.py` - 1.8 behaviour believed wrong, one test per
   finding.
+
+The suite takes about 70 s, most of it the 3 s freeze of F27 in every test
+that switches off a held session.
+
+Run one module with
+`-m unittest discover -s tests -t . -p test_plugin.py` (the portable Python
+does not put the working folder on `sys.path` for `-m unittest tests.x`).
 
 ## Still to build
 

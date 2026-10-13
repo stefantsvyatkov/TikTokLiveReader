@@ -6,10 +6,14 @@ confirms it.
 
 ## Connection
 
-- F1 `disconnect()` calls `client.stop()`, which does not exist; the error is
+- F1 Pinned. `disconnect()` calls `client.stop()`, which does not exist; the error is
   swallowed and the websocket stays open until the stream ends.
-- F2 A connection left open by F1 shares `_should_run` with the next one: when
+- F2 Pinned. A connection left open by F1 shares `_should_run` with the next one: when
   its stream ends it reports "live ended" into the new session.
+- F27 Pinned. Because of F1, `disconnect()` waits its full 3 s join for the
+  connection thread. Scripts run on NVDA's main thread, so switching the
+  add-on off while connected freezes NVDA for 3 s; so do closing NVDA and
+  changing the user name in the settings during a session.
 - F3 `ui.message` and gesture rebinding (`_unbind_nav` in the failure and
   live-end callbacks) run on the connection thread instead of NVDA's main
   thread.

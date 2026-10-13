@@ -11,6 +11,7 @@ TikTokLiveClient subclass that replays messages instead of connecting.
 """
 
 import asyncio
+import contextlib
 import functools
 import itertools
 import json
@@ -133,7 +134,9 @@ class _ReplayClient(TikTokLive.TikTokLiveClient):
 	session = None
 
 	def run(self, **kwargs):
-		return self._asyncio_loop.run_until_complete(self._replay(self.session))
+		session = self.session
+		session.threads.append(threading.current_thread())
+		return self._asyncio_loop.run_until_complete(self._replay(session))
 
 	async def _replay(self, session):
 		self.emit(ConnectEvent.get_type(), ConnectEvent(unique_id="host", room_id=1))
@@ -147,6 +150,9 @@ class _ReplayClient(TikTokLive.TikTokLiveClient):
 			async for event in self._parse_webcast_response(item):
 				self.emit(event.type, event)
 			await self.wait_for_complete()
+		if session.end == "hold":
+			while not session.release.is_set():
+				await asyncio.sleep(0.02)
 		if session.end == "error":
 			raise ConnectionError("replay ended with a dropped connection")
 
@@ -178,9 +184,15 @@ class _RecordingSounds:
 
 @dataclass
 class Session:
+	"""``end``: "clean" (the stream is over), "error" (dropped connection) or
+	"hold" (stays connected until ``release`` is set)."""
+
 	frames: list
 	end: str = "clean"
 	past_grace_period: bool = True
+	release: threading.Event = field(default_factory=threading.Event)
+	sounds: object = None
+	threads: list = field(default_factory=list)
 
 
 @dataclass
@@ -209,10 +221,48 @@ def write_settings(**sections):
 _session_numbers = itertools.count(1)
 
 
-def run_session(*frames, end="clean", past_grace_period=True, settle_likes=True, settings=None, log_dir=None):
-	"""Run one connection through the add-on's real thread, replaying ``frames``.
+def fresh_log_dir():
+	return support.ROOT / f"session{next(_session_numbers)}"
+
+
+def wait_until(condition, timeout=10):
+	deadline = time.monotonic() + timeout
+	while time.monotonic() < deadline:
+		if condition():
+			return True
+		time.sleep(0.01)
+	return False
+
+
+@contextlib.contextmanager
+def replaying(*frames, end="clean", past_grace_period=True):
+	"""While active, the add-on's connections replay ``frames`` instead of connecting.
 
 	A number among the frames is a pause in seconds.
+	"""
+	frames = [
+		item if isinstance(item, (int, float, proto.ProtoMessageFetchResult)) else frame(item)
+		for item in frames
+	]
+	session = Session(frames, end, past_grace_period)
+	real_sounds = client.sound_manager
+	session.sounds = client.sound_manager = _RecordingSounds()
+	runtime = client._RUNTIME.modules["TikTokLive"]
+	real_client_class = runtime.TikTokLiveClient
+	runtime.TikTokLiveClient = _ReplayClient
+	_ReplayClient.session = session
+	try:
+		yield session
+	finally:
+		session.release.set()
+		for thread in session.threads:
+			thread.join(10)
+		runtime.TikTokLiveClient = real_client_class
+		client.sound_manager = real_sounds
+
+
+def run_session(*frames, end="clean", past_grace_period=True, settle_likes=True, settings=None, log_dir=None):
+	"""Run one connection through the add-on's real thread, replaying ``frames``.
 
 	``settle_likes`` lets the like aggregator's 10 second timers fire before
 	the session closes, as they would in a session that stays open.
@@ -220,18 +270,8 @@ def run_session(*frames, end="clean", past_grace_period=True, settle_likes=True,
 	if client.CONFIG_PATH.exists():
 		client.CONFIG_PATH.unlink()
 	write_settings(**(settings or {}))
-	log_dir = log_dir or support.ROOT / f"session{next(_session_numbers)}"
+	log_dir = log_dir or fresh_log_dir()
 	client.set_log_directory(log_dir)
-
-	real_sounds = client.sound_manager
-	sounds = client.sound_manager = _RecordingSounds()
-	real_client_class = client._RUNTIME.modules["TikTokLive"].TikTokLiveClient
-	client._RUNTIME.modules["TikTokLive"].TikTokLiveClient = _ReplayClient
-	frames = [
-		item if isinstance(item, (int, float, proto.ProtoMessageFetchResult)) else frame(item)
-		for item in frames
-	]
-	_ReplayClient.session = Session(frames, end, past_grace_period)
 
 	callbacks = []
 	finished = threading.Event()
@@ -243,7 +283,7 @@ def run_session(*frames, end="clean", past_grace_period=True, settle_likes=True,
 				finished.set()
 		return callback
 
-	try:
+	with replaying(*frames, end=end, past_grace_period=past_grace_period) as session:
 		client.connect(
 			username="host",
 			on_connect=record("connected"),
@@ -257,9 +297,7 @@ def run_session(*frames, end="clean", past_grace_period=True, settle_likes=True,
 		if client._thread is not None:
 			client._thread.join(10)
 		if settle_likes:
-			for name in list(client.like_manager._timers):
-				client.like_manager._timers[name].cancel()
-				client.like_manager._flush(name)
+			settle_like_timers()
 		stats = {
 			"viewer_count": client.viewer_count,
 			"total_viewers": client.total_viewers,
@@ -268,19 +306,28 @@ def run_session(*frames, end="clean", past_grace_period=True, settle_likes=True,
 			"total_diamonds": client.total_diamonds,
 		}
 		client.disconnect()
-	finally:
-		client._RUNTIME.modules["TikTokLive"].TikTokLiveClient = real_client_class
-		client.sound_manager = real_sounds
 
 	files = {}
 	for path in client._session_files():
 		files[path.name] = path.read_text(encoding="utf-8").splitlines() if path.exists() else None
+	return Result(files, read_speech(), session.sounds.played, callbacks, log_dir, stats)
+
+
+def settle_like_timers():
+	"""Fire the like aggregator's pending timers now instead of after 10 seconds."""
+	for name in list(client.like_manager._timers):
+		client.like_manager._timers[name].cancel()
+		client.like_manager._flush(name)
+
+
+def read_speech():
+	"""What the connection asked to be spoken, from the speech buffer."""
 	speech = []
 	if client.SPEECH_BUFFER_FILE.exists():
 		for line in client.SPEECH_BUFFER_FILE.read_text(encoding="utf-8").splitlines():
 			if line.strip():
 				speech.append(json.loads(line)["text"])
-	return Result(files, speech, sounds.played, callbacks, log_dir, stats)
+	return speech
 
 
 def without_times(lines):

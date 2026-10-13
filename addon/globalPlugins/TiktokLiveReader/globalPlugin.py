@@ -305,10 +305,15 @@ class GlobalPlugin(NVDA_GlobalPlugin):
 
 		announcer.sound_manager.start()
 		self.settings.text_files_destination = str(store.usable_folder(self.settings.text_files_destination))
-		dlg = dialogs.SettingsDialog(gui.mainFrame, self.settings)
-		self._settingsDialog = dlg
-
-		res = dlg.ShowModal()
+		# NVDA's way to show a dialog: its main frame takes the foreground first, so
+		# the dialog does not open behind the focused window (F35).
+		gui.mainFrame.prePopup()
+		try:
+			dlg = dialogs.SettingsDialog(gui.mainFrame, self.settings)
+			self._settingsDialog = dlg
+			res = dlg.ShowModal()
+		finally:
+			gui.mainFrame.postPopup()
 		dlg.stop_learning()
 
 		if was_active:

@@ -136,7 +136,9 @@ are right.
   mark (old Notepad, PowerShell 5's `-Encoding UTF8`), the first section header
   is not recognised, reading fails and every setting silently falls back to
   its default. Found by the sandbox, whose agent first wrote the file that way.
-- F35 Sandbox. The settings dialog is shown with `ShowModal()` alone, without
+- F35 Fixed in phase 3: `gui.mainFrame.prePopup()`/`postPopup()` around the
+  dialog; in the sandbox it now opens on the first press on all three NVDA
+  versions. Before: the settings dialog was shown with `ShowModal()` alone, without
   `gui.mainFrame.prePopup()`/`postPopup()`. With portable NVDA (no UIAccess)
   Windows kept the first dialog behind the focused window ("Foreground took
   too long to change" in NVDA's log): nothing was spoken, keys went to the

@@ -159,7 +159,9 @@ are right.
   diagnosed from NVDA's log.
 - F22 Fixed in phase 3 with F30's lock. Before: clearing files (main thread)
   raced with handlers writing (connection thread).
-- F24 Script categories differ (literal, translated, none), so the scripts
+- F24 Fixed in phase 3: one `scriptCategory = _("TikTok Live Reader")` for the
+  plugin (an existing string), `_watcherThread` gone. Before: script categories
+  differed (literal, translated, none), so the scripts
   are scattered in Input gestures. Dead code: `_watcherThread`, the inactive
   branch of `script_reportViewers` (`SpeechManager.speak`, `audioop` and the
   winsound constant shims went with phase 2 step 3, the shims also patched

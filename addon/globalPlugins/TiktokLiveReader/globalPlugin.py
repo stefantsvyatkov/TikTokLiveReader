@@ -51,6 +51,9 @@ INDEX_TO_KEY = _filename_key_map()
 
 
 class GlobalPlugin(NVDA_GlobalPlugin):
+	# One category in Input gestures for every script (1.8 mixed three ways, F24).
+	scriptCategory = _("TikTok Live Reader")
+
 	__gestures = {
 		"kb:NVDA+control+shift+t": "toggleActive",
 		"kb:NVDA+control+shift+l": "openSettingsDialog",
@@ -61,7 +64,6 @@ class GlobalPlugin(NVDA_GlobalPlugin):
 		self.active = False
 
 		self.index = -1
-		self._watcherThread = None
 		self._settingsDialog = None
 		self._connectionToken = None
 		self.speech_manager = announcer.SpeechReader()
@@ -199,7 +201,7 @@ class GlobalPlugin(NVDA_GlobalPlugin):
 		self._sessionConnected = False
 		store.archive_session(username)
 
-	@script(description=_("Toggle TikTok Live Reader on or off"), category="TikTok Live Reader")
+	@script(description=_("Toggle TikTok Live Reader on or off"))
 	def script_toggleActive(self, gesture):
 		if self._settingsDialog:
 			return
@@ -257,7 +259,7 @@ class GlobalPlugin(NVDA_GlobalPlugin):
 		except Exception:
 			pass
 
-	@script(description=_("Toggle automatic speaking of new events"), category="TikTok Live Reader")
+	@script(description=_("Toggle automatic speaking of new events"))
 	def script_toggleAutoSpeak(self, gesture):
 		if not self.active:
 			gesture.send()
@@ -272,7 +274,7 @@ class GlobalPlugin(NVDA_GlobalPlugin):
 			ui.message(_("Auto speak Off"))
 			self.speech_manager.stop()
 
-	@script(description=_("Toggle sound playback for selected events"), category="TikTok Live Reader")
+	@script(description=_("Toggle sound playback for selected events"))
 	def script_togglePlaySounds(self, gesture):
 		if not self.active:
 			gesture.send()
@@ -286,7 +288,7 @@ class GlobalPlugin(NVDA_GlobalPlugin):
 		else:
 			ui.message(_("Sounds Off"))
 
-	@script(description=_("Open TikTok Live Reader settings"), category="TikTok Live Reader")
+	@script(description=_("Open TikTok Live Reader settings"))
 	def script_openSettingsDialog(self, gesture):
 		if self._settingsDialog:
 			self._settingsDialog.Raise()
@@ -441,7 +443,7 @@ class GlobalPlugin(NVDA_GlobalPlugin):
 		name, _path = self._get_current_file()
 		ui.message(name)
 
-	@script(description=_("Clear all log files and reset positions"), category=_("TikTok Live Reader"))
+	@script(description=_("Clear all log files and reset positions"))
 	def script_clearTextFiles(self, gesture):
 		if not self.active:
 			return
@@ -475,7 +477,7 @@ class GlobalPlugin(NVDA_GlobalPlugin):
 		pipeline.reset_accumulators()
 		ui.message(_("All files cleared."))
 
-	@script(description=_("Report the current number of live viewers"), category=_("TikTok Live Reader"))
+	@script(description=_("Report the current number of live viewers"))
 	def script_reportViewers(self, gesture):
 		if not self.active:
 			ui.message(_("Addon is not active."))

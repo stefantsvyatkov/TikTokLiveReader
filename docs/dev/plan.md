@@ -81,6 +81,7 @@ live recording.
    - [x] F19, F22, F29, F30: speech queue, file lock, tolerant reads, BOM
    - [x] F1, F2, F3, F15, F23, F27: the connection stops at once and alone
    - [x] F35: the settings dialog comes to the front
+   - [x] F17: sounds on NVDA's output device
 4. Stress test in the sandbox on all three NVDA versions, live comparison
    loop.
 5. Version 2.0, minimum 2026.1, changelog draft for the user.

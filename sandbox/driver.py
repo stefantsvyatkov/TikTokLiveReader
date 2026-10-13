@@ -313,7 +313,12 @@ def scenario_settings(run):
 	run.mark = len(run.log.speech())
 	press("space")
 	run.hear(r"^Comment$", "learning speaks the first sound's name", timeout=8)
+	started = time.monotonic()
 	run.hear(r"^Follower$", "learning goes on to the next", timeout=8)
+	# The next name follows when the sound has played (about 2.5 s); the add-on
+	# gives up on a sound after 5 s.
+	gap = time.monotonic() - started
+	run.check("the first sound played to its end", gap < 4.5, f"{gap:.1f} s from one name to the next")
 	press("space")
 	time.sleep(1)
 	press("escape")

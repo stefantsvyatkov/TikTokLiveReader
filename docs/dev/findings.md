@@ -122,7 +122,10 @@ are right.
 
 ## NVDA integration
 
-- F17 Sounds use `winsound` (Windows default device, not NVDA's output
+- F17 Fixed in phase 3: sounds play through `nvwave.WavePlayer` on the output
+  device chosen in NVDA, at the add-on's volume (`setVolume`); the sandbox's
+  settings scenario checks that a sound plays to its end. Before: sounds used
+  `winsound` (Windows default device, not NVDA's output
   device) and scale volume in a Python loop over every sample.
 - F18 Importing the add-on at NVDA start imports TikTokLive and its
   dependencies, reads the settings and starts the sound thread, even when the

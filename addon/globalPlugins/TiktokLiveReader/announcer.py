@@ -1,22 +1,17 @@
 """What the add-on plays and says for an event: the event's sound first, then its
 text, which the speech reader passes to NVDA's speech while auto speak is on."""
 
-import array
 import functools
-import io
 import queue
 import threading
 import time
 import wave
-import winsound
 from pathlib import Path
 
 import ui
 import wx
 
 ADDON_DIR = Path(__file__).resolve().parent
-# winsound has no name for it: playing synchronously is the absence of SND_ASYNC.
-SND_SYNC = 0x0000
 
 SOUND_FILES = {
 	"comments": "comment.wav",
@@ -37,6 +32,7 @@ class SoundManager:
 		self.base_dir = base_dir
 		self.sounds_dir = base_dir.parent.parent / "sounds"
 		self.volume = 100
+		self._player = None
 		self._queue = queue.Queue()
 		self._running = True
 		self._thread = threading.Thread(target=self._worker, daemon=True)
@@ -53,6 +49,11 @@ class SoundManager:
 	def clear(self):
 		with self._queue.mutex:
 			self._queue.queue.clear()
+
+	def stop_playing(self):
+		player = self._player
+		if player is not None:
+			player.stop()
 
 	def start(self):
 		if not self._running:
@@ -88,40 +89,41 @@ class SoundManager:
 			self._queue.task_done()
 
 	def _play_actual(self, fname):
+		"""Play on the output device chosen in NVDA's settings at the add-on's own
+		volume (1.8 used winsound: the Windows default device, the volume applied
+		sample by sample in Python, F17)."""
 		fpath = self.sounds_dir / fname
 		if not fpath.exists():
 			return
-
 		try:
-			with wave.open(str(fpath), "rb") as wav_in:
-				params = wav_in.getparams()
-
-				if self.volume == 100 or params.sampwidth != 2:
-					winsound.PlaySound(str(fpath), winsound.SND_FILENAME | SND_SYNC)
-					return
-
-				frames = wav_in.readframes(params.nframes)
-
-				try:
-					factor = self.volume / 100.0
-					samples = array.array("h", frames)
-					for i in range(len(samples)):
-						samples[i] = max(-32768, min(32767, int(samples[i] * factor)))
-
-					mem_file = io.BytesIO()
-					with wave.open(mem_file, "wb") as wav_out:
-						wav_out.setparams(params)
-						wav_out.writeframes(samples.tobytes())
-
-					winsound.PlaySound(mem_file.getvalue(), winsound.SND_MEMORY | SND_SYNC)
-				except Exception:
-					winsound.PlaySound(str(fpath), winsound.SND_FILENAME | SND_SYNC)
-
+			import config
+			import nvwave
+		except ImportError:
+			return
+		try:
+			with wave.open(str(fpath), "rb") as wav:
+				params = wav.getparams()
+				frames = wav.readframes(params.nframes)
+			# A speech player: NVDA applies its sound volume only to sounds players.
+			player = nvwave.WavePlayer(
+				channels=params.nchannels,
+				samplesPerSec=params.framerate,
+				bitsPerSample=params.sampwidth * 8,
+				outputDevice=config.conf["audio"]["outputDevice"],
+				wantDucking=False,
+			)
 		except Exception:
-			try:
-				winsound.PlaySound(str(fpath), winsound.SND_FILENAME | SND_SYNC)
-			except Exception:
-				pass
+			return
+		self._player = player
+		try:
+			player.setVolume(all=self.volume / 100)
+			player.feed(frames)
+			player.sync()
+		except Exception:
+			pass
+		finally:
+			self._player = None
+			player.close()
 
 
 sound_manager = SoundManager(ADDON_DIR)
@@ -137,7 +139,7 @@ def silence():
 	"""Drop the queued sounds and stop the one playing."""
 	try:
 		sound_manager.clear()
-		winsound.PlaySound(None, winsound.SND_PURGE)
+		sound_manager.stop_playing()
 	except Exception:
 		pass
 

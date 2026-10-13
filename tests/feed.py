@@ -314,7 +314,7 @@ def replaying(*frames, end="clean", past_grace_period=True):
 		client.sound_manager = real_sounds
 
 
-def run_session(*frames, end="clean", past_grace_period=True, settle_likes=True, settings=None, log_dir=None):
+def run_session(*frames, end="clean", past_grace_period=True, settle_likes=True, settings=None, log_dir=None, timeout=60):
 	"""Run one connection through the add-on's real thread, replaying ``frames``.
 
 	``settle_likes`` lets the like aggregator's 10 second timers fire before
@@ -345,7 +345,7 @@ def run_session(*frames, end="clean", past_grace_period=True, settle_likes=True,
 			on_live_end=record("live_end", last=True),
 			retry_count=1,
 		)
-		if not finished.wait(60):
+		if not finished.wait(timeout + sum(item for item in frames if isinstance(item, (int, float)))):
 			raise TimeoutError("the replayed session did not finish")
 		if client._thread is not None:
 			client._thread.join(10)

@@ -51,6 +51,12 @@ does not put the working folder on `sys.path` for `-m unittest tests.x`).
   in `artifacts/checks/`. Guest requests have no independent count yet: the
   link layer carries applicant queues, not single requests (F28).
 
+- `tools/anonymize_recording.py <recording> <out> [method ...]` rewrites every
+  name, handle, text and user id to stable stand-ins (the same person keeps
+  the same stand-in, so deduplication and applicant queues behave as
+  recorded) and re-encodes the payloads, so real message shapes can become
+  committed fixtures.
+
 7.0.1 for the comparison lives in `artifacts/lib-7.0.1` (wheels for cp313
 win_amd64 from PyPI; `protobuf_to_dict.py` copied from the vendored lib).
 

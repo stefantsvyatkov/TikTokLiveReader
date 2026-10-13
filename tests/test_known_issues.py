@@ -67,10 +67,10 @@ class KnownIssues(unittest.TestCase):
 
 	def test_F29_settings_saved_with_a_byte_order_mark_are_ignored(self):
 		plugin, _ = make_plugin(main={"username": "someone"})
-		text = f.client.CONFIG_PATH.read_text(encoding="utf-8")
-		f.client.CONFIG_PATH.write_text("﻿" + text, encoding="utf-8")
+		text = f.addon_settings.CONFIG_PATH.read_text(encoding="utf-8")
+		f.addon_settings.CONFIG_PATH.write_text("﻿" + text, encoding="utf-8")
 		again = type(plugin)()
-		self.assertEqual(again.username, "")
+		self.assertEqual(again.settings.username, "")
 
 
 class ConnectionIssues(unittest.TestCase):

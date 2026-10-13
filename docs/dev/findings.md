@@ -102,8 +102,12 @@ confirms it.
   mark (old Notepad, PowerShell 5's `-Encoding UTF8`), the first section header
   is not recognised, reading fails and every setting silently falls back to
   its default. Found by the sandbox, whose agent first wrote the file that way.
-- F20 Settings live in three places kept in sync by hand: the ini file,
-  `GlobalPlugin` attributes and `client` module globals.
+- F20 Fixed in phase 2 step 1. Settings lived in three places kept in sync by
+  hand: the ini file, `GlobalPlugin` attributes and `client` module globals.
+  Now one `settings.Settings` owned by the plugin and handed to
+  `client.apply_settings`; `connect()` still re-reads the file, as 1.8 did.
+  The ini file is byte for byte what 1.8 wrote (compared for a missing, a
+  partial and an odd file).
 - F21 Exceptions are swallowed without logging, so failures cannot be
   diagnosed from NVDA's log.
 - F22 Clearing files (main thread) races with handlers writing (connection

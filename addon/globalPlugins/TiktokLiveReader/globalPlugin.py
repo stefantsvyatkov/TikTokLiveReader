@@ -1,41 +1,20 @@
 from pathlib import Path
-import configparser
 import json
 import re
 import threading
 import time
 
-from . import client
+from . import client, settings
+from .i18n import _
 from globalPluginHandler import GlobalPlugin as NVDA_GlobalPlugin
 from scriptHandler import script
-import addonHandler
 import gui
 from gui import message
 import ui
 import wx
 
-addonHandler.initTranslation()
-
-client._cached_translate = _
-
 ADDON_DIR = Path(__file__).resolve().parent
-# Settings live in NVDA's config folder so that updating the add-on,
-# which replaces the add-on folder, no longer wipes them.
-CONFIG_FILE = client.CONFIG_PATH
-POS_FILE = client.POSITIONS_PATH
-
-DEFAULT_LOG_DIR = Path.home() / "Documents" / "TikTok live"
 SPEECH_BUFFER_FILE = ADDON_DIR / "speechbuffer.json"
-
-
-def _resolve_destination(raw):
-    try:
-        p = Path(str(raw).strip()).expanduser()
-        if not p.is_absolute():
-            raise ValueError("text_files_destination must be an absolute path")
-        return str(p)
-    except Exception:
-        return str(DEFAULT_LOG_DIR)
 
 
 def _add_event_checkboxes(parent, sizer, values):
@@ -51,7 +30,7 @@ def _add_event_checkboxes(parent, sizer, values):
     checks = {}
     for key, label in labels:
         chk = wx.CheckBox(parent, label=label)
-        chk.SetValue(bool(values.get(key, client.DEFAULT_EVENT_PREFS[key])))
+        chk.SetValue(bool(values.get(key, settings.DEFAULT_EVENT_PREFS[key])))
         sizer.Add(chk, flag=wx.ALL, border=5)
         checks[key] = chk
     return checks
@@ -181,7 +160,6 @@ class GlobalPlugin(NVDA_GlobalPlugin):
     def __init__(self):
         super().__init__()
         self.active = False
-        self.autoSpeak = False
 
         self.index = -1
         self._watcherThread = None
@@ -189,104 +167,29 @@ class GlobalPlugin(NVDA_GlobalPlugin):
         self.speech_manager = SpeechManager(self)
         self.currentFileIndex = 0
         self.filePositions = {i: -1 for i in range(len(FILES))}
-        client.migrate_user_files()
-        self.username, self.prefs, self.auto_speak_prefs, self.sound_prefs, self.clearOnStart, self.cleanUsernames, self.retryCount, self.playSounds, self.soundVolume, self.autoSpeak, self.textFilesDestination, self.backupSessions = self._load_config()
+        settings.migrate_user_files()
+        self.settings = settings.load_and_complete()
         self.autoSpeakDelay = 1.0
         self._sessionConnected = False
 
-        client.set_log_directory(self.textFilesDestination)
-        client.update_config(self.username, self.prefs, self.auto_speak_prefs, self.sound_prefs, self.playSounds, self.soundVolume, self.clearOnStart, self.cleanUsernames)
+        client.set_log_directory(self.settings.text_files_destination)
+        client.apply_settings(self.settings)
 
-        if not self.clearOnStart:
+        if not self.settings.clear_on_start:
             self._load_positions_json()
             self.index = self.filePositions.get(self.currentFileIndex, -1)
             
-        if self.autoSpeak:
+        if self.settings.auto_speak_enabled:
              self.speech_manager.start()
 
-    def _load_config(self):
-        try:
-            cfg = client.apply_config_defaults(client.read_config_file())
-            with open(CONFIG_FILE, "w", encoding="utf-8") as f:
-                cfg.write(f)
-
-            settings = client.read_settings(cfg)
-            return (
-                settings["username"],
-                settings["prefs"],
-                settings["auto_speak_prefs"],
-                settings["sound_prefs"],
-                settings["clear_on_start"],
-                settings["clean_usernames"],
-                settings["retry_count"],
-                settings["play_sounds"],
-                settings["volume"],
-                settings["auto_speak_enabled"],
-                _resolve_destination(settings["text_files_destination"]),
-                settings["backup_sessions"],
-            )
-        except Exception:
-            d = client.DEFAULT_BEHAVIOR
-            s = client.DEFAULT_SOUNDS
-            return (
-                "",
-                dict(client.DEFAULT_EVENT_PREFS),
-                dict(client.DEFAULT_EVENT_PREFS),
-                dict(client.DEFAULT_EVENT_PREFS),
-                d["clear_on_start"],
-                d["clean_usernames"],
-                d["retry_count"],
-                s["play_sounds"],
-                s["volume"],
-                False,
-                str(DEFAULT_LOG_DIR),
-                d["backup_sessions"],
-            )
-
-    def _save_config(self, username, prefs, auto_speak_prefs, sound_prefs, clear_on_start, clean_usernames, retry_count, play_sounds, volume, text_files_destination=None, backup_sessions=None):
-        if text_files_destination is None:
-            text_files_destination = self.textFilesDestination
-        if backup_sessions is None:
-            backup_sessions = self.backupSessions
-        text_files_destination = _resolve_destination(text_files_destination)
-        cfg = configparser.ConfigParser()
-        cfg["main"] = {
-            "username": username,
-            "text_files_destination": text_files_destination,
-        }
-        cfg["events"] = {k: "true" if v else "false" for k, v in prefs.items()}
-        cfg["auto_speak"] = {k: "true" if v else "false" for k, v in auto_speak_prefs.items()}
-        cfg["auto_speak"]["enabled"] = "true" if self.autoSpeak else "false"
-        cfg["sound_events"] = {k: "true" if v else "false" for k, v in sound_prefs.items()}
-        cfg["behavior"] = {
-            "clear_on_start": "true" if clear_on_start else "false",
-            "clean_usernames": "true" if clean_usernames else "false",
-            "retry_count": str(retry_count),
-            "backup_sessions": "true" if backup_sessions else "false",
-        }
-        cfg["sounds"] = {
-            "play_sounds": "true" if play_sounds else "false",
-            "volume": str(volume)
-        }
-        with open(CONFIG_FILE, "w", encoding="utf-8") as f:
-            cfg.write(f)
-        self.username = username
-        self.prefs = prefs
-        self.auto_speak_prefs = auto_speak_prefs
-        self.sound_prefs = sound_prefs
-        self.clearOnStart = clear_on_start
-        self.cleanUsernames = clean_usernames
-        self.retryCount = retry_count
-        self.playSounds = play_sounds
-        self.soundVolume = volume
-        self.textFilesDestination = text_files_destination
-        self.backupSessions = backup_sessions
-
-        client.update_config(self.username, self.prefs, self.auto_speak_prefs, self.sound_prefs, self.playSounds, self.soundVolume, self.clearOnStart, self.cleanUsernames)
+    def _apply_settings(self, new):
+        settings.save(new)
+        self.settings = new
+        client.apply_settings(new)
 
     def _load_positions_json(self):
         try:
-            data = json.loads(POS_FILE.read_text(encoding="utf-8"))
+            data = json.loads(settings.POSITIONS_PATH.read_text(encoding="utf-8"))
         except Exception:
             data = {"version": 1, "files": {}}
         for i in range(len(FILES)):
@@ -301,7 +204,7 @@ class GlobalPlugin(NVDA_GlobalPlugin):
                 k = INDEX_TO_KEY[i]
                 if k in TRACKED_KEYS:
                     data["files"][k] = {"line": int(self.filePositions.get(i, -1))}
-            POS_FILE.write_text(json.dumps(data, ensure_ascii=False), encoding="utf-8")
+            settings.POSITIONS_PATH.write_text(json.dumps(data, ensure_ascii=False), encoding="utf-8")
         except Exception:
             pass
 
@@ -356,7 +259,7 @@ class GlobalPlugin(NVDA_GlobalPlugin):
             self._ensure_temp_files_exist()
             self._sessionConnected = True
             # Translators: Announced when successfully connected to a TikTok live. {username} is the streamer's name.
-            ui.message(_("Connected to user: {username}").format(username=self.username))
+            ui.message(_("Connected to user: {username}").format(username=self.settings.username))
 
         def on_retry():
             ui.message(_("Attempting to connect..."))
@@ -376,13 +279,13 @@ class GlobalPlugin(NVDA_GlobalPlugin):
             # Translators: Announced when the streamer has ended the live.
             ui.message(_("The live has ended"))
             stop_session()
-            self._archive_session(self.username)
+            self._archive_session(self.settings.username)
             self._cleanup_temp_files()
 
         return on_conn, on_retry, on_fail, on_live_end
 
     def _archive_session(self, username):
-        if not self.backupSessions or not self._sessionConnected:
+        if not self.settings.backup_sessions or not self._sessionConnected:
             return
         self._sessionConnected = False
         client.archive_session(username)
@@ -392,7 +295,7 @@ class GlobalPlugin(NVDA_GlobalPlugin):
         if self._settingsDialog:
             return
             
-        test_username = self.username.strip().lstrip('@')
+        test_username = self.settings.username.strip().lstrip('@')
         if not self.active and len(test_username) < 2:
             ui.message(_("Please enter a valid username"))
             return
@@ -400,24 +303,24 @@ class GlobalPlugin(NVDA_GlobalPlugin):
         self.active = not self.active
         if self.active:
             self._bind_nav()
-            if not self.clearOnStart:
+            if not self.settings.clear_on_start:
                 self._load_positions_json()
             self.index = self.filePositions.get(self.currentFileIndex, -1)
-            if self.autoSpeak:
+            if self.settings.auto_speak_enabled:
                 self.speech_manager.start()
             else:
                 self.speech_manager.stop()
             ui.message(_("TikTok Live Reader On"))
 
             on_conn, on_retry, on_fail, on_live_end = self._connection_callbacks()
-            client.set_log_directory(self.textFilesDestination)
-            client.connect(username=self.username, on_connect=on_conn, on_retry=on_retry, on_fail=on_fail, on_live_end=on_live_end, retry_count=self.retryCount)
+            client.set_log_directory(self.settings.text_files_destination)
+            client.connect(username=self.settings.username, on_connect=on_conn, on_retry=on_retry, on_fail=on_fail, on_live_end=on_live_end, retry_count=self.settings.retry_count)
         else:
             self._unbind_nav()
             ui.message(_("TikTok Live Reader Off"))
             client.disconnect()
             self.speech_manager.stop()
-            self._archive_session(self.username)
+            self._archive_session(self.settings.username)
             self._cleanup_temp_files()
 
     def _cleanup_temp_files(self, hard_reset=False):
@@ -426,8 +329,8 @@ class GlobalPlugin(NVDA_GlobalPlugin):
                 SPEECH_BUFFER_FILE.unlink()
             
             if hard_reset:
-                if POS_FILE.exists():
-                    POS_FILE.unlink()
+                if settings.POSITIONS_PATH.exists():
+                    settings.POSITIONS_PATH.unlink()
                 if hasattr(self, 'filePositions'):
                     self.filePositions = {i: -1 for i in range(len(FILES))}
                     self.index = -1
@@ -441,8 +344,8 @@ class GlobalPlugin(NVDA_GlobalPlugin):
             if not SPEECH_BUFFER_FILE.exists():
                 with open(SPEECH_BUFFER_FILE, "w", encoding="utf-8") as f:
                     pass
-            if not POS_FILE.exists():
-                with open(POS_FILE, "w", encoding="utf-8") as f:
+            if not settings.POSITIONS_PATH.exists():
+                with open(settings.POSITIONS_PATH, "w", encoding="utf-8") as f:
                     json.dump({"version": 1, "files": {}}, f)
         except Exception:
             pass
@@ -452,21 +355,10 @@ class GlobalPlugin(NVDA_GlobalPlugin):
         if not self.active:
             gesture.send()
             return
-        self.autoSpeak = not self.autoSpeak
-        
-        self._save_config(
-            self.username, 
-            self.prefs, 
-            self.auto_speak_prefs,
-            self.sound_prefs,
-            self.clearOnStart, 
-            self.cleanUsernames, 
-            self.retryCount, 
-            self.playSounds,
-            self.soundVolume
-        )
-        
-        if self.autoSpeak:
+        self.settings.auto_speak_enabled = not self.settings.auto_speak_enabled
+        self._apply_settings(self.settings)
+
+        if self.settings.auto_speak_enabled:
             ui.message(_("Auto speak On"))
             self.speech_manager.start()
         else:
@@ -482,23 +374,10 @@ class GlobalPlugin(NVDA_GlobalPlugin):
             gesture.send()
             return
 
-        self.playSounds = not self.playSounds
-        
-        self._save_config(
-            self.username, 
-            self.prefs, 
-            self.auto_speak_prefs,
-            self.sound_prefs,
-            self.clearOnStart, 
-            self.cleanUsernames, 
-            self.retryCount, 
-            self.playSounds,
-            self.soundVolume
-        )
-        
-        client.update_config(self.username, self.prefs, self.auto_speak_prefs, self.sound_prefs, self.playSounds, self.soundVolume, self.clearOnStart, self.cleanUsernames)
-        
-        if self.playSounds:
+        self.settings.play_sounds = not self.settings.play_sounds
+        self._apply_settings(self.settings)
+
+        if self.settings.play_sounds:
             ui.message(_("Sounds On"))
         else:
             ui.message(_("Sounds Off"))
@@ -514,7 +393,7 @@ class GlobalPlugin(NVDA_GlobalPlugin):
         if self._settingsDialog:
             return
         was_active = self.active
-        old_username = self.username
+        old_username = self.settings.username
         if was_active:
             self.speech_manager.stop()
             with client.sound_manager._queue.mutex:
@@ -535,14 +414,14 @@ class GlobalPlugin(NVDA_GlobalPlugin):
         s_general = wx.BoxSizer(wx.VERTICAL)
         
         lbl_user = wx.StaticText(p_general, label=_("&User name"))
-        txt_user = wx.TextCtrl(p_general, value=self.username)
+        txt_user = wx.TextCtrl(p_general, value=self.settings.username)
         lbl_destination = wx.StaticText(p_general, label=_("Text files &destination"))
         destination_row = wx.FlexGridSizer(rows=1, cols=2, vgap=0, hgap=5)
         destination_row.AddGrowableCol(0, 1)
-        self.textFilesDestination = str(client.resolve_usable_directory(self.textFilesDestination))
+        self.settings.text_files_destination = str(client.resolve_usable_directory(self.settings.text_files_destination))
         txt_destination = wx.TextCtrl(
             p_general,
-            value=self.textFilesDestination,
+            value=self.settings.text_files_destination,
             size=(400, -1),
         )
         txt_destination.Bind(wx.EVT_CHAR, lambda evt: None)
@@ -554,8 +433,8 @@ class GlobalPlugin(NVDA_GlobalPlugin):
         def on_browse_destination(evt):
             current_directory = txt_destination.GetValue()
             if not Path(current_directory).is_dir():
-                current_directory = str(DEFAULT_LOG_DIR)
-            current_directory = _resolve_destination(current_directory)
+                current_directory = str(settings.DEFAULT_LOG_DIR)
+            current_directory = settings.resolve_destination(current_directory)
             with wx.DirDialog(
                 dlg,
                 _("Select text files destination"),
@@ -571,12 +450,12 @@ class GlobalPlugin(NVDA_GlobalPlugin):
         chk_strip = wx.CheckBox(p_general, label=_("Cl&ean user names"))
         chk_backup = wx.CheckBox(p_general, label=_("&Archive each live session"))
 
-        chk_clear.SetValue(self.clearOnStart)
-        chk_strip.SetValue(self.cleanUsernames)
-        chk_backup.SetValue(self.backupSessions)
+        chk_clear.SetValue(self.settings.clear_on_start)
+        chk_strip.SetValue(self.settings.clean_usernames)
+        chk_backup.SetValue(self.settings.backup_sessions)
 
         lbl_retry = wx.StaticText(p_general, label=_("Connection &retry count"))
-        spin_retry = wx.SpinCtrl(p_general, value=str(self.retryCount), min=1, max=10)
+        spin_retry = wx.SpinCtrl(p_general, value=str(self.settings.retry_count), min=1, max=10)
         
         s_general.Add(lbl_user, flag=wx.ALL, border=5)
         s_general.Add(txt_user, flag=wx.EXPAND | wx.ALL, border=5)
@@ -590,25 +469,25 @@ class GlobalPlugin(NVDA_GlobalPlugin):
         p_general.SetSizer(s_general)
 
         s_events = wx.BoxSizer(wx.VERTICAL)
-        event_checks = _add_event_checkboxes(p_events, s_events, self.prefs)
+        event_checks = _add_event_checkboxes(p_events, s_events, self.settings.events)
         p_events.SetSizer(s_events)
 
         s_sounds = wx.BoxSizer(wx.VERTICAL)
         chk_play_sounds = wx.CheckBox(p_sounds, label=_("&Play sounds for the selected events"))
-        chk_play_sounds.SetValue(self.playSounds)
+        chk_play_sounds.SetValue(self.settings.play_sounds)
         s_sounds.Add(chk_play_sounds, flag=wx.ALL, border=5)
 
         sl_s1 = wx.StaticLine(p_sounds)
         s_sounds.Add(sl_s1, flag=wx.EXPAND|wx.ALL, border=5)
 
-        sound_checks = _add_event_checkboxes(p_sounds, s_sounds, self.sound_prefs)
+        sound_checks = _add_event_checkboxes(p_sounds, s_sounds, self.settings.sounds)
         sound_sub_chks = list(sound_checks.values())
 
         sl_s2 = wx.StaticLine(p_sounds)
         s_sounds.Add(sl_s2, flag=wx.EXPAND|wx.ALL, border=5)
 
         lbl_volume = wx.StaticText(p_sounds, label=_("V&olume"))
-        slider_volume = wx.Slider(p_sounds, value=self.soundVolume, minValue=0, maxValue=100, style=wx.SL_HORIZONTAL, name=_("V&olume"))
+        slider_volume = wx.Slider(p_sounds, value=self.settings.volume, minValue=0, maxValue=100, style=wx.SL_HORIZONTAL, name=_("V&olume"))
         s_sounds.Add(lbl_volume, flag=wx.ALL, border=5)
         s_sounds.Add(slider_volume, flag=wx.EXPAND | wx.ALL, border=5)
 
@@ -718,13 +597,13 @@ class GlobalPlugin(NVDA_GlobalPlugin):
 
         s_autospeak = wx.BoxSizer(wx.VERTICAL)
         chk_auto_speak = wx.CheckBox(p_autospeak, label=_("&Auto speak selected events"))
-        chk_auto_speak.SetValue(self.autoSpeak)
+        chk_auto_speak.SetValue(self.settings.auto_speak_enabled)
         s_autospeak.Add(chk_auto_speak, flag=wx.ALL, border=5)
         
         sl_as1 = wx.StaticLine(p_autospeak)
         s_autospeak.Add(sl_as1, flag=wx.EXPAND|wx.ALL, border=5)
 
-        auto_speak_checks = _add_event_checkboxes(p_autospeak, s_autospeak, self.auto_speak_prefs)
+        auto_speak_checks = _add_event_checkboxes(p_autospeak, s_autospeak, self.settings.auto_speak)
         sub_chks = list(auto_speak_checks.values())
 
         sl_as2 = wx.StaticLine(p_autospeak)
@@ -784,26 +663,20 @@ class GlobalPlugin(NVDA_GlobalPlugin):
             client.set_settings_open(False)
             
         if res == wx.ID_OK:
-            self.autoSpeak = chk_auto_speak.IsChecked()
-            
-            prefs = {k: chk.IsChecked() for k, chk in event_checks.items()}
-            auto_speak_prefs = {k: chk.IsChecked() for k, chk in auto_speak_checks.items()}
-            sound_prefs = {k: chk.IsChecked() for k, chk in sound_checks.items()}
-
-
-            self._save_config(
-                txt_user.GetValue().strip().lstrip('@'), 
-                prefs, 
-                auto_speak_prefs,
-                sound_prefs,
-                chk_clear.IsChecked(), 
-                chk_strip.IsChecked(), 
-                spin_retry.GetValue(), 
-                chk_play_sounds.IsChecked(),
-                slider_volume.GetValue(),
-                txt_destination.GetValue(),
-                chk_backup.IsChecked(),
-            )
+            self._apply_settings(settings.Settings(
+                username=txt_user.GetValue().strip().lstrip('@'),
+                text_files_destination=txt_destination.GetValue(),
+                events={k: chk.IsChecked() for k, chk in event_checks.items()},
+                auto_speak={k: chk.IsChecked() for k, chk in auto_speak_checks.items()},
+                sounds={k: chk.IsChecked() for k, chk in sound_checks.items()},
+                auto_speak_enabled=chk_auto_speak.IsChecked(),
+                clear_on_start=chk_clear.IsChecked(),
+                clean_usernames=chk_strip.IsChecked(),
+                retry_count=spin_retry.GetValue(),
+                backup_sessions=chk_backup.IsChecked(),
+                play_sounds=chk_play_sounds.IsChecked(),
+                volume=slider_volume.GetValue(),
+            ))
             
             new_username = txt_user.GetValue().strip().lstrip('@')
             
@@ -818,27 +691,27 @@ class GlobalPlugin(NVDA_GlobalPlugin):
                     self.active = True
                     client.sound_manager.clear()
                     self._bind_nav()
-                    if not self.clearOnStart:
+                    if not self.settings.clear_on_start:
                         self._load_positions_json()
                     self.index = self.filePositions.get(self.currentFileIndex, -1)
-                    if self.autoSpeak:
+                    if self.settings.auto_speak_enabled:
                         self.speech_manager.start()
                         
                     on_conn, on_retry, on_fail, on_live_end = self._connection_callbacks()
-                    client.set_log_directory(self.textFilesDestination)
-                    client.connect(username=self.username, on_connect=on_conn, on_retry=on_retry, on_fail=on_fail, on_live_end=on_live_end, retry_count=self.retryCount)
+                    client.set_log_directory(self.settings.text_files_destination)
+                    client.connect(username=self.settings.username, on_connect=on_conn, on_retry=on_retry, on_fail=on_fail, on_live_end=on_live_end, retry_count=self.settings.retry_count)
                 else:
-                    if self.autoSpeak:
+                    if self.settings.auto_speak_enabled:
                         self.speech_manager.start()
         else:
-            if was_active and self.autoSpeak:
+            if was_active and self.settings.auto_speak_enabled:
                 self.speech_manager.start()
                 
         dlg.Destroy()
         self._settingsDialog = None
 
     def _persist_index(self):
-        if not self.clearOnStart:
+        if not self.settings.clear_on_start:
             self.filePositions[self.currentFileIndex] = self.index
             self._save_positions_json()
 
@@ -949,7 +822,7 @@ class GlobalPlugin(NVDA_GlobalPlugin):
         client._clear_all_text_files()
         
         try:
-            POS_FILE.write_text(json.dumps({"version": 1, "files": {}}, ensure_ascii=False), encoding="utf-8")
+            settings.POSITIONS_PATH.write_text(json.dumps({"version": 1, "files": {}}, ensure_ascii=False), encoding="utf-8")
         except Exception:
             pass
             
@@ -970,7 +843,7 @@ class GlobalPlugin(NVDA_GlobalPlugin):
             client.disconnect()
             if hasattr(self, "speech_manager"):
                 self.speech_manager.stop()
-            self._archive_session(self.username)
+            self._archive_session(self.settings.username)
         except Exception:
             pass
         return super().terminate()

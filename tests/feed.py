@@ -25,6 +25,7 @@ from pathlib import Path
 from . import support
 
 client = support.load("client")
+addon_settings = support.load("settings")
 
 with client.runtime_scope(client._RUNTIME):
 	import TikTokLive
@@ -263,11 +264,11 @@ def write_settings(**sections):
 
 	Keyword arguments are sections, e.g. ``events={"likes": False}``.
 	"""
-	config = client.apply_config_defaults(client.read_config_file())
+	config = addon_settings.apply_config_defaults(addon_settings.read_config_file())
 	for section, values in sections.items():
 		for key, value in values.items():
-			config[section][key] = client._as_ini(value)
-	with open(client.CONFIG_PATH, "w", encoding="utf-8") as handle:
+			config[section][key] = addon_settings._as_ini(value)
+	with open(addon_settings.CONFIG_PATH, "w", encoding="utf-8") as handle:
 		config.write(handle)
 
 
@@ -320,8 +321,8 @@ def run_session(*frames, end="clean", past_grace_period=True, settle_likes=True,
 	``settle_likes`` lets the like aggregator's 10 second timers fire before
 	the session closes, as they would in a session that stays open.
 	"""
-	if client.CONFIG_PATH.exists():
-		client.CONFIG_PATH.unlink()
+	if addon_settings.CONFIG_PATH.exists():
+		addon_settings.CONFIG_PATH.unlink()
 	write_settings(**(settings or {}))
 	log_dir = log_dir or fresh_log_dir()
 	client.set_log_directory(log_dir)

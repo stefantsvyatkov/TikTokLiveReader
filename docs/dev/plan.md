@@ -47,7 +47,14 @@ live recording.
    distributed under the GNU General Public License, version 2 or later.";
    doc/bg "Разпространява се под лиценз GNU General Public License, версия 2
    или по-късна." Show the user the exact diff when applying.
-2. Module split behind the tests, behaviour unchanged.
+2. Module split behind the tests, behaviour unchanged. After each step the
+   suite and the sandbox smoke run, then commit and push.
+   [x] 1 `settings.py`, `i18n.py`; [ ] 2 `store.py`; [ ] 3 `announcer.py`;
+   [ ] 4 `likes.py`; [ ] 5 `tiktok_adapter.py`, `events.py`, `pipeline.py`;
+   [ ] 6 `session.py` and the vendor isolation rewritten; [ ] 7 `dialogs.py`,
+   `globalPlugin.py` only scripts; [ ] 8 NVDA formatting (needs ruff 0.14.5).
+   Phase 4 also runs the smoke with NVDA in Bulgarian (translations come
+   through `i18n.py` since step 1).
 3. Fixes from `findings.md`, each with a test or recording.
 4. Stress test in the sandbox on all three NVDA versions, live comparison
    loop.

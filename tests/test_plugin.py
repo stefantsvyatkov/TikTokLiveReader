@@ -9,6 +9,7 @@ from . import support
 
 G = support.load("globalPlugin")
 client = f.client
+settings = f.addon_settings
 alice, bob = f.user("Alice"), f.user("Bob")
 BASE_GESTURES = {"kb:NVDA+control+shift+t", "kb:NVDA+control+shift+l"}
 
@@ -24,7 +25,7 @@ def make_plugin(**sections):
 	log_dir = f.fresh_log_dir()
 	main = {"username": "host", "text_files_destination": str(log_dir)}
 	main.update(sections.pop("main", {}))
-	for path in (client.CONFIG_PATH, client.POSITIONS_PATH):
+	for path in (settings.CONFIG_PATH, settings.POSITIONS_PATH):
 		if path.exists():
 			path.unlink()
 	f.write_settings(main=main, **sections)
@@ -163,7 +164,7 @@ class Positions(PluginTest):
 		plugin.script_nextItem(None)
 		plugin.script_nextItem(None)
 		self.stop(plugin)
-		saved = json.loads(client.POSITIONS_PATH.read_text(encoding="utf-8"))
+		saved = json.loads(settings.POSITIONS_PATH.read_text(encoding="utf-8"))
 		self.assertEqual(saved["files"]["comments"], {"line": 1})
 
 		f.write_settings(main={"username": "host", "text_files_destination": str(log_dir)}, **off)
@@ -201,9 +202,9 @@ class Toggles(PluginTest):
 		plugin.script_toggleAutoSpeak(None)
 		plugin.script_togglePlaySounds(None)
 		self.assertEqual(support.spoken[-2:], ["Auto speak On", "Sounds On"])
-		saved = client.read_settings()
-		self.assertTrue(saved["auto_speak_enabled"])
-		self.assertTrue(saved["play_sounds"])
+		saved = settings.load()
+		self.assertTrue(saved.auto_speak_enabled)
+		self.assertTrue(saved.play_sounds)
 		plugin.script_toggleAutoSpeak(None)
 		self.assertEqual(support.spoken[-1], "Auto speak Off")
 
@@ -263,29 +264,32 @@ class Archiving(PluginTest):
 class SettingsFile(unittest.TestCase):
 	def test_saved_settings_are_read_back(self):
 		plugin, log_dir = make_plugin()
-		prefs = dict(client.DEFAULT_EVENT_PREFS, likes=False)
-		speak = dict(client.DEFAULT_EVENT_PREFS, gifts=False)
-		sounds = dict(client.DEFAULT_EVENT_PREFS, visitors=True)
-		plugin._save_config("someone", prefs, speak, sounds, False, False, 7, True, 40, str(log_dir), True)
-		again = G.GlobalPlugin()
+		prefs = dict(settings.DEFAULT_EVENT_PREFS, likes=False)
+		speak = dict(settings.DEFAULT_EVENT_PREFS, gifts=False)
+		sounds = dict(settings.DEFAULT_EVENT_PREFS, visitors=True)
+		plugin._apply_settings(settings.Settings(
+			username="someone", text_files_destination=str(log_dir), events=prefs, auto_speak=speak, sounds=sounds,
+			clear_on_start=False, clean_usernames=False, retry_count=7, backup_sessions=True, play_sounds=True, volume=40,
+		))
+		again = G.GlobalPlugin().settings
 		self.assertEqual(again.username, "someone")
-		self.assertEqual((again.prefs, again.auto_speak_prefs, again.sound_prefs), (prefs, speak, sounds))
+		self.assertEqual((again.events, again.auto_speak, again.sounds), (prefs, speak, sounds))
 		self.assertEqual(
-			(again.clearOnStart, again.cleanUsernames, again.retryCount, again.playSounds, again.soundVolume),
+			(again.clear_on_start, again.clean_usernames, again.retry_count, again.play_sounds, again.volume),
 			(False, False, 7, True, 40),
 		)
-		self.assertEqual(again.textFilesDestination, str(log_dir))
-		self.assertTrue(again.backupSessions)
+		self.assertEqual(again.text_files_destination, str(log_dir))
+		self.assertTrue(again.backup_sessions)
 
 	def test_missing_file_gives_the_defaults(self):
-		for path in (client.CONFIG_PATH, client.POSITIONS_PATH):
+		for path in (settings.CONFIG_PATH, settings.POSITIONS_PATH):
 			if path.exists():
 				path.unlink()
-		plugin = G.GlobalPlugin()
-		self.assertEqual(plugin.username, "")
-		self.assertEqual(plugin.prefs, client.DEFAULT_EVENT_PREFS)
-		self.assertEqual(plugin.soundVolume, 70)
-		self.assertTrue(re.search(r"Documents[\\/]TikTok live$", plugin.textFilesDestination))
+		loaded = G.GlobalPlugin().settings
+		self.assertEqual(loaded.username, "")
+		self.assertEqual(loaded.events, settings.DEFAULT_EVENT_PREFS)
+		self.assertEqual(loaded.volume, 70)
+		self.assertTrue(re.search(r"Documents[\\/]TikTok live$", loaded.text_files_destination))
 
 
 if __name__ == "__main__":

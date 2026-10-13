@@ -11,3 +11,5 @@ tiktoklive_events_bg.html
 addon/globalPlugins/TiktokLiveReader/positions.json
 addon/globalPlugins/TiktokLiveReader/speechbuffer.json
 addon/globalPlugins/TiktokLiveReader/config.ini
+# Test environment: NVDA installers, sandbox staging and live recordings.
+artifacts/

@@ -1,0 +1,90 @@
+"""The bundled libraries stay private to the add-on (vendor.py)."""
+
+import sys
+import tempfile
+import types
+import unittest
+from pathlib import Path
+
+from . import support
+
+vendor = support.load("vendor")
+
+
+def make_lib():
+	lib = Path(tempfile.mkdtemp(dir=support.ROOT))
+	(lib / "vt_alpha").mkdir()
+	(lib / "vt_alpha" / "__init__.py").write_text("import vt_single\n", encoding="utf-8")
+	(lib / "vt_ns" / "inner").mkdir(parents=True)
+	(lib / "vt_ns" / "inner" / "mod.py").write_text("", encoding="utf-8")
+	(lib / "vt_single.py").write_text("WHO = 'bundled'\n", encoding="utf-8")
+	(lib / "vt_lazy.py").write_text("", encoding="utf-8")
+	(lib / "secrets.py").write_text("", encoding="utf-8")
+	(lib / "bin").mkdir()
+	(lib / "bin" / "tool.exe").write_bytes(b"")
+	(lib / "vt_alpha-1.0.dist-info").mkdir()
+	(lib / "__pycache__").mkdir()
+	return lib
+
+
+class Isolation(unittest.TestCase):
+	def setUp(self):
+		self.lib = make_lib()
+		self.runtime = vendor.load(self.lib, "vt_alpha")
+
+	def tearDown(self):
+		for name in [name for name in sys.modules if name.startswith("vt_")]:
+			del sys.modules[name]
+
+	def test_private_names_come_from_the_folder(self):
+		self.assertEqual(self.runtime.names, {"vt_alpha", "vt_ns", "vt_single", "vt_lazy"})
+
+	def test_modules_exist_only_inside_the_scope(self):
+		self.assertNotIn("vt_alpha", sys.modules)
+		self.assertNotIn("vt_single", sys.modules)
+		self.assertNotIn(self.runtime.lib_dir, sys.path)
+		with vendor.scope(self.runtime):
+			import vt_alpha
+
+			self.assertIs(vt_alpha, self.runtime.modules["vt_alpha"])
+			self.assertIn(self.runtime.lib_dir, sys.path)
+		self.assertNotIn("vt_alpha", sys.modules)
+		self.assertNotIn(self.runtime.lib_dir, sys.path)
+
+	def test_another_copy_is_put_back(self):
+		theirs = types.ModuleType("vt_single")
+		sys.modules["vt_single"] = theirs
+		with vendor.scope(self.runtime):
+			self.assertEqual(sys.modules["vt_single"].WHO, "bundled")
+		self.assertIs(sys.modules["vt_single"], theirs)
+
+	def test_modules_imported_later_are_kept_private(self):
+		with vendor.scope(self.runtime):
+			import vt_lazy
+		self.assertNotIn("vt_lazy", sys.modules)
+		with vendor.scope(self.runtime):
+			self.assertIs(sys.modules["vt_lazy"], vt_lazy)
+
+	def test_overlapping_scopes_keep_the_modules_until_the_last_ends(self):
+		first, second = vendor.scope(self.runtime), vendor.scope(self.runtime)
+		first.__enter__()
+		second.__enter__()
+		first.__exit__(None, None, None)
+		self.assertIn("vt_alpha", sys.modules)
+		self.assertIn(self.runtime.lib_dir, sys.path)
+		second.__exit__(None, None, None)
+		self.assertNotIn("vt_alpha", sys.modules)
+		self.assertNotIn(self.runtime.lib_dir, sys.path)
+
+
+class AddOnLibrary(unittest.TestCase):
+	def test_every_bundled_package_is_private(self):
+		adapter = support.load("tiktok_adapter")
+		for name in ("TikTokLive", "httpx", "websockets", "idna", "certifi", "h11", "six", "dateutil"):
+			self.assertIn(name, adapter.RUNTIME.names)
+			self.assertNotIn(name, sys.modules)
+		self.assertNotIn("secrets", adapter.RUNTIME.names)
+
+
+if __name__ == "__main__":
+	unittest.main()

@@ -25,6 +25,8 @@ like the real client in 1.8, switching the add-on off does not end it (F1).
 - `test_pipeline.py` - behaviour to keep.
 - `test_known_issues.py` - 1.8 behaviour believed wrong, one test per
   finding.
+- `test_vendor.py` - `vendor.py` keeps the bundled libraries private (a small
+  made-up lib in the temporary folder, and the add-on's own).
 
 The suite takes about 70 s, most of it the 3 s freeze of F27 in every test
 that switches off a held session.

@@ -5,15 +5,19 @@ follow or share once as itself and once as a social message (see findings.md).""
 
 from pathlib import Path
 
-from . import events
-from .vendor_loader import load_runtime, runtime_scope
+from . import events, vendor
 
 LIB_DIR = Path(__file__).resolve().parent / "lib"
-RUNTIME = load_runtime(str(LIB_DIR))
+RUNTIME = vendor.load(LIB_DIR, "TikTokLive", "httpx", "websockets", optional=("google.protobuf",))
 
 LINK_EVENTS = ("LinkLayerEvent", "LinkMicMethodEvent", "GuestInviteEvent")
 # Listened to by name; TikTokLive emits no events by these names.
 LINK_MESSAGE_NAMES = ("WebcastLinkLayerMessage", "WebcastLinkMicMethodMessage", "WebcastGuestInviteMessage")
+
+
+def library_scope():
+	"""The bundled TikTokLive and its dependencies importable by their names."""
+	return vendor.scope(RUNTIME)
 
 
 def _optional(module, *names):
@@ -27,7 +31,7 @@ def _optional(module, *names):
 def event_classes():
 	"""The client class and the event classes the add-on listens to; raises when
 	the library cannot be loaded."""
-	with runtime_scope(RUNTIME):
+	with library_scope():
 		import TikTokLive.events as module
 		from TikTokLive import TikTokLiveClient
 		from TikTokLive.events import (
@@ -64,7 +68,7 @@ def new_client(username, classes, deliver, on_connected, on_live_end):
 	"""A client for ``username`` that calls ``deliver`` with each of the add-on's
 	events, ``on_connected()`` when connected and ``on_live_end()`` when the live
 	ends."""
-	with runtime_scope(RUNTIME):
+	with library_scope():
 		client = classes["TikTokLiveClient"](unique_id=username)
 
 		def listen(event, convert):
@@ -115,7 +119,7 @@ def new_client(username, classes, deliver, on_connected, on_live_end):
 
 def run(client):
 	"""Connect and handle the live until it ends or the connection drops."""
-	with runtime_scope(RUNTIME):
+	with library_scope():
 		client.run()
 
 
@@ -146,22 +150,26 @@ def _user(event):
 	return _person(getattr(event, "user", None))
 
 
+COMMENT_TEXT_ATTRIBUTES = ("comment", "content", "text", "msg", "message")
+
+
+def _comment_text(event):
+	"""The text however the comment-like event carries it, a falsy value without."""
+	for name in COMMENT_TEXT_ATTRIBUTES:
+		value = getattr(event, name, None)
+		if value:
+			return value
+	parts = getattr(event, "comments", None)
+	if isinstance(parts, (list, tuple)) and parts:
+		joined = " ".join(str(part) for part in parts if part is not None).strip()
+		if joined:
+			return joined
+	display_text = getattr(event, "display_text", None)
+	return getattr(display_text, "default_pattern", None) or getattr(display_text, "key", None)
+
+
 def _comment(event):
-	text = (
-		getattr(event, "comment", None)
-		or getattr(event, "content", None)
-		or getattr(event, "text", None)
-		or getattr(event, "msg", None)
-		or getattr(event, "message", None)
-	)
-	if not text:
-		parts = getattr(event, "comments", None)
-		if isinstance(parts, (list, tuple)) and parts:
-			text = " ".join(str(part) for part in parts if part is not None).strip()
-	if not text:
-		display_text = getattr(event, "display_text", None)
-		text = getattr(display_text, "default_pattern", None) or getattr(display_text, "key", None)
-	return events.Comment(legacy_id(event), _user(event), text)
+	return events.Comment(legacy_id(event), _user(event), _comment_text(event))
 
 
 def _follow(event):

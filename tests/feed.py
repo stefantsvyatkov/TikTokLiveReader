@@ -25,14 +25,14 @@ from pathlib import Path
 
 from . import support
 
-client = support.load("client")
+addon_session = support.load("session")
 pipeline = support.load("pipeline")
 adapter = support.load("tiktok_adapter")
 addon_settings = support.load("settings")
 store = support.load("store")
 announcer = support.load("announcer")
 
-with adapter.runtime_scope(adapter.RUNTIME):
+with adapter.library_scope():
 	import TikTokLive
 	from TikTokLive.events import ConnectEvent
 	from TikTokLive.events import proto_events
@@ -44,11 +44,11 @@ _ids = itertools.count(1_000_001)
 
 def _in_runtime(function):
 	"""betterproto resolves type hints through sys.modules, which only holds the
-	add-on's TikTokLive inside runtime_scope; the add-on runs the connection there too."""
+	add-on's TikTokLive inside its library scope; the add-on runs the connection there too."""
 
 	@functools.wraps(function)
 	def wrapper(*args, **kwargs):
-		with adapter.runtime_scope(adapter.RUNTIME):
+		with adapter.library_scope():
 			return function(*args, **kwargs)
 
 	return wrapper
@@ -421,7 +421,7 @@ def run_session(*frames, end="clean", past_grace_period=True, settle_likes=True,
 		return callback
 
 	with replaying(*frames, end=end, past_grace_period=past_grace_period, clock=clock) as session:
-		client.connect(
+		addon_session.connect(
 			username="host",
 			on_connect=record("connected"),
 			on_retry=record("retry"),
@@ -432,8 +432,8 @@ def run_session(*frames, end="clean", past_grace_period=True, settle_likes=True,
 		pauses = 0 if clock else sum(item for item in frames if isinstance(item, (int, float)))
 		if not finished.wait(timeout + pauses):
 			raise TimeoutError("the replayed session did not finish")
-		if client._thread is not None:
-			client._thread.join(10)
+		if addon_session._thread is not None:
+			addon_session._thread.join(10)
 		if settle_likes:
 			settle_like_timers()
 		stats = {
@@ -443,7 +443,7 @@ def run_session(*frames, end="clean", past_grace_period=True, settle_likes=True,
 			"total_followers": pipeline.total_followers,
 			"total_diamonds": pipeline.total_diamonds,
 		}
-		client.disconnect()
+		addon_session.disconnect()
 
 	files = {}
 	for path in store.session_files():

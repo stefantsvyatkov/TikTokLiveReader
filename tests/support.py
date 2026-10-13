@@ -127,7 +127,7 @@ def _mount():
 
 
 def load(name):
-	"""Import one of the add-on's modules, for example ``load("client")``."""
+	"""Import one of the add-on's modules, for example ``load("session")``."""
 	_mount()
 	module = importlib.import_module(f"{PACKAGE}.{name}")
 	_keep_out_of_addon_folder()

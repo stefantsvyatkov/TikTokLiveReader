@@ -117,6 +117,15 @@ def _sanitize_name(name):
 	return "".join(out).strip()
 
 
+def _display_name(person):
+	"""The person's nickname, else their handle, else "someone"."""
+	if person is not None:
+		for value in (person.nickname, person.unique_id):
+			if value:
+				return value
+	return "someone"
+
+
 def _nickname(person, default):
 	"""The person's ``nickname``, ``default`` when there is no such attribute."""
 	if person is None or person.nickname is None:
@@ -268,10 +277,8 @@ def _on_comment(event):
 		return
 	_track_user(event.user)
 
-	user = event.user
-	nickname = (user.nickname if user else None) or (user.unique_id if user else None) or "someone"
-	nickname = _sanitize_name(nickname)
-	_remember_user(user.user_id if user else None, nickname)
+	nickname = _sanitize_name(_display_name(event.user))
+	_remember_user(event.user.user_id if event.user else None, nickname)
 	if not event.text:
 		return
 	user_comment = f"{nickname}: {event.text}"

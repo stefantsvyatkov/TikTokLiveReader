@@ -2,7 +2,7 @@
 
     python tools/record_live.py <user> <minutes> [output.jsonl] [lib folder]
 
-Uses the add-on's vendored TikTokLive through its vendor loader, so the
+Uses the add-on's vendored TikTokLive through its vendor.py, so the
 recording goes through exactly the code the add-on runs. Each line is one
 message: its method, raw payload (base64), message id and history flag, with
 the frame it came in. Recordings hold real people's names: they stay in
@@ -23,11 +23,11 @@ REPO = Path(__file__).resolve().parents[1]
 ADDON = REPO / "addon" / "globalPlugins" / "TiktokLiveReader"
 
 
-def load_vendor_runtime():
-	spec = importlib.util.spec_from_file_location("vendor_loader", ADDON / "vendor_loader.py")
-	loader = importlib.util.module_from_spec(spec)
-	spec.loader.exec_module(loader)
-	return loader, loader.load_runtime(str(ADDON / "lib"))
+def vendor_scope():
+	spec = importlib.util.spec_from_file_location("vendor", ADDON / "vendor.py")
+	vendor = importlib.util.module_from_spec(spec)
+	spec.loader.exec_module(vendor)
+	return vendor.scope(vendor.load(ADDON / "lib", "TikTokLive"))
 
 
 async def record(TikTokLiveClient, user, seconds, output):
@@ -79,8 +79,7 @@ def main():
 		sys.path.insert(0, str(Path(sys.argv[4]).resolve()))
 		scope = contextlib.nullcontext()
 	else:
-		loader, runtime = load_vendor_runtime()
-		scope = loader.runtime_scope(runtime)
+		scope = vendor_scope()
 	with scope:
 		from TikTokLive import TikTokLiveClient
 		from TikTokLive.__version__ import PACKAGE_VERSION

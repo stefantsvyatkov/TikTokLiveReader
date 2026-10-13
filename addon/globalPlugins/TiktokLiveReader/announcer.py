@@ -2,6 +2,7 @@
 text, which goes through the speech buffer to NVDA's speech."""
 
 import array
+import functools
 import io
 import json
 import queue
@@ -150,13 +151,8 @@ def announce(event_key, text, settings):
 	sound_enabled = settings.play_sounds and settings.sounds.get(event_key, False)
 	speech_enabled = settings.auto_speak.get(event_key, False)
 	if sound_enabled or speech_enabled:
-		on_complete = None
-		if speech_enabled:
-
-			def on_complete():
-				queue_speech(text)
-
-		sound_manager.play(event_key, play_file=sound_enabled, on_complete=on_complete)
+		then_speak = functools.partial(queue_speech, text) if speech_enabled else None
+		sound_manager.play(event_key, play_file=sound_enabled, on_complete=then_speak)
 
 
 def queue_speech(text):

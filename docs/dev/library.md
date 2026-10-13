@@ -33,7 +33,23 @@ cached metadata when the parent was used first:
 
 Tests therefore encode with the event classes and decode whole frames
 (`tests/feed.py`). Type hints are resolved through `sys.modules`, which holds
-the vendored modules only inside `vendor_loader.runtime_scope`.
+the vendored modules only inside `vendor.scope` (`tiktok_adapter.library_scope()`).
+
+## Isolation
+
+`vendor.py` (phase 2 step 6, replacing `vendor_loader.py`) makes every
+top-level name in `lib/` private, read from the folder: 1.8's hand-written
+list left `idna`, `certifi`, `h11`, `dateutil`, `six`, `mashumaro` and `ffmpy`
+in `sys.modules` for NVDA and every add-on after the first connection, and
+missed anything a library update adds (7.0.1 brings `attrs`, `pydantic`,
+`pydantic_core`, `annotated_types`, `typing_inspection`). Copies of standard
+library modules (`lib/secrets.py`) are not private. Scopes are counted, so
+two overlapping connections (F1/F2) no longer take the modules away from each
+other: 1.8 restored a snapshot per scope, and the first to end removed them
+while the other was still decoding. While a connection runs, the bundled
+modules are what NVDA and other add-ons get if they import one of those names
+for the first time; their already imported copies are untouched and put back
+when the last scope ends.
 
 ## Loops
 

@@ -7,7 +7,7 @@ from . import feed, support
 
 class DecodedLikeALiveConnection(unittest.TestCase):
 	def decode(self, message):
-		with feed.adapter.runtime_scope(feed.adapter.RUNTIME):
+		with feed.adapter.library_scope():
 			whole = feed.frame(message)
 			client = feed.TikTokLive.TikTokLiveClient(unique_id="probe")
 			events = []

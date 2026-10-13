@@ -4,7 +4,7 @@ import re
 import threading
 import time
 
-from . import announcer, client, pipeline, settings, store
+from . import announcer, pipeline, session, settings, store
 from .i18n import _
 from globalPluginHandler import GlobalPlugin as NVDA_GlobalPlugin
 from scriptHandler import script
@@ -97,7 +97,7 @@ class GlobalPlugin(NVDA_GlobalPlugin):
         self._sessionConnected = False
 
         store.set_folder(self.settings.text_files_destination)
-        client.apply_settings(self.settings)
+        session.apply_settings(self.settings)
 
         if not self.settings.clear_on_start:
             self._load_positions_json()
@@ -109,7 +109,7 @@ class GlobalPlugin(NVDA_GlobalPlugin):
     def _apply_settings(self, new):
         settings.save(new)
         self.settings = new
-        client.apply_settings(new)
+        session.apply_settings(new)
 
     def _load_positions_json(self):
         try:
@@ -186,7 +186,7 @@ class GlobalPlugin(NVDA_GlobalPlugin):
         def stop_session():
             self.active = False
             self._unbind_nav()
-            client.disconnect()
+            session.disconnect()
             self.speech_manager.stop()
 
         def on_fail():
@@ -233,11 +233,11 @@ class GlobalPlugin(NVDA_GlobalPlugin):
 
             on_conn, on_retry, on_fail, on_live_end = self._connection_callbacks()
             store.set_folder(self.settings.text_files_destination)
-            client.connect(username=self.settings.username, on_connect=on_conn, on_retry=on_retry, on_fail=on_fail, on_live_end=on_live_end, retry_count=self.settings.retry_count)
+            session.connect(username=self.settings.username, on_connect=on_conn, on_retry=on_retry, on_fail=on_fail, on_live_end=on_live_end, retry_count=self.settings.retry_count)
         else:
             self._unbind_nav()
             ui.message(_("TikTok Live Reader Off"))
-            client.disconnect()
+            session.disconnect()
             self.speech_manager.stop()
             self._archive_session(self.settings.username)
             self._cleanup_temp_files()
@@ -599,7 +599,7 @@ class GlobalPlugin(NVDA_GlobalPlugin):
                 if new_username != old_username:
                     self.active = False
                     self._unbind_nav()
-                    client.disconnect()
+                    session.disconnect()
                     self._archive_session(old_username)
                     self._cleanup_temp_files(hard_reset=True)
                     
@@ -614,7 +614,7 @@ class GlobalPlugin(NVDA_GlobalPlugin):
                         
                     on_conn, on_retry, on_fail, on_live_end = self._connection_callbacks()
                     store.set_folder(self.settings.text_files_destination)
-                    client.connect(username=self.settings.username, on_connect=on_conn, on_retry=on_retry, on_fail=on_fail, on_live_end=on_live_end, retry_count=self.settings.retry_count)
+                    session.connect(username=self.settings.username, on_connect=on_conn, on_retry=on_retry, on_fail=on_fail, on_live_end=on_live_end, retry_count=self.settings.retry_count)
                 else:
                     if self.settings.auto_speak_enabled:
                         self.speech_manager.start()
@@ -755,7 +755,7 @@ class GlobalPlugin(NVDA_GlobalPlugin):
 
     def terminate(self):
         try:
-            client.disconnect()
+            session.disconnect()
             if hasattr(self, "speech_manager"):
                 self.speech_manager.stop()
             self._archive_session(self.settings.username)

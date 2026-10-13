@@ -17,7 +17,7 @@ Store. The user is Bulgarian; answer in Bulgarian and address them with "ти".
 ## Layout
 
 - `addon/globalPlugins/TiktokLiveReader/` - the add-on (`globalPlugin.py`
-  scripts and settings dialog, `client.py` the connection's life (retries,
+  scripts and settings dialog, `session.py` the connection's life (retries,
   stats thread, disconnect), `tiktok_adapter.py` everything that knows
   TikTokLive (loading it, the client, library events into `events.py`'s plain
   ones), `pipeline.py` what is done with each event (duplicate checks, lines,
@@ -27,7 +27,7 @@ Store. The user is Bulgarian; answer in Bulgarian and address them with "ти".
   sounds and speech (the speech buffer, its reader, the sound queue),
   `likes.py` each person's likes summed until a 10 s pause,
   `i18n.py` the one
-  `_` every module imports, `vendor_loader.py` isolates `lib/`, the
+  `_` every module imports, `vendor.py` keeps `lib/` private, the
   vendored TikTokLive 6.6.5 and its pure-Python dependencies). New and
   rewritten modules use tabs (NVDA style); the old ones are reformatted in one
   commit at the end of phase 2.

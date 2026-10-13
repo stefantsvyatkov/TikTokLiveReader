@@ -8,7 +8,6 @@ from . import feed as f
 from . import support
 
 G = support.load("globalPlugin")
-client = f.client
 settings = f.addon_settings
 store = f.store
 alice, bob = f.user("Alice"), f.user("Bob")

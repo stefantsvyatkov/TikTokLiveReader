@@ -55,7 +55,16 @@ live recording.
    - [x] 4 `likes.py` (`flush_pending` is the F11 fix)
    - [x] 5 `tiktok_adapter.py`, `events.py`, `pipeline.py`; snapshots of the
      three 2026-10-13 lives identical before and after
-   - [ ] 6 `session.py` and the vendor isolation rewritten
+   - [x] 6 `session.py` (was `client.py`), `vendor.py` written anew in place
+     of `vendor_loader.py`. Muhammad's code is gone: `vendor_loader.py`
+     (replaced), and from his client.py changes `_identity`/`_cached_translate`
+     (step 1), the speech callbacks and sample clamping (steps 3, 6), the
+     comment text extraction (rewritten in `tiktok_adapter._comment_text` and
+     `pipeline._display_name`), the vendor runtime calls; the listener
+     registrations are written anew in `tiktok_adapter.new_client`. Left: his
+     four lines keeping auto speak on when switching on
+     (`script_toggleActive`), rewritten in step 7. His Indonesian translation
+     stays (user's decision).
    - [ ] 7 `dialogs.py`, `globalPlugin.py` only scripts
    - [ ] 8 NVDA formatting (needs ruff 0.14.5)
    Phase 4 also runs the smoke with NVDA in Bulgarian (translations come

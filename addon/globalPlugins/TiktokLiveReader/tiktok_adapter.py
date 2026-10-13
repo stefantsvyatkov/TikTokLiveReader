@@ -55,7 +55,6 @@ def event_classes():
 		from TikTokLive.events import (
 			CommentEvent,
 			ConnectEvent,
-			DiggEvent,
 			FollowEvent,
 			GiftEvent,
 			JoinEvent,
@@ -66,12 +65,13 @@ def event_classes():
 			"TikTokLiveClient": TikTokLiveClient,
 			"CommentEvent": CommentEvent,
 			"ConnectEvent": ConnectEvent,
-			"DiggEvent": DiggEvent,
 			"FollowEvent": FollowEvent,
 			"GiftEvent": GiftEvent,
 			"JoinEvent": JoinEvent,
 			"LikeEvent": LikeEvent,
 		}
+		# Gone in TikTokLive 7 (1.8 imported DiggEvent unconditionally, F16).
+		classes.update(_optional(module, "DiggEvent"))
 		classes.update(_optional(module, "CommentsEvent"))
 		classes.update(_optional(module, "EmoteChatEvent", "ScreenChatEvent"))
 		classes.update(_optional(module, "ViewerUpdateEvent", "RoomUserSeqEvent"))
@@ -104,7 +104,8 @@ def new_client(username, classes, deliver, on_connected, on_live_end):
 		listen(classes["FollowEvent"], _follow)
 		listen(classes["GiftEvent"], _gift)
 		listen(classes["LikeEvent"], _like)
-		listen(classes["DiggEvent"], _like)
+		if classes["DiggEvent"]:
+			listen(classes["DiggEvent"], _like)
 		listen(classes["JoinEvent"], _join)
 		for name, convert in (("ShareEvent", _share), ("SocialEvent", _social)):
 			if classes[name]:
@@ -197,19 +198,35 @@ def _close_loop(loop, client):
 	loop.close()
 
 
+def _common(event):
+	"""The part every message shares: ``base_message`` in TikTokLive 6, ``common`` in 7."""
+	return getattr(event, "base_message", None) or getattr(event, "common", None)
+
+
 def message_id(event):
-	return getattr(getattr(event, "base_message", None), "message_id", 0) or 0
+	common = _common(event)
+	return getattr(common, "message_id", None) or getattr(common, "msg_id", None) or 0
+
+
+def _first(value, names):
+	"""The first of the attributes ``value`` has, None when it has none of them."""
+	for name in names:
+		if hasattr(value, name):
+			return getattr(value, name)
+	return None
 
 
 def _person(user):
+	"""A user (``nick_name`` in TikTokLive 6, ``nickname`` in 7) or a player in a
+	link layer list (only ``uid`` in 6, ``user_id`` in 7)."""
 	if user is None:
 		return None
 	return events.Person(
 		present=bool(user),
-		user_id=getattr(user, "id", getattr(user, "uid", None)),
-		nick_name=getattr(user, "nick_name", getattr(user, "nickname", None)),
+		user_id=_first(user, ("id", "uid", "user_id")),
+		nick_name=_first(user, ("nick_name", "nickname")),
 		nickname=getattr(user, "nickname", None),
-		unique_id=getattr(user, "unique_id", None),
+		unique_id=_first(user, ("unique_id", "display_id")),
 	)
 
 
@@ -249,7 +266,7 @@ def _share(event):
 
 def _social(event):
 	action = getattr(event, "action", None)
-	display_text = getattr(event, "display_text", None)
+	display_text = getattr(event, "display_text", None) or getattr(_common(event), "display_text", None)
 	key = getattr(display_text, "key", "").lower()
 	pattern = getattr(display_text, "default_pattern", "").lower()
 	if action == 3 or "share" in key or "share" in pattern:
@@ -304,6 +321,8 @@ def _join(event):
 def _viewer_count(event):
 	if hasattr(event, "m_total"):
 		return events.ViewerCount(message_id(event), event.m_total)
+	if hasattr(event, "total"):
+		return events.ViewerCount(message_id(event), event.total)
 	if hasattr(event, "viewer_count"):
 		return events.ViewerCount(message_id(event), event.viewer_count)
 	return events.ViewerCount(message_id(event), None)
@@ -321,30 +340,37 @@ def _link(event):
 		has_apply = hasattr(event, "apply_content") and event.apply_content is not None
 		has_invite = hasattr(event, "invite_content") and event.invite_content is not None
 		display_people = []
-		if hasattr(event, "base_message") and event.base_message:
-			display_text = getattr(event.base_message, "display_text", None)
+		if _common(event):
+			display_text = getattr(_common(event), "display_text", None)
 			if display_text and hasattr(display_text, "pieces") and display_text.pieces:
 				for piece in display_text.pieces:
 					value = getattr(piece, "user_value", None)
 					if value and hasattr(value, "user"):
 						display_people.append(_person(value.user))
-		has_list_change = bool(hasattr(event, "list_content") and event.list_content)
+		# TikTokLive 6 / 7: list_content / list_change_content, list_change_type /
+		# type, user_list / list, link_user / user.
+		content = _first(event, ("list_content", "list_change_content"))
+		has_list_change = bool(content)
 		change_type = None
 		applied = []
 		if has_list_change:
-			content = event.list_content
-			change_type = getattr(content, "list_change_type", None)
-			if hasattr(content, "user_list") and content.user_list:
-				user_list = content.user_list
-				if hasattr(user_list, "applied_list") and user_list.applied_list:
-					for application in user_list.applied_list:
-						if hasattr(application, "link_user") and application.link_user:
-							applied.append(_person(application.link_user))
+			change_type = _first(content, ("list_change_type", "type"))
+			user_list = _first(content, ("user_list", "list"))
+			if user_list and getattr(user_list, "applied_list", None):
+				for application in user_list.applied_list:
+					player = _first(application, ("link_user", "user"))
+					if player:
+						applied.append(_person(player))
+		message_type = str(getattr(event, "message_type", ""))
+		m_type = str(getattr(event, "m_type", getattr(event, "mType", "")))
+		if type(event).__name__ == "LinkMicMethodEvent" and not hasattr(event, "m_type"):
+			# TikTokLive 7 calls 6's m_type message_type (8: fan tickets, skipped).
+			m_type, message_type = str(_as_int(event.message_type)), ""
 		return events.LinkMessage(
 			message_id=message_id(event),
 			kind=type(event).__name__,
 			has_apply=has_apply,
-			applicant=_person(getattr(event.apply_content, "applicant", None)) if has_apply else None,
+			applicant=_person(_first(event.apply_content, ("applicant", "applier"))) if has_apply else None,
 			has_invite=has_invite,
 			invitee=_person(getattr(event.invite_content, "invitee", None)) if has_invite else None,
 			user=_person(event.user) if hasattr(event, "user") else None,
@@ -353,8 +379,8 @@ def _link(event):
 			has_list_change=has_list_change,
 			list_change_type=None if change_type is None else _as_int(change_type),
 			applied=tuple(applied),
-			message_type=str(getattr(event, "message_type", "")),
-			m_type=str(getattr(event, "m_type", getattr(event, "mType", ""))),
+			message_type=message_type,
+			m_type=m_type,
 		)
 	except Exception:
 		log.debugWarning(f"TikTok Live Reader: unexpected {type(event).__name__}", exc_info=True)

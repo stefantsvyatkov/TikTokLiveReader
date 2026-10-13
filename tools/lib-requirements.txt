@@ -1,0 +1,30 @@
+# The add-on's lib/: TikTokLive and every dependency it imports, pinned.
+# Built by tools/build_lib.py as wheels for CPython 3.13 win_amd64 (NVDA 2026.1+).
+# TikTokLive also declares protobuf3-to-dict, which has no wheel and which no
+# bundled package imports; it is left out.
+TikTokLive==7.0.1
+TikTokLiveProto==0.2.2
+EulerApiSdk==0.1.0
+annotated-types==0.8.0
+anyio==4.15.1
+async-timeout==5.0.1
+attrs==26.1.0
+betterproto2==0.9.1
+certifi==2026.7.22
+ffmpy==1.0.0
+h11==0.16.0
+httpcore==1.0.9
+httpx==0.28.1
+idna==3.20
+mashumaro==3.23
+protobuf==7.36.2
+pydantic==2.14.1
+pydantic_core==2.50.1
+pyee==13.0.1
+python-dateutil==2.9.0.post0
+python-socks==3.1.1
+six==1.17.0
+typing_extensions==4.16.0
+typing-inspection==0.4.4
+websockets==17.2
+websockets_proxy==0.1.3

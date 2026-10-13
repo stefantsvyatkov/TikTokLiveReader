@@ -1,6 +1,6 @@
 """Record a public TikTok LIVE as raw websocket messages.
 
-    python tools/record_live.py <user> <minutes> [output.jsonl]
+    python tools/record_live.py <user> <minutes> [output.jsonl] [lib folder]
 
 Uses the add-on's vendored TikTokLive through its vendor loader, so the
 recording goes through exactly the code the add-on runs. Each line is one
@@ -11,6 +11,7 @@ artifacts/ (gitignored); fixtures committed to the repository are anonymized.
 
 import asyncio
 import base64
+import contextlib
 import datetime
 import importlib.util
 import json
@@ -73,15 +74,21 @@ def main():
 	path = Path(sys.argv[3]) if len(sys.argv) > 3 else REPO / "artifacts" / "recordings" / f"{stamp} {user}.jsonl"
 	path.parent.mkdir(parents=True, exist_ok=True)
 
-	loader, runtime = load_vendor_runtime()
-	with loader.runtime_scope(runtime):
+	if len(sys.argv) > 4:
+		# Another copy of TikTokLive (e.g. artifacts/lib-7.0.1), imported directly.
+		sys.path.insert(0, str(Path(sys.argv[4]).resolve()))
+		scope = contextlib.nullcontext()
+	else:
+		loader, runtime = load_vendor_runtime()
+		scope = loader.runtime_scope(runtime)
+	with scope:
 		from TikTokLive import TikTokLiveClient
 		from TikTokLive.__version__ import PACKAGE_VERSION
 
 		with path.open("w", encoding="utf-8") as output:
 			output.write(json.dumps({"header": True, "user": user, "started": stamp, "library": PACKAGE_VERSION}) + "\n")
 			frames, messages, ended = asyncio.run(record(TikTokLiveClient, user, minutes * 60, output))
-	print(f"{path.name}: {frames} frames, {messages} messages, {ended}")
+	print(f"{path.name}: TikTokLive {PACKAGE_VERSION}, {frames} frames, {messages} messages, {ended}")
 
 
 if __name__ == "__main__":

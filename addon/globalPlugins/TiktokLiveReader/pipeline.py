@@ -8,6 +8,8 @@ import threading
 import time
 import unicodedata
 
+from logHandler import log
+
 from . import announcer, events, likes, store
 from .i18n import _
 from .settings import Settings
@@ -126,7 +128,9 @@ def _clean_name(name, person=None):
 	without a letter or digit (emoji, Arabic script) becomes the person's handle,
 	or stays as it is (F10)."""
 	cleaned = _sanitize_name(name)
-	if not name or not isinstance(cleaned, str) or any(ch.isalnum() for ch in cleaned):
+	if not _settings.clean_usernames or not name or not isinstance(cleaned, str):
+		return cleaned
+	if any(ch.isalnum() for ch in cleaned):
 		return cleaned
 	handle = _sanitize_name(person.unique_id) if person is not None and person.unique_id else ""
 	return handle or name
@@ -169,8 +173,8 @@ def remember_logged():
 				line = line.strip()
 				if line:
 					_events_logged_before.add(line.rsplit("  ", 1)[0])
-	except Exception:
-		pass
+	except OSError:
+		log.debugWarning("TikTok Live Reader: reading the kept text files", exc_info=True)
 
 
 def reset_accumulators():
@@ -203,8 +207,8 @@ def _write_stats_file():
 			_("Diamonds: {count}").format(count=total_diamonds),
 		]
 		store.write(store.STATS, "".join(line + "\n" for line in lines))
-	except Exception:
-		pass
+	except OSError:
+		log.debugWarning("TikTok Live Reader: writing the stats file", exc_info=True)
 
 
 def update_stats_file(force=False):
@@ -237,8 +241,8 @@ def write_top_files():
 		if top_likers:
 			sorted_likers = sorted(top_likers.items(), key=lambda x: x[1], reverse=True)
 			store.write(store.TOP_LIKES, "".join(f"{user}: {count}\n" for user, count in sorted_likers))
-	except Exception:
-		pass
+	except OSError:
+		log.debugWarning("TikTok Live Reader: writing the top lists", exc_info=True)
 
 
 def _log_to_events(log_text):
@@ -246,8 +250,8 @@ def _log_to_events(log_text):
 		return
 	try:
 		store.append(store.EVENTS, log_text)
-	except Exception:
-		pass
+	except OSError:
+		log.debugWarning("TikTok Live Reader: writing the events file", exc_info=True)
 
 
 def _announce(event_key, speak_text):
@@ -270,8 +274,8 @@ def _report_likes(user, count):
 	log_line = f"{user}: {count} {likes_word}  {_now()}"
 	try:
 		store.append(store.LIKES, log_line)
-	except Exception:
-		pass
+	except OSError:
+		log.debugWarning("TikTok Live Reader: writing the likes file", exc_info=True)
 	if _settings.events.get("likes", False):
 		_log_to_events(log_line)
 	_announce("likes", f"{user}: {count} {likes_word}")
@@ -492,7 +496,7 @@ def _on_link(event):
 			_log_to_events(f"{speak_msg}  {_now()}")
 		_announce("requests", speak_msg)
 	except Exception:
-		pass
+		log.exception("TikTok Live Reader: guest request")
 
 
 _HANDLERS = {

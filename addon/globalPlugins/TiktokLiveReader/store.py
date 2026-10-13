@@ -6,6 +6,8 @@ import shutil
 import threading
 from pathlib import Path
 
+from logHandler import log
+
 from . import settings
 
 COMMENTS = "comments.txt"
@@ -142,4 +144,5 @@ def archive_session(username):
 			shutil.copy2(str(file), str(target / file.name))
 		return target
 	except Exception:
+		log.debugWarning("TikTok Live Reader: archiving the session", exc_info=True)
 		return None

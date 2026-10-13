@@ -9,6 +9,8 @@ connection end the next session (F2))."""
 import threading
 import time
 
+from logHandler import log
+
 from . import announcer, pipeline, settings, store, tiktok_adapter
 
 RETRY_PAUSE = 3
@@ -61,12 +63,16 @@ def _runner(run, username, on_connect_cb, on_retry_cb, on_fail_cb, max_attempts=
 	try:
 		classes = tiktok_adapter.event_classes()
 	except Exception:
+		log.exception("TikTok Live Reader: cannot load TikTokLive")
 		report(on_fail_cb)
 		return
 
 	def deliver(event):
 		if run.active:
-			pipeline.handle(event)
+			try:
+				pipeline.handle(event)
+			except Exception:
+				log.exception(f"TikTok Live Reader: handling {type(event).__name__}")
 
 	def on_connected():
 		nonlocal attempts, connected_once
@@ -92,6 +98,8 @@ def _runner(run, username, on_connect_cb, on_retry_cb, on_fail_cb, max_attempts=
 			run.connection.run()
 			ended_cleanly = True
 		except Exception:
+			# Offline, a dropped connection, the signing server's limit: retried.
+			log.debugWarning(f"TikTok Live Reader: connection to {username} failed", exc_info=True)
 			ended_cleanly = False
 
 		if not run.active:

@@ -10,6 +10,7 @@ from pathlib import Path
 
 import ui
 import wx
+from logHandler import log
 
 ADDON_DIR = Path(__file__).resolve().parent
 
@@ -81,7 +82,7 @@ class SoundManager:
 				try:
 					callback()
 				except Exception:
-					pass
+					log.exception("TikTok Live Reader: after a sound")
 
 			if post_delay > 0:
 				time.sleep(post_delay)
@@ -113,6 +114,7 @@ class SoundManager:
 				wantDucking=False,
 			)
 		except Exception:
+			log.debugWarning(f"TikTok Live Reader: cannot play {fname}", exc_info=True)
 			return
 		self._player = player
 		try:
@@ -120,7 +122,7 @@ class SoundManager:
 			player.feed(frames)
 			player.sync()
 		except Exception:
-			pass
+			log.debugWarning(f"TikTok Live Reader: playing {fname} failed", exc_info=True)
 		finally:
 			self._player = None
 			player.close()
@@ -141,7 +143,7 @@ def silence():
 		sound_manager.clear()
 		sound_manager.stop_playing()
 	except Exception:
-		pass
+		log.debugWarning("TikTok Live Reader: stopping the sound failed", exc_info=True)
 
 
 def announce(event_key, text, settings):

@@ -7,6 +7,7 @@ from pathlib import Path
 
 import ui
 import wx
+from logHandler import log
 
 from . import announcer, settings
 from .i18n import _
@@ -259,7 +260,7 @@ class SettingsDialog(wx.Dialog):
 					break
 				time.sleep(0.5)
 		except Exception:
-			pass
+			log.exception("TikTok Live Reader: learning the sounds")
 		finally:
 			wx.CallAfter(self.learn.SetLabel, _("L&earn sounds"))
 

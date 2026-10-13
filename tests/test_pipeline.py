@@ -35,6 +35,11 @@ class Comments(unittest.TestCase):
 		self.assertEqual(logged(r, "comments.txt"), ["flowers: hey"])
 		self.assertEqual(logged(r, "followers.txt"), ["flowers"])
 
+	def test_names_are_left_alone_when_not_cleaned(self):
+		dollar = f.user("$", "dollar.man")
+		r = f.run_session(f.comment(dollar, "hey"), settings={"behavior": {"clean_usernames": False}})
+		self.assertEqual(logged(r, "comments.txt"), ["$: hey"])
+
 	def test_a_name_cleaning_would_leave_without_letters_becomes_the_handle(self):
 		artist = f.user("الفنان [عمار] 🎶🎤.", "ammar.art")
 		r = f.run_session(f.gift(artist, "Rose", 1, 1))

@@ -3,6 +3,8 @@ are not cleared on start (tiktokLiveReader-positions.json)."""
 
 import json
 
+from logHandler import log
+
 from . import settings
 
 EMPTY = {"version": 1, "files": {}}
@@ -21,7 +23,7 @@ def write(lines):
 		data = {"version": 1, "files": {key: {"line": int(line)} for key, line in lines.items()}}
 		settings.POSITIONS_PATH.write_text(json.dumps(data, ensure_ascii=False), encoding="utf-8")
 	except Exception:
-		pass
+		log.debugWarning("TikTok Live Reader: saving the positions", exc_info=True)
 
 
 def create_if_missing():
@@ -39,4 +41,4 @@ def reset():
 	try:
 		settings.POSITIONS_PATH.write_text(json.dumps(EMPTY, ensure_ascii=False), encoding="utf-8")
 	except Exception:
-		pass
+		log.debugWarning("TikTok Live Reader: resetting the positions", exc_info=True)

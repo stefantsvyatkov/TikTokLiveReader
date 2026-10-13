@@ -26,6 +26,8 @@ NVDA_CONFIG.mkdir()
 
 spoken = []
 dialogs = []
+# (level, message) of everything the add-on logged.
+logged = []
 
 
 def _module(name, **attributes):
@@ -101,6 +103,14 @@ class _MessageDialog:
 				button.callback(None)
 
 
+class _Log:
+	def _record(self, level):
+		return lambda message, *args, **kwargs: logged.append((level, message))
+
+	def __getattr__(self, level):
+		return self._record("error" if level == "exception" else level)
+
+
 def _install_nvda_stand_ins():
 	_module("addonHandler", initTranslation=_initTranslation)
 	_module("globalPluginHandler", GlobalPlugin=_GlobalPlugin)
@@ -120,6 +130,7 @@ def _install_nvda_stand_ins():
 		Dialog=type("Dialog", (), {}),
 	)
 	_module("NVDAState", WritePaths=types.SimpleNamespace(configDir=str(NVDA_CONFIG)))
+	_module("logHandler", log=_Log())
 
 
 def _mount():

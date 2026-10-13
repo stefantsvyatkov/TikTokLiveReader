@@ -6,6 +6,8 @@ import shutil
 from dataclasses import dataclass, field
 from pathlib import Path
 
+from logHandler import log
+
 ADDON_DIR = Path(__file__).resolve().parent
 DEFAULT_LOG_DIR = Path.home() / "Documents" / "TikTok live"
 
@@ -70,7 +72,7 @@ def migrate_user_files():
 			new_path.parent.mkdir(parents=True, exist_ok=True)
 			shutil.copy2(str(old_path), str(new_path))
 		except Exception:
-			pass
+			log.debugWarning(f"TikTok Live Reader: moving {old_path}", exc_info=True)
 
 
 def resolve_destination(raw):
@@ -182,6 +184,7 @@ def load_and_complete():
 			config.write(handle)
 		loaded = from_config(config)
 	except Exception:
+		log.warning("TikTok Live Reader: the settings file cannot be read; using the defaults", exc_info=True)
 		return Settings()
 	loaded.text_files_destination = resolve_destination(loaded.text_files_destination)
 	return loaded

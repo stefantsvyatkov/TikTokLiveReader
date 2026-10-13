@@ -8,6 +8,8 @@ import contextlib
 import threading
 from pathlib import Path
 
+from logHandler import log
+
 from . import events, vendor
 
 LIB_DIR = Path(__file__).resolve().parent / "lib"
@@ -355,4 +357,5 @@ def _link(event):
 			m_type=str(getattr(event, "m_type", getattr(event, "mType", ""))),
 		)
 	except Exception:
+		log.debugWarning(f"TikTok Live Reader: unexpected {type(event).__name__}", exc_info=True)
 		return None

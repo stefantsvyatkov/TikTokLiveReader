@@ -6,6 +6,7 @@ import gui
 from gui import message
 import ui
 import wx
+from logHandler import log
 
 
 FILES = [
@@ -251,13 +252,13 @@ class GlobalPlugin(NVDA_GlobalPlugin):
 			else:
 				self._save_positions_json()
 		except Exception:
-			pass
+			log.debugWarning("TikTok Live Reader: cleaning up after a session", exc_info=True)
 
 	def _ensure_temp_files_exist(self):
 		try:
 			positions.create_if_missing()
 		except Exception:
-			pass
+			log.debugWarning("TikTok Live Reader: creating the positions file", exc_info=True)
 
 	@script(description=_("Toggle automatic speaking of new events"))
 	def script_toggleAutoSpeak(self, gesture):
@@ -493,5 +494,5 @@ class GlobalPlugin(NVDA_GlobalPlugin):
 				self.speech_manager.stop()
 			self._archive_session(self.settings.username)
 		except Exception:
-			pass
+			log.exception("TikTok Live Reader: closing")
 		return super().terminate()

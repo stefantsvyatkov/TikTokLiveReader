@@ -75,8 +75,9 @@ are right.
   second is logged once.
 - F9 Fixed in phase 3: line breaks in a comment become spaces. Before: a new
   line inside a comment split the entry into two lines.
-- F10 Fixed in phase 3: a name cleaning would leave without a letter or digit
-  becomes the person's handle (or stays as it is). Before: entries such as ": hey"
+- F10 Fixed in phase 3: with names cleaned, a name cleaning would leave
+  without a letter or digit becomes the person's handle (or stays as it is);
+  names not cleaned stay exactly as they are. Before: entries such as ": hey"
   and empty follower lines. With names cleaned this was every name in Arabic,
   Thai, Vietnamese... script: on islam8qurann's live their visitors merged into
   one empty visitor (1679 instead of 1916) and their likes were dropped (158
@@ -160,7 +161,13 @@ are right.
   `client.apply_settings`; `connect()` still re-reads the file, as 1.8 did.
   The ini file is byte for byte what 1.8 wrote (compared for a missing, a
   partial and an odd file).
-- F21 Exceptions are swallowed without logging, so failures cannot be
+- F21 Fixed in phase 3: `logHandler.log` everywhere an exception was
+  swallowed; a bug in handling an event is logged as an error with its
+  traceback (`session` around `pipeline.handle`), expected failures (offline,
+  a file that cannot be written, the signing server's limit) at debug-warning
+  level. `feed.run_session` fails a test when the add-on logged an error, so
+  the snapshots of the three lives also check that none is logged. Before:
+  exceptions were swallowed without logging, so failures could not be
   diagnosed from NVDA's log.
 - F22 Fixed in phase 3 with F30's lock. Before: clearing files (main thread)
   raced with handlers writing (connection thread).

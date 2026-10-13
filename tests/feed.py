@@ -440,6 +440,7 @@ def run_session(
 
 	callbacks = []
 	finished = threading.Event()
+	logged_before = len(support.logged)
 
 	def record(name, last=False):
 		def callback():
@@ -477,6 +478,9 @@ def run_session(
 		files[path.name] = (
 			path.read_text(encoding="utf-8", errors="replace").splitlines() if path.exists() else None
 		)
+	errors = [message for level, message in support.logged[logged_before:] if level == "error"]
+	if errors:
+		raise AssertionError(f"the add-on logged errors: {errors}")
 	return Result(files, session.speech, session.sounds.played, callbacks, log_dir, stats)
 
 

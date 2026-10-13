@@ -98,7 +98,12 @@ class NvdaLog:
 				block.append(line)
 			else:
 				block = []
-		return ["\n".join(item) for item in lines]
+		return [text for text in ("\n".join(item) for item in lines) if not NVDA_OWN_ERRORS.search(text)]
+
+
+# NVDA 2026.1.1 fails to echo a character typed as Unicode input (no language);
+# fixed in 2026.2. The driver types that way, so the error is not the add-on's.
+NVDA_OWN_ERRORS = re.compile(r"getSpeechSequenceWithLangs[\s\S]*normalizeLanguage")
 
 
 class Run:

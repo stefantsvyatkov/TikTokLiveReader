@@ -65,7 +65,10 @@ live recording.
      four lines keeping auto speak on when switching on
      (`script_toggleActive`), rewritten in step 7. His Indonesian translation
      stays (user's decision).
-   - [ ] 7 `dialogs.py`, `globalPlugin.py` only scripts
+   - [x] 7 `dialogs.py` (the dialog as `SettingsDialog`, controls created in
+     the same order, so the same Tab order), `positions.py`; his four lines
+     are now `_follow_auto_speak`. Checked by the sandbox's `settings`
+     scenario before and after, on all three NVDA versions.
    - [ ] 8 NVDA formatting (needs ruff 0.14.5)
    Phase 4 also runs the smoke with NVDA in Bulgarian (translations come
    through `i18n.py` since step 1).

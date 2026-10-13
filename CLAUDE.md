@@ -17,7 +17,8 @@ Store. The user is Bulgarian; answer in Bulgarian and address them with "ти".
 ## Layout
 
 - `addon/globalPlugins/TiktokLiveReader/` - the add-on (`globalPlugin.py`
-  scripts and settings dialog, `session.py` the connection's life (retries,
+  the scripts, `dialogs.py` the settings dialog, `positions.py` where
+  navigation stopped in each file, `session.py` the connection's life (retries,
   stats thread, disconnect), `tiktok_adapter.py` everything that knows
   TikTokLive (loading it, the client, library events into `events.py`'s plain
   ones), `pipeline.py` what is done with each event (duplicate checks, lines,

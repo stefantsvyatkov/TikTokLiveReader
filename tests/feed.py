@@ -17,6 +17,7 @@ import functools
 import itertools
 import json
 import queue
+import sys
 import threading
 import time
 from dataclasses import dataclass, field
@@ -198,10 +199,13 @@ class _ReplayClient(TikTokLive.TikTokLiveClient):
 			self.emit(ConnectEvent.get_type(), ConnectEvent(unique_id="host", room_id=1))
 			await self.wait_for_complete()
 		if session.past_grace_period:
-			client._connection_time = time.time() - 60
+			client._connection_time = (session.clock or time).time() - 60
 		for item in session.frames:
 			if isinstance(item, (int, float)):
-				await asyncio.sleep(item)
+				if session.clock:
+					session.clock.advance(item)
+				else:
+					await asyncio.sleep(item)
 				continue
 			async for event in self._parse_webcast_response(item):
 				self.emit(event.type, event)
@@ -249,6 +253,78 @@ class Session:
 	release: threading.Event = field(default_factory=threading.Event)
 	sounds: object = None
 	threads: list = field(default_factory=list)
+	clock: object = None
+
+
+class VirtualClock:
+	"""Stands in for the ``time`` module in the add-on's modules during a replay:
+	``time()`` is the recorded time, which the replay's pauses advance at once.
+	The add-on's ``threading.Timer`` runs on it too, firing in the replay thread
+	when a pause passes its time."""
+
+	def __init__(self, start=1_000_000.0):
+		self.now = start
+		self._timers = []
+
+	def time(self):
+		return self.now
+
+	def advance(self, seconds):
+		target = self.now + seconds
+		while True:
+			due = [timer for timer in self._timers if timer.deadline <= target]
+			if not due:
+				break
+			timer = min(due, key=lambda timer: timer.deadline)
+			self._timers.remove(timer)
+			self.now = max(self.now, timer.deadline)
+			timer.function(*timer.args)
+		self.now = target
+
+	def __getattr__(self, name):
+		return getattr(time, name)
+
+
+class _VirtualTimer:
+	def __init__(self, clock, interval, function, args=None):
+		self.clock, self.interval, self.function, self.args = clock, interval, function, args or []
+		self.daemon = True
+
+	def start(self):
+		self.deadline = self.clock.now + self.interval
+		self.clock._timers.append(self)
+
+	def cancel(self):
+		if self in self.clock._timers:
+			self.clock._timers.remove(self)
+
+
+class _VirtualThreading:
+	def __init__(self, clock):
+		self._clock = clock
+
+	def Timer(self, interval, function, args=None):
+		return _VirtualTimer(self._clock, interval, function, args)
+
+	def __getattr__(self, name):
+		return getattr(threading, name)
+
+
+@contextlib.contextmanager
+def _clock_in_addon(clock):
+	stand_ins = {"time": (time, clock), "threading": (threading, _VirtualThreading(clock))}
+	patched = []
+	for name, module in list(sys.modules.items()):
+		if name.startswith(f"{support.PACKAGE}."):
+			for attribute, (real, stand_in) in stand_ins.items():
+				if getattr(module, attribute, None) is real:
+					setattr(module, attribute, stand_in)
+					patched.append((module, attribute, real))
+	try:
+		yield
+	finally:
+		for module, attribute, real in patched:
+			setattr(module, attribute, real)
 
 
 @dataclass
@@ -291,33 +367,36 @@ def wait_until(condition, timeout=10):
 
 
 @contextlib.contextmanager
-def replaying(*frames, end="clean", past_grace_period=True):
+def replaying(*frames, end="clean", past_grace_period=True, clock=None):
 	"""While active, the add-on's connections replay ``frames`` instead of connecting.
 
-	A number among the frames is a pause in seconds.
+	A number among the frames is a pause in seconds; with a ``VirtualClock`` the
+	pauses only advance the clock the add-on reads.
 	"""
 	frames = [
 		item if isinstance(item, (int, float, proto.ProtoMessageFetchResult)) else frame(item)
 		for item in frames
 	]
-	session = Session(frames, end, past_grace_period)
+	session = Session(frames, end, past_grace_period, clock=clock)
 	real_sounds = announcer.sound_manager
 	session.sounds = announcer.sound_manager = _RecordingSounds()
 	runtime = client._RUNTIME.modules["TikTokLive"]
 	real_client_class = runtime.TikTokLiveClient
 	runtime.TikTokLiveClient = _ReplayClient
 	_ReplayClient.session = session
-	try:
-		yield session
-	finally:
-		session.release.set()
-		for thread in session.threads:
-			thread.join(10)
-		runtime.TikTokLiveClient = real_client_class
-		announcer.sound_manager = real_sounds
+	with _clock_in_addon(clock) if clock else contextlib.nullcontext():
+		try:
+			yield session
+		finally:
+			session.release.set()
+			for thread in session.threads:
+				thread.join(10)
+			runtime.TikTokLiveClient = real_client_class
+			announcer.sound_manager = real_sounds
 
 
-def run_session(*frames, end="clean", past_grace_period=True, settle_likes=True, settings=None, log_dir=None, timeout=60):
+def run_session(*frames, end="clean", past_grace_period=True, settle_likes=True, settings=None, log_dir=None, timeout=60,
+		clock=None):
 	"""Run one connection through the add-on's real thread, replaying ``frames``.
 
 	``settle_likes`` lets the like aggregator's 10 second timers fire before
@@ -339,7 +418,7 @@ def run_session(*frames, end="clean", past_grace_period=True, settle_likes=True,
 				finished.set()
 		return callback
 
-	with replaying(*frames, end=end, past_grace_period=past_grace_period) as session:
+	with replaying(*frames, end=end, past_grace_period=past_grace_period, clock=clock) as session:
 		client.connect(
 			username="host",
 			on_connect=record("connected"),
@@ -348,7 +427,8 @@ def run_session(*frames, end="clean", past_grace_period=True, settle_likes=True,
 			on_live_end=record("live_end", last=True),
 			retry_count=1,
 		)
-		if not finished.wait(timeout + sum(item for item in frames if isinstance(item, (int, float)))):
+		pauses = 0 if clock else sum(item for item in frames if isinstance(item, (int, float)))
+		if not finished.wait(timeout + pauses):
 			raise TimeoutError("the replayed session did not finish")
 		if client._thread is not None:
 			client._thread.join(10)

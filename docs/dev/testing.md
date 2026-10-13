@@ -51,6 +51,16 @@ does not put the working folder on `sys.path` for `-m unittest tests.x`).
   in `artifacts/checks/`. Guest requests have no independent count yet: the
   link layer carries applicant queues, not single requests (F28).
 
+- `tools/snapshot_addon.py <out.json> <recording> [...]` replays recordings
+  on recorded time (`feed.VirtualClock`: pauses advance the clock the add-on's
+  modules read, and its like timers, at once) and saves files, speech, sounds
+  and counters. Deterministic, about two minutes for the three 2026-10-13
+  lives: snapshots before and after a refactoring must be identical, and
+  after a fix they show exactly what it changed (`artifacts/snapshots/`).
+  Replayed in real time instead, the like timers write the speech buffer
+  from their own threads beside the connection thread and corrupt it like
+  F30.
+
 - `tools/anonymize_recording.py <recording> <out> [method ...]` rewrites every
   name, handle, text and user id to stable stand-ins (the same person keeps
   the same stand-in, so deduplication and applicant queues behave as

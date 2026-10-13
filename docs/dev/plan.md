@@ -25,10 +25,13 @@ live recording.
 
 ## Phases
 
-1. Safety net - [x] tests that pin 1.8's event pipeline; [ ] tests for the
-   scripts, navigation, positions, archive and settings file; [ ] raw live
-   recorder and replay; [ ] library comparison; [ ] Windows Sandbox with
-   NVDA 2026.1.1, 2026.2 and 2026.3beta4 running the add-on; [ ] CI.
+1. Safety net - [x] tests that pin 1.8's event pipeline; [x] tests for the
+   scripts, navigation, positions, archive and settings file; [x] raw live
+   recorder and replay; [x] library comparison (no decoding difference for the
+   add-on; recommendation: stay on 6.6.5, isolate the library in one module);
+   [x] Windows Sandbox with NVDA 2026.1.1, 2026.2 and 2026.3beta4 running the
+   add-on; [x] CI workflow (runs once pushed); [ ] replay of the three live
+   recordings through 1.8.
 2. Module split behind the tests, behaviour unchanged.
 3. Fixes from `findings.md`, each with a test or recording.
 4. Stress test in the sandbox on all three NVDA versions, live comparison

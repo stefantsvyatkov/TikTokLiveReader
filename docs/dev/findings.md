@@ -40,9 +40,10 @@ confirms it.
   F4, deduplicating by message id, not dropping the check.
 - F6 Pinned. `events.txt` drops a line identical to an earlier one (a second
   share, the same like count again), while the per-type file keeps it.
-- F7 Pinned, live. A gift that cannot streak (`type != 1`) is dropped when
-  `repeat_end` is 0; the library treats only streakable gifts as streaking.
-  Needs recordings of real non-streakable gifts.
+- F7 Pinned, confirmed live. A gift that cannot streak (`type != 1`) is
+  dropped when `repeat_end` is 0; the library treats only streakable gifts as
+  streaking. Recorded 2026-10-13: of 73 gifts, the one that cannot streak
+  ("Heart Me") came with `repeat_end` 0, so 1.8 lost it.
 - F8 Pinned. The same gift with the same count from the same person within a
   second is logged once.
 - F9 Pinned. A new line inside a comment splits the entry into two lines.
@@ -66,9 +67,6 @@ confirms it.
   has seen before, so on a busy live it names someone who applied earlier, not
   the newcomer; the new applicant is the id missing from the previous list.
   With one applicant the result is right, which is why it looked fine.
-- F26 `LikeEvent` and `DiggEvent` both feed the like counter in 6.6.5;
-  whether TikTok sends both for the same taps needs recordings. The user has
-  tuned likes by hand: change only with evidence.
 
 ## NVDA integration
 
@@ -96,5 +94,7 @@ confirms it.
 
 ## Not issues
 
+- F26 (likes counted twice through `LikeEvent` and `DiggEvent`): 1088 like
+  messages recorded on 2026-10-13, no `WebcastDiggMessage` at all.
 - Double spaces inside a comment do not break the time stamp split: it splits
   from the right.

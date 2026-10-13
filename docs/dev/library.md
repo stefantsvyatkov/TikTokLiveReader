@@ -70,9 +70,17 @@ Compiled modules in a 7.0.1 install: `pydantic_core` (required),
 `websockets.speedups` and protobuf's `_upb` (both have pure-Python
 fallbacks). `protobuf3-to-dict` has no wheel; 7.0.1 does not import it.
 
-The same raw recording decodes to the same events with the same values in
-both versions (once the renames are mapped), except events 7.0.1 no longer
-maps (`GameServerFeatureEvent`). See `tools/compare_libs.py`.
+Comparison on 2026-10-13 (`tools/compare_libs.py`): three public lives, 20
+minutes each, about 6800 events. Every event the add-on uses (joins, likes,
+viewer counts, comments, social, shares, follows, gifts, link mic and link
+layer, live end, control) decodes to the same events with the same values in
+both versions once the renames are mapped. Differences only in events the
+add-on ignores: 7.0.1 no longer maps `GameServerFeatureEvent`,
+`PrivilegeAdvanceEvent`, `StreamStatusEvent`, `AnchorToolModificationEvent`
+and `GiftGalleryEvent`, adds `ViewerPicksUpdateEvent`, and fills
+`BarrageEvent.user`. 6.6.5 connected to all three lives. This compares
+decoding only, not connecting (sign server, websocket handshake), where
+TikTok changes usually break old versions.
 
 Every connection goes through the Euler Stream sign server, which has free
 community rate limits: keep live test connections few and long.

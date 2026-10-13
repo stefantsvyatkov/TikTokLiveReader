@@ -301,7 +301,7 @@ def _on_gift(event):
 	global total_diamonds
 	_track_user(event.user)
 
-	if not event.repeat_end:
+	if event.streaking:
 		return
 	count = event.repeat_count or 1
 	name = event.name

@@ -55,7 +55,9 @@ are right.
   3 of 97 and 2 of 45 on two other lives.
 - F6 Pinned. `events.txt` drops a line identical to an earlier one (a second
   share, the same like count again), while the per-type file keeps it.
-- F7 Pinned, confirmed live. A gift that cannot streak (`type != 1`) is
+- F7 Fixed in phase 3: a gift is skipped only while the library says it is
+  streaking (`GiftEvent.streaking`, false for gifts that cannot streak); the
+  live check finds 18 of 18 gifts (was 17). Before: A gift that cannot streak (`type != 1`) is
   dropped when `repeat_end` is 0; the library treats only streakable gifts as
   streaking. Recorded 2026-10-13: of 73 gifts, the one that cannot streak
   ("Heart Me") came with `repeat_end` 0, so 1.8 lost it.

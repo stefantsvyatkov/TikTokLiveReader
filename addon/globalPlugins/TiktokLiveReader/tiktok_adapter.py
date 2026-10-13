@@ -185,12 +185,20 @@ def _social(event):
 	return None
 
 
+def _streaking(event, gift):
+	try:
+		return bool(event.streaking)
+	except Exception:
+		# A plain Gift has no ``streakable``; the library's rule: type 1 can streak.
+		return getattr(gift, "type", 1) == 1 and not getattr(event, "repeat_end", True)
+
+
 def _gift(event):
 	gift = getattr(event, "gift", None)
 	return events.Gift(
 		message_id=message_id(event),
 		user=_user(event),
-		repeat_end=getattr(event, "repeat_end", True),
+		streaking=_streaking(event, gift),
 		repeat_count=getattr(event, "repeat_count", 1),
 		name=getattr(gift, "name", "Gift"),
 		diamond_count=getattr(gift, "diamond_count", 0),

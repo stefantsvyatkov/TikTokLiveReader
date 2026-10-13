@@ -39,9 +39,11 @@ class Share:
 
 @dataclass(frozen=True)
 class Gift:
+	"""``streaking``: a streak is under way and this is not its last message."""
+
 	message_id: int
 	user: Person | None
-	repeat_end: object
+	streaking: bool
 	repeat_count: object
 	name: object
 	diamond_count: object

@@ -38,6 +38,12 @@ class Gifts(unittest.TestCase):
 		self.assertEqual(r.speech, ["Gift: Alice: 5 Rose"])
 		self.assertEqual(r.stats["total_diamonds"], 5)
 
+	def test_gift_that_cannot_streak_is_logged_whatever_repeat_end_says(self):
+		# F7: TikTok sent "Heart Me" (type 2) with repeat_end 0 (recorded 2026-10-13).
+		r = f.run_session(f.gift(alice, "Heart Me", 10, 1, repeat_end=0, streakable=False))
+		self.assertEqual(logged(r, "gifts.txt"), ["Alice: 1 Heart Me"])
+		self.assertEqual(r.stats["total_diamonds"], 10)
+
 	def test_diamonds_are_count_times_value(self):
 		r = f.run_session(f.gift(alice, "Galaxy", 1000, 2, repeat_end=1))
 		self.assertEqual(r.stats["total_diamonds"], 2000)

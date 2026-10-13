@@ -20,12 +20,6 @@ def logged(result, name):
 
 
 class KnownIssues(unittest.TestCase):
-	def test_F7_gift_that_cannot_streak_is_dropped_when_repeat_end_is_zero(self):
-		# Needs live data: what repeat_end TikTok really sends for such gifts.
-		r = f.run_session(f.gift(alice, "Lion", 29999, 1, repeat_end=0, streakable=False))
-		self.assertEqual(r.files["gifts.txt"], [])
-		self.assertEqual(r.stats["total_diamonds"], 0)
-
 	def test_F9_new_line_in_a_comment_splits_the_entry(self):
 		r = f.run_session(f.comment(alice, "line1\nline2"))
 		self.assertEqual(logged(r, "comments.txt"), ["Alice: line1", "line2"])

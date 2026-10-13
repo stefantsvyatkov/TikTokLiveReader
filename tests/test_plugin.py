@@ -95,7 +95,7 @@ class SwitchingOnAndOff(PluginTest):
 	def test_report_viewers(self):
 		plugin, _ = make_plugin()
 		self.start(plugin, f.viewers(37))
-		self.assertTrue(f.wait_until(lambda: client.viewer_count == 37))
+		self.assertTrue(f.wait_until(lambda: f.pipeline.viewer_count == 37))
 		plugin.script_reportViewers(None)
 		self.assertEqual(support.spoken[-1], "37 viewers")
 

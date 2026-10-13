@@ -21,10 +21,9 @@ def logged(result, name):
 
 class KnownIssues(unittest.TestCase):
 	def test_F4_message_id_is_never_read(self):
-		client = f.client
 		event = type("Event", (), {"base_message": type("Common", (), {"message_id": 7})()})()
-		self.assertFalse(client._is_processed(event))
-		self.assertFalse(client._is_processed(event))
+		self.assertFalse(f.pipeline._is_processed(f.adapter.legacy_id(event)))
+		self.assertFalse(f.pipeline._is_processed(f.adapter.legacy_id(event)))
 
 	def test_F5_same_comment_from_same_person_is_dropped(self):
 		r = f.run_session(f.comment(alice, "hi"), f.comment(alice, "hi"))

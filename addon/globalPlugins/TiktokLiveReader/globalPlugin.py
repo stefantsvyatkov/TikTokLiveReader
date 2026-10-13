@@ -4,7 +4,7 @@ import re
 import threading
 import time
 
-from . import announcer, client, settings, store
+from . import announcer, client, pipeline, settings, store
 from .i18n import _
 from globalPluginHandler import GlobalPlugin as NVDA_GlobalPlugin
 from scriptHandler import script
@@ -741,7 +741,7 @@ class GlobalPlugin(NVDA_GlobalPlugin):
         except Exception:
             pass
             
-        client.reset_accumulators()
+        pipeline.reset_accumulators()
         ui.message(_("All files cleared."))
 
     @script(description=_("Report the current number of live viewers"), category=_("TikTok Live Reader"))
@@ -749,7 +749,7 @@ class GlobalPlugin(NVDA_GlobalPlugin):
         if not self.active:
             ui.message(_("Addon is not active."))
             return
-        count = getattr(client, "viewer_count", 0)
+        count = pipeline.viewer_count
         # Translators: Announced when reporting live viewer count. {count} is the number of viewers.
         ui.message(_("{count} viewers").format(count=count))
 

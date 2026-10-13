@@ -23,7 +23,8 @@ confirms it.
   each connection also leaves two event loops unclosed (ResourceWarning in the
   tests).
 - F16 `DiggEvent` is imported unconditionally; TikTokLive 6.6.6+ has no such
-  class, so updating the library would break connecting.
+  class, so updating the library would break connecting. Since phase 2 step 5
+  only `tiktok_adapter.event_classes()` imports event classes.
 - F23 After a quick off/on, the old stats thread can keep running beside the
   new one (`_stop_event` is cleared again before it notices).
 
@@ -113,10 +114,11 @@ confirms it.
 - F22 Clearing files (main thread) races with handlers writing (connection
   thread); there is no lock.
 - F24 Script categories differ (literal, translated, none), so the scripts
-  are scattered in Input gestures. Dead code: `_watcherThread`, `setup()`,
-  the inactive branch of `script_reportViewers` (`SpeechManager.speak`,
-  `audioop` and the winsound constant shims went with phase 2 step 3; the
-  shims also patched the shared `winsound` module, which has no `SND_SYNC`).
+  are scattered in Input gestures. Dead code: `_watcherThread`, the inactive
+  branch of `script_reportViewers` (`SpeechManager.speak`, `audioop` and the
+  winsound constant shims went with phase 2 step 3, the shims also patched
+  the shared `winsound` module, which has no `SND_SYNC`; `setup()` and
+  `client.py`'s `__main__` block with step 5).
 
 ## Not issues
 

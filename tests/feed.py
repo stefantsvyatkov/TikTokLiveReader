@@ -26,11 +26,13 @@ from pathlib import Path
 from . import support
 
 client = support.load("client")
+pipeline = support.load("pipeline")
+adapter = support.load("tiktok_adapter")
 addon_settings = support.load("settings")
 store = support.load("store")
 announcer = support.load("announcer")
 
-with client.runtime_scope(client._RUNTIME):
+with adapter.runtime_scope(adapter.RUNTIME):
 	import TikTokLive
 	from TikTokLive.events import ConnectEvent
 	from TikTokLive.events import proto_events
@@ -46,7 +48,7 @@ def _in_runtime(function):
 
 	@functools.wraps(function)
 	def wrapper(*args, **kwargs):
-		with client.runtime_scope(client._RUNTIME):
+		with adapter.runtime_scope(adapter.RUNTIME):
 			return function(*args, **kwargs)
 
 	return wrapper
@@ -199,7 +201,7 @@ class _ReplayClient(TikTokLive.TikTokLiveClient):
 			self.emit(ConnectEvent.get_type(), ConnectEvent(unique_id="host", room_id=1))
 			await self.wait_for_complete()
 		if session.past_grace_period:
-			client._connection_time = (session.clock or time).time() - 60
+			pipeline.connection_time = (session.clock or time).time() - 60
 		for item in session.frames:
 			if isinstance(item, (int, float)):
 				if session.clock:
@@ -380,7 +382,7 @@ def replaying(*frames, end="clean", past_grace_period=True, clock=None):
 	session = Session(frames, end, past_grace_period, clock=clock)
 	real_sounds = announcer.sound_manager
 	session.sounds = announcer.sound_manager = _RecordingSounds()
-	runtime = client._RUNTIME.modules["TikTokLive"]
+	runtime = adapter.RUNTIME.modules["TikTokLive"]
 	real_client_class = runtime.TikTokLiveClient
 	runtime.TikTokLiveClient = _ReplayClient
 	_ReplayClient.session = session
@@ -435,11 +437,11 @@ def run_session(*frames, end="clean", past_grace_period=True, settle_likes=True,
 		if settle_likes:
 			settle_like_timers()
 		stats = {
-			"viewer_count": client.viewer_count,
-			"total_viewers": client.total_viewers,
-			"total_likes": client.total_likes,
-			"total_followers": client.total_followers,
-			"total_diamonds": client.total_diamonds,
+			"viewer_count": pipeline.viewer_count,
+			"total_viewers": pipeline.total_viewers,
+			"total_likes": pipeline.total_likes,
+			"total_followers": pipeline.total_followers,
+			"total_diamonds": pipeline.total_diamonds,
 		}
 		client.disconnect()
 
@@ -451,7 +453,7 @@ def run_session(*frames, end="clean", past_grace_period=True, settle_likes=True,
 
 def settle_like_timers():
 	"""Fire the like aggregator's pending timers now instead of after 10 seconds."""
-	client.like_manager.flush_pending()
+	pipeline.like_manager.flush_pending()
 
 
 def read_speech():

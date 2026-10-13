@@ -49,12 +49,15 @@ live recording.
    или по-късна." Show the user the exact diff when applying.
 2. Module split behind the tests, behaviour unchanged. After each step the
    suite and the sandbox smoke run, then commit and push.
-   [x] 1 `settings.py`, `i18n.py`; [x] 2 `store.py` (the place for the
-   F22/F30 lock and tolerant reads); [x] 3 `announcer.py` (F17, F19 are
-   fixed there);
-   [x] 4 `likes.py` (`flush_pending` is the F11 fix); [ ] 5 `tiktok_adapter.py`, `events.py`, `pipeline.py`;
-   [ ] 6 `session.py` and the vendor isolation rewritten; [ ] 7 `dialogs.py`,
-   `globalPlugin.py` only scripts; [ ] 8 NVDA formatting (needs ruff 0.14.5).
+   - [x] 1 `settings.py`, `i18n.py`
+   - [x] 2 `store.py` (the place for the F22/F30 lock and tolerant reads)
+   - [x] 3 `announcer.py` (F17, F19 are fixed there)
+   - [x] 4 `likes.py` (`flush_pending` is the F11 fix)
+   - [x] 5 `tiktok_adapter.py`, `events.py`, `pipeline.py`; snapshots of the
+     three 2026-10-13 lives identical before and after
+   - [ ] 6 `session.py` and the vendor isolation rewritten
+   - [ ] 7 `dialogs.py`, `globalPlugin.py` only scripts
+   - [ ] 8 NVDA formatting (needs ruff 0.14.5)
    Phase 4 also runs the smoke with NVDA in Bulgarian (translations come
    through `i18n.py` since step 1).
 3. Fixes from `findings.md`, each with a test or recording.

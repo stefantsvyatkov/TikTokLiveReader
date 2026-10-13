@@ -1,18 +1,11 @@
-from pathlib import Path
-import datetime
+"""The connection's life: connecting with retries on a thread of its own, the
+stats thread, and disconnecting. Events go to pipeline.py."""
+
+import asyncio
 import threading
 import time
-import unicodedata
 
-from . import announcer, likes, settings, store
-from .i18n import _
-from .vendor_loader import load_runtime, runtime_scope
-
-BASE_DIR = Path(__file__).resolve().parent
-LIB_DIR = BASE_DIR / "lib"
-_RUNTIME = load_runtime(str(LIB_DIR))
-
-_known_gifts = {}
+from . import announcer, pipeline, settings, store, tiktok_adapter
 
 client = None
 _thread = None
@@ -24,865 +17,175 @@ _top_thread_started = False
 _should_run = False
 
 
-def _report_likes(user, count):
-    # Translators: Singular and plural forms for likes in the logs.
-    likes_word = _("like") if count == 1 else _("likes")
-    log_line = f"{user}: {count} {likes_word}  {datetime.datetime.now().strftime('%H:%M:%S')}"
-    try:
-        store.append(store.LIKES, log_line)
-    except Exception:
-        pass
-    if _settings.events.get("likes", False):
-        _log_to_events(log_line)
-    _handle_speech_and_sound("likes", f"{user}: {count} {likes_word}")
-
-like_manager = likes.LikeAggregator(_report_likes)
-
-
-MAX_TRACKED_ITEMS = 50000
-MAX_PROCESSED_IDS = 10000
-MAX_TIMESTAMP_ITEMS = 5000
-
-
-class BoundedSet:
-    """Set that forgets the oldest entries instead of dropping everything at once."""
-
-    def __init__(self, limit):
-        self._limit = limit
-        self._items = {}
-
-    def add(self, item):
-        self._items[item] = None
-        while len(self._items) > self._limit:
-            del self._items[next(iter(self._items))]
-
-    def clear(self):
-        self._items.clear()
-
-    def __contains__(self, item):
-        return item in self._items
-
-    def __len__(self):
-        return len(self._items)
-
-
-def _prune_timestamps(mapping, max_age):
-    if len(mapping) <= MAX_TIMESTAMP_ITEMS:
-        return
-    cutoff = time.time() - max_age
-    for key in [k for k, v in mapping.items() if v < cutoff]:
-        del mapping[key]
-
-
-def _remember_user(uid, name):
-    if not uid or not name:
-        return
-    _known_users[str(uid)] = name
-    while len(_known_users) > MAX_TRACKED_ITEMS:
-        del _known_users[next(iter(_known_users))]
-
-
-top_gifters = {}
-top_likers = {}
-total_likes = 0
-total_followers = 0
-total_diamonds = 0
-visitors = set()
-viewer_count = 0
-total_viewers = 0
-_known_comments = BoundedSet(MAX_TRACKED_ITEMS)
-_known_events = BoundedSet(MAX_TRACKED_ITEMS)
-_requests_log = {}
-_known_users = {}
-_known_followers = BoundedSet(MAX_TRACKED_ITEMS)
-_known_shares = {}
-_processed_ids = BoundedSet(MAX_PROCESSED_IDS)
-_connection_time = 0
-
-_settings = settings.Settings()
-def _is_processed(event):
-    uid = getattr(event, "msgId", None)
-    if not uid:
-        uid = getattr(event, "id", None)
-    if not uid:
-        base_msg = getattr(event, "base_message", None)
-        if base_msg:
-            uid = getattr(base_msg, "msg_id", None)
-            
-    if uid:
-        if uid in _processed_ids:
-            return True
-        _processed_ids.add(uid)
-    return False
-
 def apply_settings(new):
-    """Use these settings from now on; sounds still queued stop when sounds are off."""
-    global _settings
-    if not new.play_sounds:
-        announcer.silence()
-    _settings = new
-    announcer.sound_manager.set_volume(new.volume)
+	"""Use these settings from now on; sounds still queued stop when sounds are off."""
+	if not new.play_sounds:
+		announcer.silence()
+	pipeline.use_settings(new)
+	announcer.sound_manager.set_volume(new.volume)
 
-def _sanitize_name(name):
-    if not _settings.clean_usernames or not isinstance(name, str):
-        return name
-    out = []
-    for ch in name:
-        cat = unicodedata.category(ch)
-        if ch.isspace() or cat.startswith("P"):
-            out.append(ch)
-        elif cat == "Nd":
-            out.append(ch)
-        elif cat[0] == "L":
-            uname = unicodedata.name(ch, "")
-            if "LATIN" in uname or "CYRILLIC" in uname:
-                out.append(ch)
-    return "".join(out).strip()
-
-def reset_accumulators():
-    global top_gifters, top_likers, total_likes, total_followers, total_diamonds, visitors, viewer_count, total_viewers
-    global _known_comments, _known_events, _known_followers, _known_shares, _requests_log, _processed_ids
-    top_gifters = {}
-    top_likers = {}
-    total_likes = 0
-    total_followers = 0
-    total_diamonds = 0
-    visitors = set()
-    viewer_count = 0
-    total_viewers = 0
-    
-    _known_comments.clear()
-    _known_events.clear()
-    _known_followers.clear()
-    _known_shares.clear()
-    _requests_log.clear()
-    _processed_ids.clear()
-    _known_gifts.clear()
-
-STATS_MIN_INTERVAL = 1.0
-_stats_lock = threading.Lock()
-_stats_dirty = False
-_stats_last_write = 0.0
-
-def _write_stats_file():
-    try:
-        lines = [
-            # Translators: Stats file lines. {count} represents the respective count.
-            _("Viewers: {count}").format(count=viewer_count),
-            _("Visitors: {count}").format(count=total_viewers),
-            _("Likes: {count}").format(count=total_likes),
-            _("Followers: {count}").format(count=total_followers),
-            _("Diamonds: {count}").format(count=total_diamonds),
-        ]
-        store.write(store.STATS, "".join(line + "\n" for line in lines))
-    except Exception:
-        pass
-
-def update_stats_file(force=False):
-    global _stats_dirty, _stats_last_write
-    with _stats_lock:
-        now = time.time()
-        if not force and (now - _stats_last_write) < STATS_MIN_INTERVAL:
-            _stats_dirty = True
-            return
-        _stats_dirty = False
-        _stats_last_write = now
-        _write_stats_file()
-
-def flush_stats_file():
-    with _stats_lock:
-        if not _stats_dirty:
-            return
-    update_stats_file(force=True)
-
-def _write_top_files():
-    try:
-        if top_gifters:
-            sorted_gifters = sorted(top_gifters.items(), key=lambda x: x[1], reverse=True)
-            store.write(store.TOP_GIFTERS, "".join(f"{user}: {diamonds} diamonds\n" for user, diamonds in sorted_gifters))
-        if top_likers:
-            sorted_likers = sorted(top_likers.items(), key=lambda x: x[1], reverse=True)
-            store.write(store.TOP_LIKES, "".join(f"{user}: {count}\n" for user, count in sorted_likers))
-    except Exception:
-        pass
 
 def update_top_files():
-    ticks = 0
-    while not _stop_event.is_set():
-        if ticks % 10 == 0:
-            _write_top_files()
-        flush_stats_file()
-        ticks += 1
-        _stop_event.wait(1)
+	ticks = 0
+	while not _stop_event.is_set():
+		if ticks % 10 == 0:
+			pipeline.write_top_files()
+		pipeline.flush_stats_file()
+		ticks += 1
+		_stop_event.wait(1)
 
-def _log_to_events(log_text):
-    event_text = log_text.rsplit("  ", 1)[0]
-    if event_text in _known_events:
-        return
-    _known_events.add(event_text)
-    try:
-        store.append(store.EVENTS, log_text)
-    except Exception:
-        pass
-
-def _extract_comment_payload(event):
-    user = getattr(event, "user", None)
-    nickname = getattr(user, "nickname", None) or getattr(user, "unique_id", None) or "someone"
-    nickname = _sanitize_name(nickname)
-    uid = getattr(user, "id", getattr(user, "uid", None))
-    _remember_user(uid, nickname)
-
-    comment_text = (
-        getattr(event, "comment", None)
-        or getattr(event, "content", None)
-        or getattr(event, "text", None)
-        or getattr(event, "msg", None)
-        or getattr(event, "message", None)
-    )
-    if not comment_text:
-        comments_attr = getattr(event, "comments", None)
-        if isinstance(comments_attr, (list, tuple)) and comments_attr:
-            comment_text = " ".join(str(x) for x in comments_attr if x is not None).strip()
-
-    if not comment_text:
-        display_text = getattr(event, "display_text", None)
-        comment_text = getattr(display_text, "default_pattern", None) or getattr(display_text, "key", None)
-
-    if not comment_text:
-        return None
-
-    return nickname, str(comment_text)
-
-def _handle_speech_and_sound(event_key, speak_text):
-    """Announce an event, but not in the first 10 seconds of a connection, which
-    bring the live's history."""
-    if _connection_time == 0 or (time.time() - _connection_time) < 10.0:
-        return
-    announcer.announce(event_key, speak_text, _settings)
-
-def _track_user(event):
-    user = getattr(event, "user", None)
-    if user:
-        uid = getattr(user, "id", getattr(user, "uid", None))
-        nn = getattr(user, "nick_name", getattr(user, "nickname", None))
-        if uid and nn:
-            _remember_user(uid, _sanitize_name(nn))
-
-def _apply_like_event(ev):
-    global total_likes
-    
-    _track_user(ev)
-    
-    if hasattr(ev, "totalLikeCount"):
-        total_likes = ev.totalLikeCount
-    elif hasattr(ev, "total"):
-        total_likes = ev.total
-    elif hasattr(ev, "totalDiggCount"):
-        total_likes = ev.totalDiggCount
-        
-    update_stats_file()
-    
-    user_obj = getattr(ev, "user", None)
-    if not user_obj:
-        return
-        
-    nick = getattr(user_obj, "nickname", None)
-    unique_id = getattr(user_obj, "unique_id", None)
-    
-    raw_name = nick if nick else unique_id
-    if not raw_name:
-        return
-        
-    user_name = _sanitize_name(raw_name)
-    if not user_name:
-        return
-        
-    inc_candidates = ("likeCount", "count", "diggCount", "increment", "delta")
-    inc_val = next((getattr(ev, a) for a in inc_candidates if hasattr(ev, a)), 0)
-    increment = inc_val if (isinstance(inc_val, int) and inc_val > 0) else 1
-    
-    top_likers[user_name] = top_likers.get(user_name, 0) + increment
-
-    current_user_total = top_likers[user_name]
-    like_manager.add(user_name, current_user_total)
-
-async def on_comment(event):
-    if not _should_run:
-        return
-    if _is_processed(event):
-        return
-    
-    _track_user(event)
-    
-    payload = _extract_comment_payload(event)
-    if not payload:
-        return
-    display_name, comment_text = payload
-    user_comment = f"{display_name}: {comment_text}"
-    if user_comment in _known_comments:
-        return
-    _known_comments.add(user_comment)
-    log_line = f"{user_comment}  {datetime.datetime.now().strftime('%H:%M:%S')}"
-    store.append(store.COMMENTS, log_line)
-    if _settings.events.get("comments", True):
-        _log_to_events(log_line)
-        
-    _handle_speech_and_sound("comments", user_comment)
-
-async def on_follow(event):
-    if not _should_run:
-        return
-    if _is_processed(event):
-        return
-    
-    _track_user(event)
-    
-    global total_followers
-    
-    unique_id = getattr(event.user, "unique_id", event.user.nickname)
-
-    if unique_id in _known_followers:
-        return
-    _known_followers.add(unique_id)
-
-    total_followers += 1
-    nm = _sanitize_name(event.user.nickname)
-    log_line = f"{nm}  {datetime.datetime.now().strftime('%H:%M:%S')}"
-    store.append(store.FOLLOWERS, log_line)
-    # Translators: Announced when a new user follows the streamer. {name} is the user's name.
-    speak_msg = _("New follower: {name}").format(name=nm)
-    log_msg = f"{speak_msg}  {datetime.datetime.now().strftime('%H:%M:%S')}"
-    
-    if _settings.events.get("followers", False):
-        _log_to_events(log_msg)
-        
-    _handle_speech_and_sound("followers", speak_msg)
-    update_stats_file()
-
-async def on_gift(event):
-    if not _should_run:
-        return
-    if _is_processed(event):
-        return
-        
-    _track_user(event)
-    
-    global total_diamonds
-    if not getattr(event, "repeat_end", True):
-        return
-    count = getattr(event, "repeat_count", 1) or 1
-    name = getattr(event.gift, "name", "Gift")
-    diamonds = count * getattr(event.gift, "diamond_count", 0)
-    display_name = _sanitize_name(getattr(event.user, "nickname", "someone"))
-    
-    gift_key = f"{display_name}_{name}_{count}"
-    now = time.time()
-    if now - _known_gifts.get(gift_key, 0) < 1.0:
-        return
-    _known_gifts[gift_key] = now
-    _prune_timestamps(_known_gifts, 1.0)
-    
-    if diamonds > 0:
-        total_diamonds += diamonds
-        top_gifters[display_name] = top_gifters.get(display_name, 0) + diamonds
-    
-    speak_msg = f"Gift: {display_name}: {count} {name}"
-    log_msg = f"{speak_msg}  {datetime.datetime.now().strftime('%H:%M:%S')}"
-    
-    file_line = f"{display_name}: {count} {name}  {datetime.datetime.now().strftime('%H:%M:%S')}"
-    
-    store.append(store.GIFTS, file_line)
-        
-    if _settings.events.get("gifts", False):
-        _log_to_events(log_msg)
-        
-    _handle_speech_and_sound("gifts", speak_msg)
-    update_stats_file()
-
-async def on_like(event):
-    if not _should_run:
-        return
-    _apply_like_event(event)
-
-async def on_digg(event):
-    if not _should_run:
-        return
-    _apply_like_event(event)
-
-async def on_share(event):
-    if not _should_run:
-        return
-    if _is_processed(event):
-        return
-        
-    _track_user(event)
-    
-    display_name = _sanitize_name(event.user.nickname)
-    
-    now = time.time()
-    if now - _known_shares.get(display_name, 0) < 1.0:
-        return
-    _known_shares[display_name] = now
-    _prune_timestamps(_known_shares, 1.0)
-    
-    log_line = f"{display_name}  {datetime.datetime.now().strftime('%H:%M:%S')}"
-    
-    store.append(store.SHARES, log_line)
-        
-    if _settings.events.get("shares", False):
-        # Translators: Announced when a user shares the live stream. {name} is the user's name.
-        msg = _("{name} shared the live").format(name=display_name)
-        log_msg = f"{msg}  {datetime.datetime.now().strftime('%H:%M:%S')}"
-        _log_to_events(log_msg)
-
-    msg = _("{name} shared the live").format(name=display_name)
-    _handle_speech_and_sound("shares", msg)
-
-async def on_social(event):
-    if not _should_run:
-        return
-    
-    action = getattr(event, "action", None)
-    key = getattr(getattr(event, "display_text", None), "key", "").lower()
-    default_fmt = getattr(getattr(event, "display_text", None), "default_pattern", "").lower()
-    
-    if action == 3 or "share" in key or "share" in default_fmt:
-        await on_share(event)
-        return
-
-    if action == 1 or "follow" in key or "follow" in default_fmt:
-        await on_follow(event)
-        return
-
-async def on_join(event):
-    if not _should_run:
-        return
-    
-    _track_user(event)
-    
-    global total_viewers
-    user = getattr(event, "user", None)
-    display_name = _sanitize_name(getattr(user, "nickname", "someone"))
-    
-    if display_name in visitors:
-        return
-    visitors.add(display_name)
-    
-    total_viewers = len(visitors)
-    log_line = f"{display_name}  {datetime.datetime.now().strftime('%H:%M:%S')}"
-    store.append(store.VISITORS, log_line)
-    if _settings.events.get("visitors", False):
-        # Translators: Announced when a user joins the live stream. {name} is the user's name.
-        msg = _("{name} joined").format(name=display_name)
-        log_msg = f"{msg}  {datetime.datetime.now().strftime('%H:%M:%S')}"
-        _log_to_events(log_msg)
-    
-    msg = _("{name} joined").format(name=display_name)
-    _handle_speech_and_sound("visitors", msg)
-    update_stats_file()
-
-async def on_viewer_update(event):
-    if not _should_run:
-        return
-    global viewer_count
-    if hasattr(event, "m_total"):
-        viewer_count = event.m_total
-    elif hasattr(event, "viewer_count"):
-        viewer_count = event.viewer_count
-    update_stats_file()
-
-async def on_guest_request(event):
-    if not _should_run:
-        return
-    
-    try:
-        user_name = None
-        is_request = False
-        
-        def _get_name_from_user(u):
-            if not u: return None
-            uid = getattr(u, "id", getattr(u, "uid", None))
-            nn = getattr(u, "nick_name", getattr(u, "nickname", None))
-            if nn:
-                sanitized = _sanitize_name(nn)
-                if sanitized:
-                    _remember_user(uid, sanitized)
-                    return sanitized
-            if uid and str(uid) in _known_users:
-                return _known_users[str(uid)]
-            return None
-
-        if hasattr(event, "apply_content") and event.apply_content is not None:
-            is_request = True
-            name = _get_name_from_user(getattr(event.apply_content, "applicant", None))
-            if name: user_name = name
-
-        if not user_name and hasattr(event, "invite_content") and event.invite_content is not None:
-            is_request = True
-            name = _get_name_from_user(getattr(event.invite_content, "invitee", None))
-            if name: user_name = name
-                
-        if not user_name and hasattr(event, "user") and event.user is not None:
-            name = _get_name_from_user(event.user)
-            if name: user_name = name
-                
-        if not user_name and hasattr(event, "inviter_nickname") and event.inviter_nickname:
-            sanitized = _sanitize_name(event.inviter_nickname)
-            if sanitized:
-                user_name = sanitized
-            is_request = True
-
-        if not user_name and hasattr(event, "base_message") and event.base_message:
-            dt = getattr(event.base_message, "display_text", None)
-            if dt and hasattr(dt, "pieces") and dt.pieces:
-                for piece in dt.pieces:
-                    uv = getattr(piece, "user_value", None)
-                    if uv and hasattr(uv, "user"):
-                        name = _get_name_from_user(uv.user)
-                        if name:
-                            user_name = name
-                            break
-                            
-        if not user_name and hasattr(event, "list_content") and event.list_content:
-            lc = event.list_content
-            change_type = getattr(lc, "list_change_type", None)
-            if change_type is not None and change_type not in (1, 2):
-                return
-            if hasattr(lc, "user_list") and lc.user_list:
-                ul = lc.user_list
-                if hasattr(ul, "applied_list") and ul.applied_list:
-                    for app in ul.applied_list:
-                        if hasattr(app, "link_user") and app.link_user:
-                            name = _get_name_from_user(app.link_user)
-                            if name:
-                                user_name = name
-                                is_request = True
-                                break
-
-        mtype = str(getattr(event, "message_type", ""))
-        if "Apply" in mtype or "APPLY" in mtype:
-            is_request = True
-            
-        m_t = str(getattr(event, "m_type", getattr(event, "mType", "")))
-        if m_t in ("1", "2"):
-            is_request = True
-        elif m_t == "8":
-            return
-            
-        ename = type(event).__name__
-        if ename in ("LinkMicMethodEvent", "GuestInviteEvent", "LinkLayerEvent", 
-                     "WebcastLinkLayerMessage", "WebcastLinkMicMethodMessage", "WebcastGuestInviteMessage"):
-            is_request = True
-            
-        if not is_request:
-            return
-            
-        if not user_name:
-            return
-            
-        now = time.time()
-        if now - _requests_log.get(user_name, 0) < 10.0:
-            return
-        _requests_log[user_name] = now
-        _prune_timestamps(_requests_log, 10.0)
-            
-        # Translators: Announced when someone requests to join the live stream. {name} is the user's name.
-        speak_msg = _("Guest request: {name}").format(name=user_name)
-        
-        log_line = f"{user_name}  {datetime.datetime.now().strftime('%H:%M:%S')}"
-        store.append(store.REQUESTS, log_line)
-            
-        if _settings.events.get("requests", True):
-            log_msg = f"{speak_msg}  {datetime.datetime.now().strftime('%H:%M:%S')}"
-            _log_to_events(log_msg)
-            
-        _handle_speech_and_sound("requests", speak_msg)
-        
-    except Exception as e:
-        pass
-
-def setup():
-    store.ensure_files_exist()
-    return True
 
 def _runner(username, on_connect_cb, on_retry_cb, on_fail_cb, max_attempts=3, on_live_end_cb=None):
-    global client
-    attempts = 0
-    connected_once = False
-    live_ended = False
+	global client, _client_loop
+	attempts = 0
+	connected_once = False
+	live_ended = False
 
-    try:
-        with runtime_scope(_RUNTIME):
-            from TikTokLive import TikTokLiveClient
-            from TikTokLive.events import CommentEvent, FollowEvent, GiftEvent, LikeEvent, DiggEvent, JoinEvent, ConnectEvent
-            try:
-                from TikTokLive.events import CommentsEvent
-            except ImportError:
-                CommentsEvent = None
-            try:
-                from TikTokLive.events import EmoteChatEvent, ScreenChatEvent
-            except ImportError:
-                EmoteChatEvent = None
-                ScreenChatEvent = None
-            try:
-                from TikTokLive.events import ViewerUpdateEvent, RoomUserSeqEvent
-            except ImportError:
-                try:
-                    from TikTokLive.events import RoomUserSeqEvent
-                    ViewerUpdateEvent = None
-                except ImportError:
-                    RoomUserSeqEvent = None
-                    ViewerUpdateEvent = None
-                    
-            try:
-                from TikTokLive.events import ShareEvent
-            except ImportError:
-                ShareEvent = None
-                
-            try:
-                from TikTokLive.events import SocialEvent
-            except ImportError:
-                SocialEvent = None
-                
-            try:
-                from TikTokLive.events import LinkLayerEvent
-            except ImportError:
-                LinkLayerEvent = None
+	try:
+		classes = tiktok_adapter.event_classes()
+	except Exception:
+		if on_fail_cb:
+			on_fail_cb()
+		return
 
-            try:
-                from TikTokLive.events import LinkMicMethodEvent
-            except ImportError:
-                LinkMicMethodEvent = None
+	while _should_run:
+		ended_cleanly = False
+		try:
+			current = {}
 
-            try:
-                from TikTokLive.events import GuestInviteEvent
-            except ImportError:
-                GuestInviteEvent = None
+			def deliver(event):
+				if globals().get("client") is not current.get("client"):
+					return
+				if not _should_run:
+					return
+				pipeline.handle(event)
 
-            try:
-                from TikTokLive.events import LiveEndEvent
-            except ImportError:
-                LiveEndEvent = None
-    except Exception as e:
-        if on_fail_cb:
-            on_fail_cb()
-        return
+			def on_connected():
+				nonlocal attempts, connected_once
+				attempts = 0
+				connected_once = True
+				pipeline.connection_time = time.time()
+				if on_connect_cb:
+					on_connect_cb()
 
-    while _should_run:
-        ended_cleanly = False
-        try:
-            with runtime_scope(_RUNTIME):
-                client = TikTokLiveClient(unique_id=username)
-                
-                my_client = client
-                def wrap(func):
-                    async def wrapper(*args, **kwargs):
-                        if globals().get('client') is not my_client:
-                            return
-                        await func(*args, **kwargs)
-                    return wrapper
+			def on_stream_end():
+				nonlocal live_ended
+				if globals().get("client") is not current.get("client"):
+					return
+				live_ended = True
 
-                client.add_listener(CommentEvent, wrap(on_comment))
-                client.add_listener("CommentEvent", wrap(on_comment))
-                if CommentsEvent:
-                    client.add_listener(CommentsEvent, wrap(on_comment))
-                    client.add_listener("CommentsEvent", wrap(on_comment))
-                if EmoteChatEvent:
-                    client.add_listener(EmoteChatEvent, wrap(on_comment))
-                    client.add_listener("EmoteChatEvent", wrap(on_comment))
-                if ScreenChatEvent:
-                    client.add_listener(ScreenChatEvent, wrap(on_comment))
-                    client.add_listener("ScreenChatEvent", wrap(on_comment))
-                client.add_listener(FollowEvent, wrap(on_follow))
-                client.add_listener(GiftEvent, wrap(on_gift))
-                client.add_listener(LikeEvent, wrap(on_like))
-                client.add_listener(DiggEvent, wrap(on_digg))
-                client.add_listener(JoinEvent, wrap(on_join))
-                if ShareEvent:
-                    try:
-                        client.add_listener(ShareEvent, wrap(on_share))
-                    except Exception:
-                        pass
-                if SocialEvent:
-                    try:
-                        client.add_listener(SocialEvent, wrap(on_social))
-                    except Exception:
-                        pass
-                if ViewerUpdateEvent:
-                    client.add_listener(ViewerUpdateEvent, wrap(on_viewer_update))
-                if RoomUserSeqEvent:
-                    client.add_listener(RoomUserSeqEvent, wrap(on_viewer_update))
-                    
-                if LinkLayerEvent:
-                    client.add_listener(LinkLayerEvent, wrap(on_guest_request))
-                    client.add_listener("LinkLayerEvent", wrap(on_guest_request))
-                if LinkMicMethodEvent:
-                    client.add_listener(LinkMicMethodEvent, wrap(on_guest_request))
-                    client.add_listener("LinkMicMethodEvent", wrap(on_guest_request))
-                if GuestInviteEvent:
-                    client.add_listener(GuestInviteEvent, wrap(on_guest_request))
-                    client.add_listener("GuestInviteEvent", wrap(on_guest_request))
-                
-                client.add_listener("WebcastLinkLayerMessage", wrap(on_guest_request))
-                client.add_listener("WebcastLinkMicMethodMessage", wrap(on_guest_request))
-                client.add_listener("WebcastGuestInviteMessage", wrap(on_guest_request))
-                
+			client = current["client"] = tiktok_adapter.new_client(
+				username, classes, deliver, on_connected, on_stream_end
+			)
+			try:
+				_client_loop = asyncio.get_event_loop()
+			except RuntimeError:
+				_client_loop = asyncio.new_event_loop()
+				asyncio.set_event_loop(_client_loop)
 
+			tiktok_adapter.run(client)
+			ended_cleanly = True
 
-                async def on_connected(event):
-                    nonlocal attempts, connected_once
-                    global _connection_time
-                    attempts = 0
-                    connected_once = True
-                    _connection_time = time.time()
-                    if on_connect_cb:
-                        on_connect_cb()
+		except Exception:
+			ended_cleanly = False
 
-                client.add_listener(ConnectEvent, on_connected)
+		if not _should_run:
+			break
 
-                async def on_stream_end(event):
-                    nonlocal live_ended
-                    live_ended = True
+		# The stream is over either when the library says so, or when run()
+		# returned without error after we had been connected. Either signal
+		# alone is enough, so a missing LiveEndEvent cannot hide the ending.
+		if live_ended or (ended_cleanly and connected_once):
+			if on_live_end_cb:
+				on_live_end_cb()
+			break
 
-                if LiveEndEvent:
-                    client.add_listener(LiveEndEvent, wrap(on_stream_end))
-                client.add_listener("LiveEndEvent", wrap(on_stream_end))
-                
-                global _client_loop
-                import asyncio
-                try:
-                    _client_loop = asyncio.get_event_loop()
-                except RuntimeError:
-                    _client_loop = asyncio.new_event_loop()
-                    asyncio.set_event_loop(_client_loop)
-                
-                client.run()
+		attempts += 1
+		if attempts < max_attempts:
+			if on_retry_cb:
+				on_retry_cb()
+			time.sleep(3)
+		else:
+			if on_fail_cb:
+				on_fail_cb()
+			break
 
-            ended_cleanly = True
-
-        except Exception:
-            ended_cleanly = False
-
-        if not _should_run:
-            break
-
-        # The stream is over either when the library says so, or when run()
-        # returned without error after we had been connected. Either signal
-        # alone is enough, so a missing LiveEndEvent cannot hide the ending.
-        if live_ended or (ended_cleanly and connected_once):
-            if on_live_end_cb:
-                on_live_end_cb()
-            break
-
-        attempts += 1
-        if attempts < max_attempts:
-            if on_retry_cb:
-                on_retry_cb()
-            time.sleep(3)
-        else:
-            if on_fail_cb:
-                on_fail_cb()
-            break
 
 def connect(username=None, on_connect=None, on_retry=None, on_fail=None, retry_count=3, on_live_end=None):
-    global _top_thread_started, _thread, _should_run, _stats_thread, _known_comments, _known_events
-    global _known_followers, _known_shares, _processed_ids, _connection_time, _settings
+	global _top_thread_started, _thread, _should_run, _stats_thread
 
-    if _thread and _thread.is_alive():
-        return
+	if _thread and _thread.is_alive():
+		return
 
-    _settings = settings.load()
-    announcer.sound_manager.set_volume(_settings.volume)
-    announcer.sound_manager.start()
-    announcer.sound_manager.clear()
-    announcer.clear_speech_buffer()
-    _known_comments.clear()
-    _known_events.clear()
-    _processed_ids.clear()
-    _known_gifts.clear()
-    _connection_time = 0
-    _known_followers.clear()
-    _known_shares.clear()
-    if not _settings.clear_on_start:
-        try:
-            for ln in store.path(store.COMMENTS).read_text(encoding="utf-8").splitlines():
-                ln = ln.strip()
-                if ln:
-                    parts = ln.rsplit("  ", 1)
-                    _known_comments.add(parts[0])
-            if store.path(store.EVENTS).exists():
-                for ln in store.path(store.EVENTS).read_text(encoding="utf-8").splitlines():
-                    ln = ln.strip()
-                    if ln:
-                        parts = ln.rsplit("  ", 1)
-                        _known_events.add(parts[0])
-        except Exception:
-            pass
-    final_user = username if username else _settings.username
-    
-    if not final_user:
-        return
+	loaded = settings.load()
+	pipeline.use_settings(loaded)
+	announcer.sound_manager.set_volume(loaded.volume)
+	announcer.sound_manager.start()
+	announcer.sound_manager.clear()
+	announcer.clear_speech_buffer()
+	pipeline.forget_seen()
+	if not loaded.clear_on_start:
+		pipeline.remember_logged()
+	final_user = username if username else loaded.username
 
-    store.ensure_files_exist()
-    if _settings.clear_on_start:
-        store.clear_all()
-        reset_accumulators()
-        update_stats_file(force=True)
+	if not final_user:
+		return
 
-    _stop_event.clear()
-    
-    if not _top_thread_started:
-        _stats_thread = threading.Thread(target=update_top_files, daemon=True)
-        _stats_thread.start()
-        _top_thread_started = True
+	store.ensure_files_exist()
+	if loaded.clear_on_start:
+		store.clear_all()
+		pipeline.reset_accumulators()
+		pipeline.update_stats_file(force=True)
 
-    _should_run = True
-    
-    with _run_lock:
-        if _thread and _thread.is_alive():
-            return
-        _thread = threading.Thread(target=_runner, args=(final_user, on_connect, on_retry, on_fail, retry_count, on_live_end), daemon=True)
-        _thread.start()
+	_stop_event.clear()
+
+	if not _top_thread_started:
+		_stats_thread = threading.Thread(target=update_top_files, daemon=True)
+		_stats_thread.start()
+		_top_thread_started = True
+
+	_should_run = True
+
+	with _run_lock:
+		if _thread and _thread.is_alive():
+			return
+		_thread = threading.Thread(
+			target=_runner,
+			args=(final_user, on_connect, on_retry, on_fail, retry_count, on_live_end),
+			daemon=True,
+		)
+		_thread.start()
+
 
 def disconnect():
-    global _thread, client, _should_run, _top_thread_started, _stats_thread
-    _should_run = False
-    flush_stats_file()
-    _stop_event.set()
-    
-    _stats_thread = None
-    _top_thread_started = False
-    
-    with _run_lock:
-        if client:
-            try:
-                if '_client_loop' in globals() and _client_loop is not None and getattr(client, "connected", False):
-                    if _client_loop.is_running():
-                        _client_loop.call_soon_threadsafe(client.stop)
-                else:
-                    client.stop()
-            except Exception:
-                pass
-        
-        like_manager.stop()
-        
-        announcer.sound_manager.stop()
-        
-        old_thread = _thread
-        _thread = None
-        client = None
-        
-    if old_thread and old_thread.is_alive() and old_thread != threading.current_thread():
-        try:
-            old_thread.join(timeout=3.0)
-        except Exception:
-            pass
+	global _thread, client, _should_run, _top_thread_started, _stats_thread
+	_should_run = False
+	pipeline.flush_stats_file()
+	_stop_event.set()
 
-if __name__ == "__main__":
-    setup()
-    connect()
-    try:
-        while True:
-            time.sleep(1)
-    except KeyboardInterrupt:
-        disconnect()
+	_stats_thread = None
+	_top_thread_started = False
+
+	with _run_lock:
+		if client:
+			try:
+				if _client_loop is not None and getattr(client, "connected", False):
+					if _client_loop.is_running():
+						_client_loop.call_soon_threadsafe(client.stop)
+				else:
+					client.stop()
+			except Exception:
+				pass
+
+		pipeline.like_manager.stop()
+		announcer.sound_manager.stop()
+
+		old_thread = _thread
+		_thread = None
+		client = None
+
+	if old_thread and old_thread.is_alive() and old_thread != threading.current_thread():
+		try:
+			old_thread.join(timeout=3.0)
+		except Exception:
+			pass

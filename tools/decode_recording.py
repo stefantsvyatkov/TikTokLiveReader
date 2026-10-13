@@ -148,7 +148,7 @@ def main():
 	from TikTokLive.__version__ import PACKAGE_VERSION
 
 	rows = [json.loads(line) for line in recording.read_text(encoding="utf-8").splitlines()]
-	rows = [row for row in rows if not row.get("header")]
+	rows = [row for row in rows if "method" in row]
 	output.parent.mkdir(parents=True, exist_ok=True)
 	with output.open("w", encoding="utf-8") as out:
 		out.write(

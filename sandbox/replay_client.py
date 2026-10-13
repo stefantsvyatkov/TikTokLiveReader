@@ -23,7 +23,7 @@ from .proto import ProtoMessageFetchResult, ProtoMessageFetchResultBaseProtoMess
 
 def _frames(path, pace):
 	rows = [json.loads(line) for line in Path(path).read_text(encoding="utf-8").splitlines()]
-	rows = [row for row in rows if not row.get("header")]
+	rows = [row for row in rows if "method" in row]
 	frames, previous = [], None
 	for _number, group in itertools.groupby(rows, key=lambda row: row["frame"]):
 		group = list(group)

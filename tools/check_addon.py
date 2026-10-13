@@ -5,8 +5,10 @@
 What happened is counted from the raw messages (decoded by the vendored
 library with tools/decode_recording.py); what the add-on did is its text
 files and speech after replaying the recording through its real connection
-thread at ``pace`` (1 = the recorded timing, which the add-on's one-second and
-ten-second rules depend on). Output and report go to artifacts/checks/.
+thread. Without ``pace`` it runs on recorded time (tests/feed.py's virtual
+clock: the timing the add-on's rules depend on, without waiting for it); with
+one it waits the recorded pauses scaled by ``pace``. Output and report go to
+artifacts/checks/.
 """
 
 import collections
@@ -47,7 +49,7 @@ def decode(recording, out_dir):
 		check=True,
 	)
 	rows = [json.loads(line) for line in decoded.read_text(encoding="utf-8").splitlines()]
-	return [row for row in rows if not row.get("header") and "error" not in row]
+	return [row for row in rows if "method" in row and "error" not in row]
 
 
 def expected_from(events):
@@ -145,7 +147,7 @@ def compare(expected, logged):
 
 def main():
 	recording = Path(sys.argv[1])
-	pace = float(sys.argv[2]) if len(sys.argv) > 2 else 1.0
+	pace = float(sys.argv[2]) if len(sys.argv) > 2 else None
 	out_dir = REPO / "artifacts" / "checks" / recording.stem
 	if out_dir.exists():
 		shutil.rmtree(out_dir)
@@ -155,14 +157,17 @@ def main():
 	from tests import feed
 
 	result = feed.run_session(
-		*feed.recorded_frames(recording, pace),
+		*feed.recorded_frames(recording, pace or 1.0),
 		past_grace_period=False,
 		settings=SETTINGS,
 		log_dir=out_dir / "addon",
+		clock=None if pace else feed.VirtualClock(),
+		timeout=900,
 	)
 	(out_dir / "speech.txt").write_text("\n".join(result.speech), encoding="utf-8")
 
-	report = [f"recording {recording.name}, pace {pace}, {len(events)} events decoded (with repeats)"]
+	timing = f"pace {pace}" if pace else "recorded time"
+	report = [f"recording {recording.name}, {timing}, {len(events)} events decoded (with repeats)"]
 	report += compare(expected_from(events), logged_from(result, feed))
 	report.append(f"stats: {result.stats}")
 	report.append(f"callbacks: {result.callbacks}")

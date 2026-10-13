@@ -113,6 +113,9 @@ def main():
 				row["user"] = "host"
 				out.write(json.dumps(row) + "\n")
 				continue
+			if "method" not in row:
+				out.write(json.dumps(row) + "\n")
+				continue
 			if keep and row["method"] not in keep:
 				skipped += 1
 				continue

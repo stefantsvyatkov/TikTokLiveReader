@@ -78,7 +78,13 @@ page at once (autoplay with sound).
 ## Windows Sandbox with real NVDA
 
 `sandbox\Run-Sandbox.ps1 [-Scenario smoke] [-Nvda 2026.2,...] [-Recording smoke.jsonl] [-Pace 1]`
-(`-Stop` closes it). Adapted from BST Radio's sandbox: one persistent sandbox,
+(`-Stop` closes it). Scenarios: `smoke` (switch on, navigate, viewers,
+switch off) and `settings` (every control of the General page by name, OK
+saves, Cancel does not, a bad user name is refused, Learn sounds speaks, a
+new user name while connected archives the old session and reconnects). Text
+is typed as Unicode characters: the sandbox takes the host's keyboard layout
+(Bulgarian), so key codes would type Cyrillic. The sandbox keeps the focus of
+the previous run (the tray, after a settings run). Adapted from BST Radio's sandbox: one persistent sandbox,
 started minimised without taking the focus; `artifacts\sandbox` is mapped
 read-only as `C:\Stage`, `artifacts\sandbox-runs` writable as `C:\Runs`; the
 agent writes a heartbeat and takes requests from `request.txt`. Changing

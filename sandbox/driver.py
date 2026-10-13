@@ -182,7 +182,134 @@ def scenario_smoke(run):
 	run.end_stream()
 
 
-SCENARIOS = {"smoke": scenario_smoke}
+KEYEVENTF_UNICODE = 0x0004
+
+
+def type_text(text):
+	"""Type characters as themselves, whatever the keyboard layout (the sandbox
+	takes the host's, here Bulgarian)."""
+	for character in text:
+		for flags in (KEYEVENTF_UNICODE, KEYEVENTF_UNICODE | KEYEVENTF_KEYUP):
+			event = INPUT(type=INPUT_KEYBOARD, ki=KEYBDINPUT(0, ord(character), flags, 0, 0))
+			user32.SendInput(1, ctypes.byref(event), ctypes.sizeof(INPUT))
+			time.sleep(0.03)
+
+
+def open_dialog(run, name):
+	"""Open the settings dialog, with the focus on the user name. Windows can keep
+	the first dialog of portable NVDA (no UIAccess) behind the focused window until
+	it is raised again and a key is pressed (F35)."""
+	if run.press_and_hear("nvda+control+shift+l", r"^User name edit", name, timeout=4):
+		return True
+	run.results.pop()
+	press("nvda+control+shift+l")
+	time.sleep(1)
+	press("tab")
+	time.sleep(1)
+	return run.press_and_hear("shift+tab", r"^User name edit", f"{name} (raised, F35)")
+
+
+def settings_file(run):
+	# The agent keeps the run's NVDA configuration beside its text files folder.
+	try:
+		return (run.texts.parent / "config" / "tiktokLiveReader.ini").read_text(encoding="utf-8")
+	except OSError:
+		return ""
+
+
+def wait_for_file(run, name, condition, timeout=10):
+	started = time.monotonic()
+	while time.monotonic() - started < timeout:
+		text = settings_file(run)
+		if condition(text):
+			return run.check(name, True)
+		time.sleep(0.2)
+	return run.check(name, False, settings_file(run))
+
+
+def tab_to(run, pattern, name, limit=14):
+	"""Press Tab until the focus is on a control whose name matches."""
+	for _attempt in range(limit):
+		run.mark = len(run.log.speech())
+		press("tab")
+		started = time.monotonic()
+		while time.monotonic() - started < 2:
+			if any(re.search(pattern, utterance) for utterance in run.since_mark()):
+				return run.check(name, True, repr(run.since_mark()[-1]))
+			time.sleep(0.05)
+	return run.check(name, False, f"heard {run.since_mark()!r}")
+
+
+def scenario_settings(run):
+	"""The settings dialog: its controls, OK saves, Cancel does not, a bad user name
+	is refused, learning the sounds speaks, a new user name reconnects."""
+	if not run.wait_for_nvda():
+		return
+	open_dialog(run, "dialog opens")
+	tab_to(run, r"Text files destination", "destination field", limit=1)
+	tab_to(run, r"Browse", "browse button", limit=1)
+	tab_to(run, r"Clear text files on startup.*\bchecked", "clear on start checked", limit=1)
+	tab_to(run, r"Clean user names.*\bchecked", "clean user names checked", limit=1)
+	tab_to(run, r"Archive each live session.*not checked", "archive not checked", limit=1)
+	run.press_and_hear("space", r"^checked$", "archive checked")
+	tab_to(run, r"Connection retry count", "retry count", limit=1)
+	press("enter")
+	wait_for_file(run, "OK saves", lambda text: "backup_sessions = true" in text)
+
+	saved = settings_file(run)
+	open_dialog(run, "dialog opens again")
+	run.press_and_hear("control+tab", r"^Comments check box", "events page")
+	tab_to(run, r"Followers.*\bchecked", "followers on the events page", limit=1)
+	run.press_and_hear("space", r"not checked", "followers unchecked")
+	press("escape")
+	time.sleep(1.5)
+	unchanged = settings_file(run) == saved
+	run.check("Cancel does not save", unchanged, "" if unchanged else settings_file(run))
+
+	open_dialog(run, "dialog for a bad user name")
+	time.sleep(0.5)
+	press("control+a")
+	type_text("a")
+	run.press_and_hear("enter", r"^Please enter a valid username$", "bad user name refused")
+	press("escape")
+	time.sleep(1.5)
+
+	open_dialog(run, "dialog for the sounds")
+	run.press_and_hear("control+tab", r"^Comments check box", "events page again")
+	run.press_and_hear("control+tab", r"^Auto speak selected events check box", "auto speak page")
+	run.press_and_hear("control+tab", r"^Play sounds for the selected events check box\s+not checked", "sounds page")
+	run.press_and_hear("space", r"^checked$", "play sounds checked")
+	tab_to(run, r"^Learn sounds button", "learn sounds button")
+	run.mark = len(run.log.speech())
+	press("space")
+	run.hear(r"^Comment$", "learning speaks the first sound's name", timeout=8)
+	run.hear(r"^Follower$", "learning goes on to the next", timeout=8)
+	press("space")
+	time.sleep(1)
+	press("escape")
+	time.sleep(1.5)
+	discarded = "play_sounds = false" in settings_file(run)
+	run.check("Cancel discards play sounds", discarded, "" if discarded else settings_file(run))
+
+	run.press_and_hear("nvda+control+shift+t", r"^TikTok Live Reader On$", "switching on")
+	run.hear(r"^Connected to user: host$", "connected")
+	time.sleep(2)
+	open_dialog(run, "dialog while connected")
+	time.sleep(0.5)
+	press("control+a")
+	type_text("host2")
+	run.mark = len(run.log.speech())
+	press("enter")
+	run.hear(r"^Connected to user: host2$", "a new user name reconnects", timeout=25)
+	backups = run.texts / "Backups"
+	archived = [folder.name for folder in backups.iterdir()] if backups.is_dir() else []
+	run.check("the old session is archived", any(name.endswith(" host") for name in archived), repr(archived))
+	wait_for_file(run, "the new user name is saved", lambda text: "username = host2" in text)
+	run.press_and_hear("nvda+control+shift+t", r"^TikTok Live Reader Off$", "switching off")
+	run.end_stream()
+
+
+SCENARIOS = {"smoke": scenario_smoke, "settings": scenario_settings}
 
 
 def main():

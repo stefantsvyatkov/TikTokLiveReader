@@ -103,6 +103,14 @@ confirms it.
   mark (old Notepad, PowerShell 5's `-Encoding UTF8`), the first section header
   is not recognised, reading fails and every setting silently falls back to
   its default. Found by the sandbox, whose agent first wrote the file that way.
+- F35 Sandbox. The settings dialog is shown with `ShowModal()` alone, without
+  `gui.mainFrame.prePopup()`/`postPopup()`. With portable NVDA (no UIAccess)
+  Windows kept the first dialog behind the focused window ("Foreground took
+  too long to change" in NVDA's log): nothing was spoken, keys went to the
+  window behind, and since `_settingsDialog` was set, switching the add-on on
+  was refused until the dialog was raised by pressing the shortcut again and
+  then another key. NVDA's own dialogs (prePopup) came up at once. Installed
+  NVDA may hide it; the fix is NVDA's way of showing a dialog.
 - F20 Fixed in phase 2 step 1. Settings lived in three places kept in sync by
   hand: the ini file, `GlobalPlugin` attributes and `client` module globals.
   Now one `settings.Settings` owned by the plugin and handed to

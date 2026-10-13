@@ -37,7 +37,10 @@ confirms it.
   of the session. The text check does catch something real: TikTok sends the
   history (messages from before connecting) twice, in the first frame and a
   few frames later, with the same message ids (recorded 2026-10-13). The fix is
-  F4, deduplicating by message id, not dropping the check.
+  F4, deduplicating by message id, not dropping the check. Confirmed live with
+  `tools/check_addon.py`: on a Bulgarian live 24 of 102 comments were lost
+  (people repeating an unanswered question: one asked "кой град си" 7 times),
+  3 of 97 and 2 of 45 on two other lives.
 - F6 Pinned. `events.txt` drops a line identical to an earlier one (a second
   share, the same like count again), while the per-type file keeps it.
 - F7 Pinned, confirmed live. A gift that cannot streak (`type != 1`) is
@@ -61,6 +64,24 @@ confirms it.
 - F25 Live. Guest requests carrying only `user_id` (LinkMicMethod) are not
   resolved to a name; real requests may use other message shapes. Needs
   recordings.
+- F30 Confirmed live. Text files are appended from several threads (the
+  connection thread, one like timer per person) without a lock; Windows emulates
+  append as seek-to-end plus write, so two lines written at the same moment
+  overwrite each other. Replaying a busy live left a like line cut in half,
+  starting in the middle of an emoji. Navigation reads the files as strict
+  UTF-8 and only catches OSError, so after such a line the file can no longer
+  be browsed and NVDA stays silent on it for the rest of the session.
+- F31 Live. A comment that is only a sticker or emote has empty text and is
+  dropped. Kept as it is (user's decision, 2026-10-13): announcing it would need
+  a new string.
+- F32 Live. A second share by the same person within a second is dropped (the
+  rule hides F13's double handling): one viewer sharing every 0.8 s lost 9 of
+  10 shares.
+- F33 Live. Besides the history, about 0.3-0.6 % of live messages arrive twice
+  with the same id (joins, likes, gifts restrictions, viewer counts). Likes have
+  no duplicate check at all, so a repeated like message is counted twice per
+  person (and in top likes). Deduplicating every event by message id (F4)
+  covers F5, F6, F8, F32 and F33 at once.
 - F28 Live (recorded). A `LinkLayerEvent` list change carries the whole
   applicant queue (`list_content.user_list.applied_list`, user ids only) and the
   guests already linked. The add-on announces the first applicant whose name it

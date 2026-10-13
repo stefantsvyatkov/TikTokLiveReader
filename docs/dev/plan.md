@@ -30,8 +30,23 @@ live recording.
    recorder and replay; [x] library comparison (no decoding difference for the
    add-on; recommendation: stay on 6.6.5, isolate the library in one module);
    [x] Windows Sandbox with NVDA 2026.1.1, 2026.2 and 2026.3beta4 running the
-   add-on; [x] CI workflow (runs once pushed); [ ] replay of the three live
-   recordings through 1.8.
+   add-on; [x] CI workflow (passes on GitHub); [x] replay of the three live
+   recordings through 1.8 (F5, F7, F30-F33 confirmed or found).
+   Decided afterwards: upgrade to TikTokLive 7.0.1 in 2.0, after the adapter
+   (6.6.5 signs through the old `tiktok.eulerstream.com`); license 2.0 as GPL
+   v2 or later, applied at release once the code written by the contributor
+   Muhammad (vendor_loader.py, parts of client.py) is rewritten - his
+   Indonesian translation stays; conflict tests with test add-ons and real
+   store add-ons (list them for the user before downloading).
+   License wording to apply at the 2.0 release (approved): README line
+   "Distributed under the **GNU General Public License, version 2 or
+   later**." plus "The bundled TikTokLive library and its dependencies keep
+   their own licenses (TikTokLive: AGPL-3.0 with additional permissions); their
+   license files are included in the add-on."; buildVars `addon_license`
+   "GNU General Public License v2.0 or later"; doc/en and doc/id "It is
+   distributed under the GNU General Public License, version 2 or later.";
+   doc/bg "Разпространява се под лиценз GNU General Public License, версия 2
+   или по-късна." Show the user the exact diff when applying.
 2. Module split behind the tests, behaviour unchanged.
 3. Fixes from `findings.md`, each with a test or recording.
 4. Stress test in the sandbox on all three NVDA versions, live comparison

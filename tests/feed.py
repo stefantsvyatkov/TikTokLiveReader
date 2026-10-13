@@ -362,7 +362,7 @@ def run_session(*frames, end="clean", past_grace_period=True, settle_likes=True,
 
 	files = {}
 	for path in client._session_files():
-		files[path.name] = path.read_text(encoding="utf-8").splitlines() if path.exists() else None
+		files[path.name] = path.read_text(encoding="utf-8", errors="replace").splitlines() if path.exists() else None
 	return Result(files, read_speech(), session.sounds.played, callbacks, log_dir, stats)
 
 

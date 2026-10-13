@@ -86,16 +86,33 @@ def logged_from(result, feed):
 		"requests": feed.without_times(result.files["requests.txt"]),
 	}
 	likes = collections.Counter()
+	broken = []
 	for line in feed.without_times(result.files["likes.txt"]):
 		name, _, rest = line.rpartition(": ")
-		likes[name] += int(rest.split()[0])
+		try:
+			likes[name] += int(rest.split()[0])
+		except (ValueError, IndexError):
+			broken.append(line)
 	logged["likes (sum per person)"] = [f"{name}: {count}" for name, count in sorted(likes.items())]
+	corrupted = [
+		f"{name}: {line}" for name, lines in result.files.items() for line in lines or [] if "�" in line
+	]
+	logged["(lines with broken characters, F30)"] = corrupted + [f"unreadable like line: {line}" for line in broken]
 	return logged
+
+
+INFORMATION = ("(", "link messages")
 
 
 def compare(expected, logged):
 	lines = []
 	for category in sorted(set(expected) | set(logged)):
+		if category.startswith(INFORMATION):
+			items = expected.get(category, []) + logged.get(category, [])
+			lines.append(f"{category} (for information): {len(items)}")
+			for item, count in list(collections.Counter(items).items())[:12]:
+				lines.append(f"    {count}x  {item!r}")
+			continue
 		want = collections.Counter(expected.get(category, []))
 		got = collections.Counter(logged.get(category, []))
 		missing = want - got

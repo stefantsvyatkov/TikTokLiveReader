@@ -3,6 +3,8 @@ library's events into the add-on's own (events.py). The listeners are those of
 1.8: a comment reaches the pipeline twice, a follow or share once as itself and
 once as a social message; the pipeline handles each message once by its id."""
 
+import asyncio
+import contextlib
 from pathlib import Path
 
 from . import events, vendor
@@ -65,9 +67,9 @@ def event_classes():
 
 
 def new_client(username, classes, deliver, on_connected, on_live_end):
-	"""A client for ``username`` that calls ``deliver`` with each of the add-on's
-	events, ``on_connected()`` when connected and ``on_live_end()`` when the live
-	ends."""
+	"""A connection to ``username``'s live that calls ``deliver`` with each of the
+	add-on's events, ``on_connected()`` when connected and ``on_live_end()`` when
+	the live ends."""
 	with library_scope():
 		client = classes["TikTokLiveClient"](unique_id=username)
 
@@ -114,13 +116,69 @@ def new_client(username, classes, deliver, on_connected, on_live_end):
 		if classes["LiveEndEvent"]:
 			client.add_listener(classes["LiveEndEvent"], live_ended)
 		client.add_listener("LiveEndEvent", live_ended)
-	return client
+	return Connection(client)
 
 
-def run(client):
-	"""Connect and handle the live until it ends or the connection drops."""
-	with library_scope():
-		client.run()
+class Connection:
+	"""One connection: the library's client and the event loop it runs on, in the
+	thread that calls ``run``. 1.8 ran it in a loop nobody kept, so switching off
+	could not close it (F1) and waited 3 s for it (F27)."""
+
+	def __init__(self, client):
+		self.client = client
+		self._loop = None
+		self._task = None
+		self._stopping = False
+
+	def run(self):
+		"""Connect and handle the live until it ends, the connection drops or
+		``stop`` is called; raises when connecting fails."""
+		loop = asyncio.new_event_loop()
+		asyncio.set_event_loop(loop)
+		try:
+			with library_scope():
+				self._task = loop.create_task(self._connect())
+				self._loop = loop
+				try:
+					loop.run_until_complete(self._task)
+				except asyncio.CancelledError:
+					pass
+				finally:
+					_close_loop(loop, self.client)
+		finally:
+			asyncio.set_event_loop(None)
+
+	async def _connect(self):
+		if not self._stopping:
+			await self.client.connect()
+
+	def stop(self):
+		"""Close the connection, from any thread; returns at once."""
+		self._stopping = True
+		loop = self._loop
+		if loop is not None and loop.is_running():
+			with contextlib.suppress(RuntimeError):
+				asyncio.run_coroutine_threadsafe(self._shut_down(), loop)
+
+	async def _shut_down(self):
+		with contextlib.suppress(Exception):
+			await self.client.disconnect()
+		if self._task is not None:
+			self._task.cancel()
+
+
+def _close_loop(loop, client):
+	"""Leave nothing running on the loop and close it (F15)."""
+	with contextlib.suppress(Exception):
+		loop.run_until_complete(client.close())
+	pending = [task for task in asyncio.all_tasks(loop) if not task.done()]
+	for task in pending:
+		task.cancel()
+	with contextlib.suppress(Exception):
+		loop.run_until_complete(asyncio.gather(*pending, return_exceptions=True))
+	with contextlib.suppress(Exception):
+		loop.run_until_complete(loop.shutdown_asyncgens())
+	loop.close()
 
 
 def message_id(event):

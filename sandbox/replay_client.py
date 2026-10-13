@@ -5,8 +5,7 @@ lib/TikTokLive/_sandbox_replay.py and makes TikTokLive export it when the
 environment variable TIKTOK_REPLAY names a recording (tools/record_live.py
 format). TIKTOK_REPLAY_PACE scales the recorded pauses. After the last frame
 the stream stays open until the file TIKTOK_REPLAY_CONTROL holds "end"
-(stream over) or "drop" (connection lost); like the real client of
-TikTokLive 6.6.5, the add-on switching off does not end it.
+(stream over) or "drop" (connection lost), or the add-on disconnects.
 """
 
 import asyncio
@@ -55,8 +54,8 @@ def _control():
 
 
 class TikTokLiveClient(_LiveClient):
-	def run(self, **kwargs):
-		return self._asyncio_loop.run_until_complete(self._replay())
+	async def connect(self, **kwargs):
+		await self._replay()
 
 	async def _replay(self):
 		frames = _frames(os.environ["TIKTOK_REPLAY"], float(os.environ.get("TIKTOK_REPLAY_PACE", "1")))

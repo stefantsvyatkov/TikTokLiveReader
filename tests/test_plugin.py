@@ -2,6 +2,7 @@
 
 import json
 import re
+import time
 import unittest
 
 from . import feed as f
@@ -60,6 +61,36 @@ class PluginTest(unittest.TestCase):
 
 
 class SwitchingOnAndOff(PluginTest):
+	def test_switching_off_closes_the_connection_at_once(self):
+		# F1, F27: 1.8 left the connection open and froze NVDA for 3 s.
+		plugin, _ = make_plugin()
+		with f.replaying(end="hold") as session:
+			plugin.script_toggleActive(None)
+			self.assertTrue(f.wait_until(said("Connected to user: host")))
+			started = time.perf_counter()
+			plugin.script_toggleActive(None)
+			self.assertLess(time.perf_counter() - started, 0.5)
+			session.threads[0].join(5)
+			self.assertFalse(session.threads[0].is_alive())
+
+	def test_an_old_connection_ending_does_not_end_the_new_session(self):
+		# F2
+		plugin, _ = make_plugin()
+		with f.replaying(end="hold") as old:
+			plugin.script_toggleActive(None)
+			self.assertTrue(f.wait_until(said("Connected to user: host")))
+			plugin.script_toggleActive(None)
+			support.spoken.clear()
+			with f.replaying(end="hold") as new:
+				plugin.script_toggleActive(None)
+				self.assertTrue(f.wait_until(said("Connected to user: host")))
+				old.release.set()
+				time.sleep(0.5)
+				self.assertNotIn("The live has ended", support.spoken)
+				self.assertTrue(plugin.active)
+				new.release.set()
+				self.assertTrue(f.wait_until(said("The live has ended")), support.spoken)
+
 	def test_refuses_without_a_user_name(self):
 		plugin, _ = make_plugin(main={"username": ""})
 		plugin.script_toggleActive(None)

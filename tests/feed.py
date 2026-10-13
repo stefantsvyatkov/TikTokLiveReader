@@ -201,10 +201,10 @@ class _ReplayClient(TikTokLive.TikTokLiveClient):
 
 	session = None
 
-	def run(self, **kwargs):
+	async def connect(self, **kwargs):
 		session = self.session
 		session.threads.append(threading.current_thread())
-		return self._asyncio_loop.run_until_complete(self._replay(session))
+		await self._replay(session)
 
 	async def _replay(self, session):
 		recorded_connect = any(getattr(item, "is_first", False) for item in session.frames)
@@ -461,8 +461,6 @@ def run_session(
 		pauses = 0 if clock else sum(item for item in frames if isinstance(item, (int, float)))
 		if not finished.wait(timeout + pauses):
 			raise TimeoutError("the replayed session did not finish")
-		if addon_session._thread is not None:
-			addon_session._thread.join(10)
 		if settle_likes:
 			settle_like_timers()
 		stats = {

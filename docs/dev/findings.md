@@ -6,6 +6,16 @@ confirms it.
 
 ## Connection
 
+Fixed in phase 3 (2026-10-13): F1, F2, F27, F15, F23, F3. The adapter runs the
+client on an event loop of its own (`tiktok_adapter.Connection`) and stops it
+by disconnecting and cancelling on that loop, without waiting; each switch-on
+is a run (`session._Run`) whose events and reports are dropped once it ended;
+one stats thread per run; the plugin's connection callbacks and the speech
+reader speak through `wx.CallAfter`, and a report of a session switched off
+since is dropped. Measured in the sandbox on all three NVDA versions: NVDA
+answers 0.13 s after switching off (was 2.85-2.90 s). The tests run in 25 s
+instead of 85 and leave no event loop unclosed.
+
 - F1 Pinned. `disconnect()` calls `client.stop()`, which does not exist; the error is
   swallowed and the websocket stays open until the stream ends.
 - F2 Pinned. A connection left open by F1 shares `_should_run` with the next one: when

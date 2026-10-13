@@ -12,6 +12,7 @@ import winsound
 from pathlib import Path
 
 import ui
+import wx
 
 ADDON_DIR = Path(__file__).resolve().parent
 # winsound has no name for it: playing synchronously is the absence of SND_ASYNC.
@@ -210,8 +211,6 @@ class SpeechReader:
 				continue
 			if not self._running or self._thread is not me:
 				break
-			try:
-				ui.message(text)
-			except Exception:
-				pass
+			# Spoken on NVDA's main thread (F3).
+			wx.CallAfter(ui.message, text)
 			time.sleep(self.delay)

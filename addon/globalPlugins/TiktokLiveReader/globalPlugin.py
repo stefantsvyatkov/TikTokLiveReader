@@ -63,6 +63,7 @@ class GlobalPlugin(NVDA_GlobalPlugin):
 		self.index = -1
 		self._watcherThread = None
 		self._settingsDialog = None
+		self._connectionToken = None
 		self.speech_manager = announcer.SpeechReader()
 		self.currentFileIndex = 0
 		self.filePositions = {i: -1 for i in range(len(FILES))}
@@ -161,6 +162,7 @@ class GlobalPlugin(NVDA_GlobalPlugin):
 			ui.message(_("Attempting to connect..."))
 
 		def stop_session():
+			self._connectionToken = None
 			self.active = False
 			self._unbind_nav()
 			session.disconnect()
@@ -178,7 +180,18 @@ class GlobalPlugin(NVDA_GlobalPlugin):
 			self._archive_session(self.settings.username)
 			self._cleanup_temp_files()
 
-		return on_conn, on_retry, on_fail, on_live_end
+		token = self._connectionToken = object()
+
+		def on_main_thread(callback):
+			# The connection thread reports; NVDA's speech and gestures belong to
+			# the main thread (F3). A report of a session switched off since is dropped.
+			def run():
+				if self._connectionToken is token:
+					callback()
+
+			return lambda: wx.CallAfter(run)
+
+		return tuple(on_main_thread(callback) for callback in (on_conn, on_retry, on_fail, on_live_end))
 
 	def _archive_session(self, username):
 		if not self.settings.backup_sessions or not self._sessionConnected:
@@ -216,6 +229,7 @@ class GlobalPlugin(NVDA_GlobalPlugin):
 				retry_count=self.settings.retry_count,
 			)
 		else:
+			self._connectionToken = None
 			self._unbind_nav()
 			ui.message(_("TikTok Live Reader Off"))
 			session.disconnect()

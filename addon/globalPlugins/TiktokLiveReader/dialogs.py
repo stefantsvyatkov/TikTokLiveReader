@@ -243,7 +243,7 @@ class SettingsDialog(wx.Dialog):
 			for label, event_key in sequence:
 				if self._stop_learning.is_set():
 					break
-				ui.message(label)
+				wx.CallAfter(ui.message, label)
 				if not self._wait(1.0):
 					break
 				played = threading.Event()

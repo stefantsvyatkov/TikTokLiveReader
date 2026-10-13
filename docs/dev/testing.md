@@ -33,11 +33,25 @@ Run one module with
 `-m unittest discover -s tests -t . -p test_plugin.py` (the portable Python
 does not put the working folder on `sys.path` for `-m unittest tests.x`).
 
-## Still to build
+## Live recordings and the library comparison
 
-- Recorder: raw frames of public lives to `artifacts/recordings/` (never
-  committed; committed fixtures are anonymized).
-- Library comparison: the same recordings decoded by 6.6.5 and 7.0.1.
+- `tools/record_live.py <user> <minutes>` records a public live as raw
+  messages (method, payload, ids, history flag, frame) to
+  `artifacts/recordings/`, through the add-on's vendored library and vendor
+  loader. Recordings hold real names: never committed; committed fixtures are
+  anonymized.
+- `tools/decode_recording.py <recording> <lib> <out>` decodes a recording
+  with one copy of TikTokLive (run each library in its own interpreter) into
+  the fields the add-on reads, by meaning, so 7.x renames line up.
+- `tools/compare_libs.py <a> <b>` compares two decodings.
+
+7.0.1 for the comparison lives in `artifacts/lib-7.0.1` (wheels for cp313
+win_amd64 from PyPI; `protobuf_to_dict.py` copied from the vendored lib).
+
+Finding lives: the TikTok LIVE gaming feed works without signing in. Mute the
+page at once (autoplay with sound).
+
+## Still to build
 - Windows Sandbox with portable NVDA 2026.1.1, 2026.2, 2026.3beta4 and the
   add-on installed, silent synthesizer, speech read from NVDA's log, the
   vendored TikTokLive swapped for a replaying one. Pattern: BST Radio's

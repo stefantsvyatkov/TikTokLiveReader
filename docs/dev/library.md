@@ -56,5 +56,23 @@ unconditionally, so connecting would fail), `CommentsEvent`,
 `TikTokLiveProto` (needs `pydantic`, hence the compiled `pydantic-core`),
 `EulerApiSdk`. The client API the add-on uses is unchanged.
 
+7.x renames fields the add-on reads: `base_message` -> `common`
+(`message_id` -> `msg_id`), `CommentEvent.user_info` -> `user`,
+`GiftEvent.from_user`/`m_gift` -> `user`/`gift` (the 6.6.5 properties `user`
+and `gift` keep the code working), `RoomUserSeqEvent.m_total` -> `total` (the
+add-on would report 0 viewers), `JoinEvent.count` -> `member_count`,
+`LinkMicMethodEvent.m_type` -> `message_type`, `LinkLayerEvent.list_content`
+-> `list_change_content`. `WebsocketResponseEvent` holds the frame in `raw`
+instead of inheriting it, so the class-order trap above is gone there.
+`_parse_webcast_response_message` also takes the frame.
+
+Compiled modules in a 7.0.1 install: `pydantic_core` (required),
+`websockets.speedups` and protobuf's `_upb` (both have pure-Python
+fallbacks). `protobuf3-to-dict` has no wheel; 7.0.1 does not import it.
+
+The same raw recording decodes to the same events with the same values in
+both versions (once the renames are mapped), except events 7.0.1 no longer
+maps (`GameServerFeatureEvent`). See `tools/compare_libs.py`.
+
 Every connection goes through the Euler Stream sign server, which has free
 community rate limits: keep live test connections few and long.

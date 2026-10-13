@@ -160,6 +160,10 @@ def connect(username=None, on_connect=None, on_retry=None, on_fail=None, retry_c
 def disconnect():
 	global _thread, client, _should_run, _top_thread_started, _stats_thread
 	_should_run = False
+	# Written before the plugin archives the files: likes still being summed and
+	# the top lists, otherwise written only every 10 s (F11, F12).
+	pipeline.like_manager.flush_pending()
+	pipeline.write_top_files()
 	pipeline.flush_stats_file()
 	_stop_event.set()
 

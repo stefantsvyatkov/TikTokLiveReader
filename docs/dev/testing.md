@@ -59,6 +59,7 @@ does not put the working folder on `sys.path` for `-m unittest tests.x`).
   and counters. Deterministic, about two minutes for the three 2026-10-13
   lives: snapshots before and after a refactoring must be identical, and
   after a fix they show exactly what it changed (`artifacts/snapshots/`).
+  `tools/compare_snapshots.py <before> <after>` lists what changed.
   Replayed in real time instead, the like timers write the speech buffer
   from their own threads beside the connection thread and corrupt it like
   F30.

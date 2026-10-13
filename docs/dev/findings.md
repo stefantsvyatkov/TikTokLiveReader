@@ -63,14 +63,20 @@ are right.
   ("Heart Me") came with `repeat_end` 0, so 1.8 lost it.
 - F8 Pinned. The same gift with the same count from the same person within a
   second is logged once.
-- F9 Pinned. A new line inside a comment splits the entry into two lines.
-- F10 Pinned. A name that cleaning reduces to nothing gives entries such as
-  ": hey" and an empty follower line (counted, but not reachable by
-  navigation).
-- F11 Pinned. Likes still being summed (10 s timer per person) are dropped
+- F9 Fixed in phase 3: line breaks in a comment become spaces. Before: a new
+  line inside a comment split the entry into two lines.
+- F10 Fixed in phase 3: a name cleaning would leave without a letter or digit
+  becomes the person's handle (or stays as it is). Before: entries such as ": hey"
+  and empty follower lines. With names cleaned this was every name in Arabic,
+  Thai, Vietnamese... script: on islam8qurann's live their visitors merged into
+  one empty visitor (1679 instead of 1916) and their likes were dropped (158
+  lines instead of 204); a name cleaned to "[] ." looked non-empty.
+- F11 Fixed in phase 3: `session.disconnect` reports the pending sums. Before:
+  likes still being summed (10 s timer per person) are dropped
   when the session ends: `like_manager.stop()` cancels the timers.
-- F12 Pinned. The top gifters and top likes files are written every 10 s but
-  not at the end; a short session leaves them empty, an archive copies them
+- F12 Fixed in phase 3: `session.disconnect` writes the top files before the
+  plugin archives. Before: the top gifters and top likes files were written
+  every 10 s but not at the end; a short session leaves them empty, an archive copies them
   stale.
 - F13 The add-on listens to `SocialEvent` and to the derived
   `FollowEvent`/`ShareEvent`, so each follow and share is handled twice; the

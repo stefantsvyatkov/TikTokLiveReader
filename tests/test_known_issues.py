@@ -20,26 +20,6 @@ def logged(result, name):
 
 
 class KnownIssues(unittest.TestCase):
-	def test_F9_new_line_in_a_comment_splits_the_entry(self):
-		r = f.run_session(f.comment(alice, "line1\nline2"))
-		self.assertEqual(logged(r, "comments.txt"), ["Alice: line1", "line2"])
-
-	def test_F10_name_cleaned_to_nothing_leaves_empty_entries(self):
-		emoji = f.user("✨🌸", "flowers")
-		r = f.run_session(f.comment(emoji, "hey"), f.follow(emoji))
-		self.assertEqual(logged(r, "comments.txt"), [": hey"])
-		self.assertEqual(logged(r, "followers.txt"), [""])
-
-	def test_F11_likes_still_being_summed_are_lost_at_the_end(self):
-		r = f.run_session(f.like(alice, 5, 5), settle_likes=False)
-		self.assertEqual(r.files["likes.txt"], [])
-		self.assertEqual(r.stats["total_likes"], 5)
-
-	def test_F12_top_lists_are_not_written_at_the_end(self):
-		r = f.run_session(f.gift(alice, "Rose", 1, 1), f.like(bob, 5, 5))
-		self.assertEqual(r.files["top gifters.txt"], [])
-		self.assertEqual(r.files["top likes.txt"], [])
-
 	def test_F29_settings_saved_with_a_byte_order_mark_are_ignored(self):
 		plugin, _ = make_plugin(main={"username": "someone"})
 		text = f.addon_settings.CONFIG_PATH.read_text(encoding="utf-8")

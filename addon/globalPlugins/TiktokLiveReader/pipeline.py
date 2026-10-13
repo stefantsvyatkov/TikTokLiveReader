@@ -3,6 +3,7 @@ lines in the text files, the counters, the stats and top files, and what is
 announced. Runs on the connection thread; holds the state of the session."""
 
 import datetime
+import re
 import threading
 import time
 import unicodedata
@@ -118,6 +119,25 @@ def _display_name(person):
 			if value:
 				return value
 	return "someone"
+
+
+def _clean_name(name, person=None):
+	"""``name`` as the user names setting wants it. A name cleaning would leave
+	without a letter or digit (emoji, Arabic script) becomes the person's handle,
+	or stays as it is (F10)."""
+	cleaned = _sanitize_name(name)
+	if not name or not isinstance(cleaned, str) or any(ch.isalnum() for ch in cleaned):
+		return cleaned
+	handle = _sanitize_name(person.unique_id) if person is not None and person.unique_id else ""
+	return handle or name
+
+
+LINE_BREAKS = re.compile(r"[\r\n\u2028\u2029]+")
+
+
+def _one_line(text):
+	"""Each entry is one line of its file (F9)."""
+	return LINE_BREAKS.sub(" ", str(text)).strip()
 
 
 def _nickname(person, default):
@@ -241,7 +261,7 @@ def _track_user(person):
 		uid = person.user_id
 		nick_name = person.nick_name
 		if uid and nick_name:
-			_remember_user(uid, _sanitize_name(nick_name))
+			_remember_user(uid, _clean_name(nick_name, person))
 
 
 def _report_likes(user, count):
@@ -263,11 +283,12 @@ like_manager = likes.LikeAggregator(_report_likes)
 def _on_comment(event):
 	_track_user(event.user)
 
-	nickname = _sanitize_name(_display_name(event.user))
+	nickname = _clean_name(_display_name(event.user), event.user)
 	_remember_user(event.user.user_id if event.user else None, nickname)
-	if not event.text:
+	text = _one_line(event.text) if event.text else ""
+	if not text:
 		return
-	user_comment = f"{nickname}: {event.text}"
+	user_comment = f"{nickname}: {text}"
 	if user_comment in _comments_logged_before:
 		return
 	log_line = f"{user_comment}  {_now()}"
@@ -287,7 +308,7 @@ def _on_follow(event):
 	_known_followers.add(unique_id)
 
 	total_followers += 1
-	name = _sanitize_name(event.user.nickname)
+	name = _clean_name(event.user.nickname, event.user)
 	store.append(store.FOLLOWERS, f"{name}  {_now()}")
 	# Translators: Announced when a new user follows the streamer. {name} is the user's name.
 	speak_msg = _("New follower: {name}").format(name=name)
@@ -306,7 +327,7 @@ def _on_gift(event):
 	count = event.repeat_count or 1
 	name = event.name
 	diamonds = count * event.diamond_count
-	display_name = _sanitize_name(_nickname(event.user, "someone"))
+	display_name = _clean_name(_nickname(event.user, "someone"), event.user)
 
 	if diamonds > 0:
 		total_diamonds += diamonds
@@ -334,7 +355,7 @@ def _on_like(event):
 	raw_name = user.nickname if user.nickname else user.unique_id
 	if not raw_name:
 		return
-	user_name = _sanitize_name(raw_name)
+	user_name = _clean_name(raw_name, user)
 	if not user_name:
 		return
 
@@ -345,7 +366,7 @@ def _on_like(event):
 def _on_share(event):
 	_track_user(event.user)
 
-	display_name = _sanitize_name(event.user.nickname)
+	display_name = _clean_name(event.user.nickname, event.user)
 	store.append(store.SHARES, f"{display_name}  {_now()}")
 	if _settings.events.get("shares", False):
 		# Translators: Announced when a user shares the live stream. {name} is the user's name.
@@ -359,7 +380,7 @@ def _on_join(event):
 	global total_viewers
 	_track_user(event.user)
 
-	display_name = _sanitize_name(_nickname(event.user, "someone"))
+	display_name = _clean_name(_nickname(event.user, "someone"), event.user)
 	if display_name in visitors:
 		return
 	visitors.add(display_name)
@@ -388,7 +409,7 @@ def _name_of(person):
 		return None
 	uid = person.user_id
 	if person.nick_name:
-		sanitized = _sanitize_name(person.nick_name)
+		sanitized = _clean_name(person.nick_name, person)
 		if sanitized:
 			_remember_user(uid, sanitized)
 			return sanitized

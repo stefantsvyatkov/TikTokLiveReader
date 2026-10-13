@@ -76,6 +76,8 @@ live recording.
 3. Fixes from `findings.md`, each with a test or recording.
    - [x] F4 with F5, F6, F8, F13, F32, F33: duplicates by message id
    - [x] F7: gifts that cannot streak
+   - [x] F9, F10: one line per entry, a name for every entry
+   - [x] F11, F12: pending likes and top lists written at the end
 4. Stress test in the sandbox on all three NVDA versions, live comparison
    loop.
 5. Version 2.0, minimum 2026.1, changelog draft for the user.

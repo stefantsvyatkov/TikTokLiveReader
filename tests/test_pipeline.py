@@ -23,6 +23,23 @@ class Comments(unittest.TestCase):
 		r = f.run_session(f.comment(alice, "hi"), f.comment(bob, "hi"))
 		self.assertEqual(logged(r, "comments.txt"), ["Alice: hi", "Bob: hi"])
 
+	def test_a_comment_on_several_lines_is_one_entry(self):
+		# F9
+		r = f.run_session(f.comment(alice, "line1\nline2\r\nline3"))
+		self.assertEqual(logged(r, "comments.txt"), ["Alice: line1 line2 line3"])
+
+	def test_a_name_cleaning_would_empty_becomes_the_handle(self):
+		# F10
+		emoji = f.user("✨🌸", "flowers")
+		r = f.run_session(f.comment(emoji, "hey"), f.follow(emoji))
+		self.assertEqual(logged(r, "comments.txt"), ["flowers: hey"])
+		self.assertEqual(logged(r, "followers.txt"), ["flowers"])
+
+	def test_a_name_cleaning_would_leave_without_letters_becomes_the_handle(self):
+		artist = f.user("الفنان [عمار] 🎶🎤.", "ammar.art")
+		r = f.run_session(f.gift(artist, "Rose", 1, 1))
+		self.assertEqual(logged(r, "gifts.txt"), ["ammar.art: 1 Rose"])
+
 	def test_lines_carry_a_time_stamp(self):
 		r = f.run_session(f.comment(alice, "hello"))
 		self.assertRegex(r.files["comments.txt"][0], r"^Alice: hello  \d\d:\d\d:\d\d$")
@@ -158,6 +175,18 @@ class ConnectionLifecycle(unittest.TestCase):
 		)
 		self.assertEqual(logged(second, "comments.txt"), ["Alice: one", "Bob: two"])
 		self.assertEqual(logged(second, "events.txt"), ["Alice: one", "Bob: two"])
+
+	def test_likes_still_being_summed_are_written_at_the_end(self):
+		# F11
+		r = f.run_session(f.like(alice, 5, 5), settle_likes=False)
+		self.assertEqual(logged(r, "likes.txt"), ["Alice: 5 likes"])
+		self.assertEqual(r.stats["total_likes"], 5)
+
+	def test_top_lists_are_written_at_the_end(self):
+		# F12
+		r = f.run_session(f.gift(alice, "Rose", 1, 1), f.like(bob, 5, 5))
+		self.assertEqual(r.files["top gifters.txt"], ["Alice: 1 diamonds"])
+		self.assertEqual(r.files["top likes.txt"], ["Bob: 5"])
 
 	def test_stats_file_has_five_lines(self):
 		r = f.run_session()

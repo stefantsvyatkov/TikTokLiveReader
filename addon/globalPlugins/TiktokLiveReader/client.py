@@ -4,7 +4,6 @@ import threading
 import time
 import unicodedata
 import json
-import shutil
 import winsound
 if not hasattr(winsound, "SND_SYNC"):
     winsound.SND_SYNC = 0x0000
@@ -24,7 +23,7 @@ try:
 except ImportError:
     audioop = None
 
-from . import settings
+from . import settings, store
 from .i18n import _
 from .vendor_loader import load_runtime, runtime_scope
 
@@ -32,44 +31,8 @@ BASE_DIR = Path(__file__).resolve().parent
 LIB_DIR = BASE_DIR / "lib"
 _RUNTIME = load_runtime(str(LIB_DIR))
 
-LOG_DIR = settings.DEFAULT_LOG_DIR
-COMMENTS_FILE = LOG_DIR / "comments.txt"
-FOLLOWERS_FILE = LOG_DIR / "followers.txt"
-GIFTS_FILE = LOG_DIR / "gifts.txt"
-LIKES_FILE = LOG_DIR / "likes.txt"
-STATS_FILE = LOG_DIR / "stats.txt"
-TOP_GIFTERS_FILE = LOG_DIR / "top gifters.txt"
-TOP_LIKES_FILE = LOG_DIR / "top likes.txt"
-VISITORS_FILE = LOG_DIR / "visitors.txt"
-SHARES_FILE = LOG_DIR / "shares.txt"
-REQUESTS_FILE = LOG_DIR / "requests.txt"
-EVENTS_FILE = LOG_DIR / "events.txt"
 SPEECH_BUFFER_FILE = BASE_DIR / "speechbuffer.json"
 
-
-def set_log_directory(directory):
-    global LOG_DIR, COMMENTS_FILE, FOLLOWERS_FILE, GIFTS_FILE, LIKES_FILE, STATS_FILE
-    global TOP_GIFTERS_FILE, TOP_LIKES_FILE, VISITORS_FILE, SHARES_FILE, REQUESTS_FILE, EVENTS_FILE
-
-    try:
-        new_dir = Path(str(directory).strip()).expanduser()
-        if not new_dir.is_absolute():
-            raise ValueError("text_files_destination must be an absolute path")
-    except Exception:
-        new_dir = settings.DEFAULT_LOG_DIR
-
-    LOG_DIR = new_dir
-    COMMENTS_FILE = LOG_DIR / "comments.txt"
-    FOLLOWERS_FILE = LOG_DIR / "followers.txt"
-    GIFTS_FILE = LOG_DIR / "gifts.txt"
-    LIKES_FILE = LOG_DIR / "likes.txt"
-    STATS_FILE = LOG_DIR / "stats.txt"
-    TOP_GIFTERS_FILE = LOG_DIR / "top gifters.txt"
-    TOP_LIKES_FILE = LOG_DIR / "top likes.txt"
-    VISITORS_FILE = LOG_DIR / "visitors.txt"
-    SHARES_FILE = LOG_DIR / "shares.txt"
-    REQUESTS_FILE = LOG_DIR / "requests.txt"
-    EVENTS_FILE = LOG_DIR / "events.txt"
 
 _known_gifts = {}
 
@@ -131,8 +94,7 @@ class LikeManager:
         likes_word = _("like") if count == 1 else _("likes")
         log_line = f"{user}: {count} {likes_word}  {datetime.datetime.now().strftime('%H:%M:%S')}"
         try:
-            with open(LIKES_FILE, "a", encoding="utf-8") as f:
-                f.write(log_line + "\n")
+            store.append(store.LIKES, log_line)
         except Exception:
             pass
             
@@ -408,17 +370,6 @@ def _sanitize_name(name):
                 out.append(ch)
     return "".join(out).strip()
 
-def _session_files():
-    return [
-        COMMENTS_FILE, EVENTS_FILE, FOLLOWERS_FILE, GIFTS_FILE, LIKES_FILE, REQUESTS_FILE,
-        SHARES_FILE, STATS_FILE, TOP_GIFTERS_FILE, TOP_LIKES_FILE, VISITORS_FILE
-    ]
-
-def _clear_all_text_files():
-    for file in _session_files():
-        with open(file, "w", encoding="utf-8"):
-            pass
-
 def reset_accumulators():
     global top_gifters, top_likers, total_likes, total_followers, total_diamonds, visitors, viewer_count, total_viewers
     global _known_comments, _known_events, _known_followers, _known_shares, _requests_log, _processed_ids
@@ -439,60 +390,6 @@ def reset_accumulators():
     _processed_ids.clear()
     _known_gifts.clear()
 
-def resolve_usable_directory(directory):
-    for candidate in (directory, settings.DEFAULT_LOG_DIR):
-        try:
-            path = Path(str(candidate).strip()).expanduser()
-            if not path.is_absolute():
-                continue
-            path.mkdir(parents=True, exist_ok=True)
-            return path
-        except Exception:
-            continue
-    return settings.DEFAULT_LOG_DIR
-
-def ensure_log_directory():
-    set_log_directory(resolve_usable_directory(LOG_DIR))
-    return LOG_DIR
-
-def _ensure_files_exist():
-    ensure_log_directory()
-    for file in _session_files():
-        if not file.exists():
-            with open(file, "w", encoding="utf-8"):
-                pass
-
-BACKUPS_DIR_NAME = "Backups"
-_INVALID_NAME_CHARS = '<>:"/\\|?*'
-
-def _safe_folder_name(name):
-    cleaned = "".join(ch for ch in str(name) if ch not in _INVALID_NAME_CHARS and ord(ch) >= 32)
-    return cleaned.strip().rstrip(".")
-
-def archive_session(username):
-    """Copy the finished session's text files into Backups/<date time host>/."""
-    try:
-        sources = [f for f in _session_files() if f.is_file()]
-        if not sources or not any(f.stat().st_size > 0 for f in sources):
-            return None
-
-        host = _safe_folder_name(username) or "unknown"
-        stamp = datetime.datetime.now().strftime("%Y-%m-%d %H-%M-%S")
-        base = LOG_DIR / BACKUPS_DIR_NAME / f"{stamp} {host}"
-
-        target = base
-        suffix = 2
-        while target.exists():
-            target = base.with_name(f"{base.name} ({suffix})")
-            suffix += 1
-
-        target.mkdir(parents=True, exist_ok=True)
-        for file in sources:
-            shutil.copy2(str(file), str(target / file.name))
-        return target
-    except Exception:
-        return None
-
 STATS_MIN_INTERVAL = 1.0
 _stats_lock = threading.Lock()
 _stats_dirty = False
@@ -500,13 +397,15 @@ _stats_last_write = 0.0
 
 def _write_stats_file():
     try:
-        with open(STATS_FILE, "w", encoding="utf-8") as f:
+        lines = [
             # Translators: Stats file lines. {count} represents the respective count.
-            f.write(_("Viewers: {count}").format(count=viewer_count) + "\n")
-            f.write(_("Visitors: {count}").format(count=total_viewers) + "\n")
-            f.write(_("Likes: {count}").format(count=total_likes) + "\n")
-            f.write(_("Followers: {count}").format(count=total_followers) + "\n")
-            f.write(_("Diamonds: {count}").format(count=total_diamonds) + "\n")
+            _("Viewers: {count}").format(count=viewer_count),
+            _("Visitors: {count}").format(count=total_viewers),
+            _("Likes: {count}").format(count=total_likes),
+            _("Followers: {count}").format(count=total_followers),
+            _("Diamonds: {count}").format(count=total_diamonds),
+        ]
+        store.write(store.STATS, "".join(line + "\n" for line in lines))
     except Exception:
         pass
 
@@ -531,14 +430,10 @@ def _write_top_files():
     try:
         if top_gifters:
             sorted_gifters = sorted(top_gifters.items(), key=lambda x: x[1], reverse=True)
-            with open(TOP_GIFTERS_FILE, "w", encoding="utf-8") as f:
-                for user, diamonds in sorted_gifters:
-                    f.write(f"{user}: {diamonds} diamonds\n")
+            store.write(store.TOP_GIFTERS, "".join(f"{user}: {diamonds} diamonds\n" for user, diamonds in sorted_gifters))
         if top_likers:
             sorted_likers = sorted(top_likers.items(), key=lambda x: x[1], reverse=True)
-            with open(TOP_LIKES_FILE, "w", encoding="utf-8") as f:
-                for user, likes in sorted_likers:
-                    f.write(f"{user}: {likes}\n")
+            store.write(store.TOP_LIKES, "".join(f"{user}: {likes}\n" for user, likes in sorted_likers))
     except Exception:
         pass
 
@@ -557,8 +452,7 @@ def _log_to_events(log_text):
         return
     _known_events.add(event_text)
     try:
-        with open(EVENTS_FILE, "a", encoding="utf-8") as f:
-            f.write(log_text + "\n")
+        store.append(store.EVENTS, log_text)
     except Exception:
         pass
 
@@ -686,8 +580,7 @@ async def on_comment(event):
         return
     _known_comments.add(user_comment)
     log_line = f"{user_comment}  {datetime.datetime.now().strftime('%H:%M:%S')}"
-    with open(COMMENTS_FILE, "a", encoding="utf-8") as f:
-        f.write(log_line + "\n")
+    store.append(store.COMMENTS, log_line)
     if _settings.events.get("comments", True):
         _log_to_events(log_line)
         
@@ -712,8 +605,7 @@ async def on_follow(event):
     total_followers += 1
     nm = _sanitize_name(event.user.nickname)
     log_line = f"{nm}  {datetime.datetime.now().strftime('%H:%M:%S')}"
-    with open(FOLLOWERS_FILE, "a", encoding="utf-8") as f:
-        f.write(log_line + "\n")
+    store.append(store.FOLLOWERS, log_line)
     # Translators: Announced when a new user follows the streamer. {name} is the user's name.
     speak_msg = _("New follower: {name}").format(name=nm)
     log_msg = f"{speak_msg}  {datetime.datetime.now().strftime('%H:%M:%S')}"
@@ -756,8 +648,7 @@ async def on_gift(event):
     
     file_line = f"{display_name}: {count} {name}  {datetime.datetime.now().strftime('%H:%M:%S')}"
     
-    with open(GIFTS_FILE, "a", encoding="utf-8") as f:
-        f.write(file_line + "\n")
+    store.append(store.GIFTS, file_line)
         
     if _settings.events.get("gifts", False):
         _log_to_events(log_msg)
@@ -793,8 +684,7 @@ async def on_share(event):
     
     log_line = f"{display_name}  {datetime.datetime.now().strftime('%H:%M:%S')}"
     
-    with open(SHARES_FILE, "a", encoding="utf-8") as f:
-        f.write(log_line + "\n")
+    store.append(store.SHARES, log_line)
         
     if _settings.events.get("shares", False):
         # Translators: Announced when a user shares the live stream. {name} is the user's name.
@@ -837,8 +727,7 @@ async def on_join(event):
     
     total_viewers = len(visitors)
     log_line = f"{display_name}  {datetime.datetime.now().strftime('%H:%M:%S')}"
-    with open(VISITORS_FILE, "a", encoding="utf-8") as f:
-        f.write(log_line + "\n")
+    store.append(store.VISITORS, log_line)
     if _settings.events.get("visitors", False):
         # Translators: Announced when a user joins the live stream. {name} is the user's name.
         msg = _("{name} joined").format(name=display_name)
@@ -958,8 +847,7 @@ async def on_guest_request(event):
         speak_msg = _("Guest request: {name}").format(name=user_name)
         
         log_line = f"{user_name}  {datetime.datetime.now().strftime('%H:%M:%S')}"
-        with open(REQUESTS_FILE, "a", encoding="utf-8") as f:
-            f.write(log_line + "\n")
+        store.append(store.REQUESTS, log_line)
             
         if _settings.events.get("requests", True):
             log_msg = f"{speak_msg}  {datetime.datetime.now().strftime('%H:%M:%S')}"
@@ -971,7 +859,7 @@ async def on_guest_request(event):
         pass
 
 def setup():
-    _ensure_files_exist()
+    store.ensure_files_exist()
     return True
 
 def _runner(username, on_connect_cb, on_retry_cb, on_fail_cb, max_attempts=3, on_live_end_cb=None):
@@ -1174,13 +1062,13 @@ def connect(username=None, on_connect=None, on_retry=None, on_fail=None, retry_c
     _known_shares.clear()
     if not _settings.clear_on_start:
         try:
-            for ln in COMMENTS_FILE.read_text(encoding="utf-8").splitlines():
+            for ln in store.path(store.COMMENTS).read_text(encoding="utf-8").splitlines():
                 ln = ln.strip()
                 if ln:
                     parts = ln.rsplit("  ", 1)
                     _known_comments.add(parts[0])
-            if EVENTS_FILE.exists():
-                for ln in EVENTS_FILE.read_text(encoding="utf-8").splitlines():
+            if store.path(store.EVENTS).exists():
+                for ln in store.path(store.EVENTS).read_text(encoding="utf-8").splitlines():
                     ln = ln.strip()
                     if ln:
                         parts = ln.rsplit("  ", 1)
@@ -1192,9 +1080,9 @@ def connect(username=None, on_connect=None, on_retry=None, on_fail=None, retry_c
     if not final_user:
         return
 
-    _ensure_files_exist()
+    store.ensure_files_exist()
     if _settings.clear_on_start:
-        _clear_all_text_files()
+        store.clear_all()
         reset_accumulators()
         update_stats_file(force=True)
 

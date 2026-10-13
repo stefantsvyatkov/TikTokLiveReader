@@ -49,7 +49,8 @@ live recording.
    или по-късна." Show the user the exact diff when applying.
 2. Module split behind the tests, behaviour unchanged. After each step the
    suite and the sandbox smoke run, then commit and push.
-   [x] 1 `settings.py`, `i18n.py`; [ ] 2 `store.py`; [ ] 3 `announcer.py`;
+   [x] 1 `settings.py`, `i18n.py`; [x] 2 `store.py` (the place for the
+   F22/F30 lock and tolerant reads); [ ] 3 `announcer.py`;
    [ ] 4 `likes.py`; [ ] 5 `tiktok_adapter.py`, `events.py`, `pipeline.py`;
    [ ] 6 `session.py` and the vendor isolation rewritten; [ ] 7 `dialogs.py`,
    `globalPlugin.py` only scripts; [ ] 8 NVDA formatting (needs ruff 0.14.5).

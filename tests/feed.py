@@ -26,6 +26,7 @@ from . import support
 
 client = support.load("client")
 addon_settings = support.load("settings")
+store = support.load("store")
 
 with client.runtime_scope(client._RUNTIME):
 	import TikTokLive
@@ -325,7 +326,7 @@ def run_session(*frames, end="clean", past_grace_period=True, settle_likes=True,
 		addon_settings.CONFIG_PATH.unlink()
 	write_settings(**(settings or {}))
 	log_dir = log_dir or fresh_log_dir()
-	client.set_log_directory(log_dir)
+	store.set_folder(log_dir)
 
 	callbacks = []
 	finished = threading.Event()
@@ -362,7 +363,7 @@ def run_session(*frames, end="clean", past_grace_period=True, settle_likes=True,
 		client.disconnect()
 
 	files = {}
-	for path in client._session_files():
+	for path in store.session_files():
 		files[path.name] = path.read_text(encoding="utf-8", errors="replace").splitlines() if path.exists() else None
 	return Result(files, read_speech(), session.sounds.played, callbacks, log_dir, stats)
 

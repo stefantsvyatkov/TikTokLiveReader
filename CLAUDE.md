@@ -18,8 +18,9 @@ Store. The user is Bulgarian; answer in Bulgarian and address them with "ти".
 
 - `addon/globalPlugins/TiktokLiveReader/` - the add-on (`globalPlugin.py`
   scripts and settings dialog, `client.py` connection and event handling,
-  `settings.py` the `Settings` object and `tiktokLiveReader.ini`, `i18n.py`
-  the one `_` every module imports, `vendor_loader.py` isolates `lib/`, the
+  `settings.py` the `Settings` object and `tiktokLiveReader.ini`, `store.py`
+  the session's text files (every read and write of them), `i18n.py` the one
+  `_` every module imports, `vendor_loader.py` isolates `lib/`, the
   vendored TikTokLive 6.6.5 and its pure-Python dependencies). New and
   rewritten modules use tabs (NVDA style); the old ones are reformatted in one
   commit at the end of phase 2.

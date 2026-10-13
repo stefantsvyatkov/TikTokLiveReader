@@ -4,7 +4,7 @@ import re
 import threading
 import time
 
-from . import client, settings
+from . import client, settings, store
 from .i18n import _
 from globalPluginHandler import GlobalPlugin as NVDA_GlobalPlugin
 from scriptHandler import script
@@ -172,7 +172,7 @@ class GlobalPlugin(NVDA_GlobalPlugin):
         self.autoSpeakDelay = 1.0
         self._sessionConnected = False
 
-        client.set_log_directory(self.settings.text_files_destination)
+        store.set_folder(self.settings.text_files_destination)
         client.apply_settings(self.settings)
 
         if not self.settings.clear_on_start:
@@ -219,19 +219,14 @@ class GlobalPlugin(NVDA_GlobalPlugin):
 
     def _get_current_file(self):
         name, filename = FILES[self.currentFileIndex]
-        return _(name), client.LOG_DIR / filename
+        return _(name), store.path(filename)
 
     def _load_items(self):
-        _label, file = self._get_current_file()
-        try:
-            with file.open("r", encoding="utf-8") as f:
-                return [ln.strip() for ln in f if ln.strip()]
-        except OSError:
-            return []
+        return store.read_entries(FILES[self.currentFileIndex][1])
 
     def _report_no_items(self):
         try:
-            available = client.LOG_DIR.is_dir()
+            available = store.folder.is_dir()
         except Exception:
             available = False
         if available:
@@ -288,7 +283,7 @@ class GlobalPlugin(NVDA_GlobalPlugin):
         if not self.settings.backup_sessions or not self._sessionConnected:
             return
         self._sessionConnected = False
-        client.archive_session(username)
+        store.archive_session(username)
 
     @script(description=_("Toggle TikTok Live Reader on or off"), category="TikTok Live Reader")
     def script_toggleActive(self, gesture):
@@ -313,7 +308,7 @@ class GlobalPlugin(NVDA_GlobalPlugin):
             ui.message(_("TikTok Live Reader On"))
 
             on_conn, on_retry, on_fail, on_live_end = self._connection_callbacks()
-            client.set_log_directory(self.settings.text_files_destination)
+            store.set_folder(self.settings.text_files_destination)
             client.connect(username=self.settings.username, on_connect=on_conn, on_retry=on_retry, on_fail=on_fail, on_live_end=on_live_end, retry_count=self.settings.retry_count)
         else:
             self._unbind_nav()
@@ -418,7 +413,7 @@ class GlobalPlugin(NVDA_GlobalPlugin):
         lbl_destination = wx.StaticText(p_general, label=_("Text files &destination"))
         destination_row = wx.FlexGridSizer(rows=1, cols=2, vgap=0, hgap=5)
         destination_row.AddGrowableCol(0, 1)
-        self.settings.text_files_destination = str(client.resolve_usable_directory(self.settings.text_files_destination))
+        self.settings.text_files_destination = str(store.usable_folder(self.settings.text_files_destination))
         txt_destination = wx.TextCtrl(
             p_general,
             value=self.settings.text_files_destination,
@@ -698,7 +693,7 @@ class GlobalPlugin(NVDA_GlobalPlugin):
                         self.speech_manager.start()
                         
                     on_conn, on_retry, on_fail, on_live_end = self._connection_callbacks()
-                    client.set_log_directory(self.settings.text_files_destination)
+                    store.set_folder(self.settings.text_files_destination)
                     client.connect(username=self.settings.username, on_connect=on_conn, on_retry=on_retry, on_fail=on_fail, on_live_end=on_live_end, retry_count=self.settings.retry_count)
                 else:
                     if self.settings.auto_speak_enabled:
@@ -819,7 +814,7 @@ class GlobalPlugin(NVDA_GlobalPlugin):
 
         self._cleanup_temp_files(hard_reset=True)
         client.sound_manager.clear()
-        client._clear_all_text_files()
+        store.clear_all()
         
         try:
             settings.POSITIONS_PATH.write_text(json.dumps({"version": 1, "files": {}}, ensure_ascii=False), encoding="utf-8")

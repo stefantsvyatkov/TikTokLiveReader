@@ -10,6 +10,7 @@ from . import support
 G = support.load("globalPlugin")
 client = f.client
 settings = f.addon_settings
+store = f.store
 alice, bob = f.user("Alice"), f.user("Bob")
 BASE_GESTURES = {"kb:NVDA+control+shift+t", "kb:NVDA+control+shift+l"}
 
@@ -55,7 +56,7 @@ class PluginTest(unittest.TestCase):
 		self.replay.__exit__(None, None, None)
 
 	def read(self, plugin, name):
-		path = client.LOG_DIR / name
+		path = store.path(name)
 		return path.read_text(encoding="utf-8").splitlines() if path.exists() else []
 
 
@@ -191,7 +192,7 @@ class Clearing(PluginTest):
 		self.plugin.script_clearTextFiles(None)
 		support.dialogs[0].press("yes")
 		self.assertEqual(support.spoken[-1], "All files cleared.")
-		for path in client._session_files():
+		for path in store.session_files():
 			self.assertEqual(path.read_text(encoding="utf-8"), "", path.name)
 
 

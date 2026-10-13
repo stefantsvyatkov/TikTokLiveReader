@@ -113,9 +113,10 @@ confirms it.
 - F22 Clearing files (main thread) races with handlers writing (connection
   thread); there is no lock.
 - F24 Script categories differ (literal, translated, none), so the scripts
-  are scattered in Input gestures. Dead code: `SpeechManager.speak`,
-  `_watcherThread`, `audioop`, `setup()`, the winsound constant shims, the
-  inactive branch of `script_reportViewers`.
+  are scattered in Input gestures. Dead code: `_watcherThread`, `setup()`,
+  the inactive branch of `script_reportViewers` (`SpeechManager.speak`,
+  `audioop` and the winsound constant shims went with phase 2 step 3; the
+  shims also patched the shared `winsound` module, which has no `SND_SYNC`).
 
 ## Not issues
 

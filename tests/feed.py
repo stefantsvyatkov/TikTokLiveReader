@@ -27,6 +27,7 @@ from . import support
 client = support.load("client")
 addon_settings = support.load("settings")
 store = support.load("store")
+announcer = support.load("announcer")
 
 with client.runtime_scope(client._RUNTIME):
 	import TikTokLive
@@ -213,7 +214,7 @@ class _ReplayClient(TikTokLive.TikTokLiveClient):
 
 
 class _RecordingSounds:
-	"""Stands in for client.sound_manager: records instead of playing, no delays."""
+	"""Stands in for announcer.sound_manager: records instead of playing, no delays."""
 
 	def __init__(self):
 		self.played = []
@@ -300,8 +301,8 @@ def replaying(*frames, end="clean", past_grace_period=True):
 		for item in frames
 	]
 	session = Session(frames, end, past_grace_period)
-	real_sounds = client.sound_manager
-	session.sounds = client.sound_manager = _RecordingSounds()
+	real_sounds = announcer.sound_manager
+	session.sounds = announcer.sound_manager = _RecordingSounds()
 	runtime = client._RUNTIME.modules["TikTokLive"]
 	real_client_class = runtime.TikTokLiveClient
 	runtime.TikTokLiveClient = _ReplayClient
@@ -313,7 +314,7 @@ def replaying(*frames, end="clean", past_grace_period=True):
 		for thread in session.threads:
 			thread.join(10)
 		runtime.TikTokLiveClient = real_client_class
-		client.sound_manager = real_sounds
+		announcer.sound_manager = real_sounds
 
 
 def run_session(*frames, end="clean", past_grace_period=True, settle_likes=True, settings=None, log_dir=None, timeout=60):
@@ -378,8 +379,8 @@ def settle_like_timers():
 def read_speech():
 	"""What the connection asked to be spoken, from the speech buffer."""
 	speech = []
-	if client.SPEECH_BUFFER_FILE.exists():
-		for line in client.SPEECH_BUFFER_FILE.read_text(encoding="utf-8").splitlines():
+	if announcer.SPEECH_BUFFER_FILE.exists():
+		for line in announcer.SPEECH_BUFFER_FILE.read_text(encoding="utf-8").splitlines():
 			if line.strip():
 				speech.append(json.loads(line)["text"])
 	return speech

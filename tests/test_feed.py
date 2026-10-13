@@ -40,8 +40,8 @@ class DecodedLikeALiveConnection(unittest.TestCase):
 
 class StaysOutOfTheRealConfiguration(unittest.TestCase):
 	def test_runtime_files_are_in_the_temporary_folder(self):
-		client, settings = feed.client, feed.addon_settings
-		for path in (settings.CONFIG_PATH, settings.POSITIONS_PATH, client.SPEECH_BUFFER_FILE,
+		announcer, settings = feed.announcer, feed.addon_settings
+		for path in (settings.CONFIG_PATH, settings.POSITIONS_PATH, announcer.SPEECH_BUFFER_FILE,
 				settings.LEGACY_CONFIG_PATH, settings.LEGACY_POSITIONS_PATH):
 			self.assertTrue(path.is_relative_to(support.ROOT), path)
 

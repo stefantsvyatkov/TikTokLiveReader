@@ -3,27 +3,8 @@ import datetime
 import threading
 import time
 import unicodedata
-import json
-import winsound
-if not hasattr(winsound, "SND_SYNC"):
-    winsound.SND_SYNC = 0x0000
-if not hasattr(winsound, "SND_ASYNC"):
-    winsound.SND_ASYNC = 0x0001
-if not hasattr(winsound, "SND_FILENAME"):
-    winsound.SND_FILENAME = 0x00020000
-if not hasattr(winsound, "SND_MEMORY"):
-    winsound.SND_MEMORY = 0x0004
-if not hasattr(winsound, "SND_PURGE"):
-    winsound.SND_PURGE = 0x0040
-import wave
-import array
-import queue
-try:
-    import audioop
-except ImportError:
-    audioop = None
 
-from . import settings, store
+from . import announcer, settings, store
 from .i18n import _
 from .vendor_loader import load_runtime, runtime_scope
 
@@ -31,17 +12,7 @@ BASE_DIR = Path(__file__).resolve().parent
 LIB_DIR = BASE_DIR / "lib"
 _RUNTIME = load_runtime(str(LIB_DIR))
 
-SPEECH_BUFFER_FILE = BASE_DIR / "speechbuffer.json"
-
-
 _known_gifts = {}
-
-def _clear_speech_buffer():
-    try:
-        with open(SPEECH_BUFFER_FILE, "w", encoding="utf-8") as f:
-            pass
-    except Exception:
-        pass
 
 client = None
 _thread = None
@@ -117,148 +88,6 @@ class LikeManager:
 like_manager = LikeManager()
 
 
-class SoundManager:
-    def __init__(self, base_dir):
-        self.base_dir = base_dir
-        self.sounds_dir = base_dir.parent.parent / "sounds"
-        self.volume = 100
-        self._queue = queue.Queue()
-        self._running = True
-        self._thread = threading.Thread(target=self._worker, daemon=True)
-        self._thread.start()
-
-    def set_volume(self, volume):
-        self.volume = max(0, min(100, int(volume)))
-
-    def stop(self):
-        self._running = False
-        with self._queue.mutex:
-            self._queue.queue.clear()
-
-    def clear(self):
-        with self._queue.mutex:
-            self._queue.queue.clear()
-
-    def start(self):
-        if not self._running:
-            self._queue = queue.Queue()
-            self._running = True
-            self._thread = threading.Thread(target=self._worker, daemon=True)
-            self._thread.start()
-
-    def play(self, event_name, play_file=True, on_complete=None, post_delay=1.0):
-        
-        mapping = {
-            "comments": "comment.wav",
-            "followers": "follower.wav",
-            "gifts": "gift.wav",
-            "likes": "like.wav",
-            "shares": "share.wav",
-            "visitors": "visitor.wav",
-            "requests": "request.wav"
-        }
-        
-        fname = mapping.get(event_name, f"{event_name}.wav")
-        self._queue.put((fname, play_file, on_complete, post_delay))
-
-    def _worker(self):
-        me = threading.current_thread()
-        while self._running and self._thread is me:
-            try:
-                item = self._queue.get(timeout=1.0)
-            except queue.Empty:
-                continue
-            
-            
-            fname = None
-            play_file = True
-            cb = None
-            post_delay = 1.0
-
-            if isinstance(item, tuple):
-                if len(item) == 4:
-                    fname, play_file, cb, post_delay = item
-                elif len(item) == 3:
-                     fname, play_file, cb = item
-                elif len(item) == 2:
-                    fname, cb = item
-                    play_file = True
-                else:
-                    fname = item[0]
-            else:
-                fname = item
-
-            if fname and play_file:
-                self._play_actual(fname)
-                
-            if cb:
-                try:
-    
-                    cb()
-                except Exception:
-                    pass
-
-            if post_delay > 0:
-                time.sleep(post_delay)
-            
-            self._queue.task_done()
-
-    def _play_actual(self, fname):
-        fpath = self.sounds_dir / fname
-        
-        if not fpath.exists():
-            return
-
-        try:
-            with wave.open(str(fpath), 'rb') as wav_in:
-                params = wav_in.getparams()
-                
-                if self.volume == 100:
-                    winsound.PlaySound(str(fpath), winsound.SND_FILENAME | winsound.SND_SYNC)
-                    return
-
-                if params.sampwidth != 2:
-                    winsound.PlaySound(str(fpath), winsound.SND_FILENAME | winsound.SND_SYNC)
-                    return
-
-                frames = wav_in.readframes(params.nframes)
-                
-                try:
-                    
-                    factor = self.volume / 100.0
-                    
-                    samples = array.array('h', frames)
-                    
-                    for i in range(len(samples)):
-                        val = int(samples[i] * factor)
-                        if val > 32767:
-                            val = 32767
-                        if val < -32768:
-                            val = -32768
-                        samples[i] = val
-                        
-                    data = samples.tobytes()
-                    
-                    import io
-                    mem_file = io.BytesIO()
-                    with wave.open(mem_file, 'wb') as wav_out:
-                        wav_out.setparams(params)
-                        wav_out.writeframes(data)
-                    
-                    mem_file.seek(0)
-                    winsound.PlaySound(mem_file.read(), winsound.SND_MEMORY | winsound.SND_SYNC)
-                    
-                except Exception:
-                    winsound.PlaySound(str(fpath), winsound.SND_FILENAME | winsound.SND_SYNC)
-                
-        except Exception:
-            try:
-                winsound.PlaySound(str(fpath), winsound.SND_FILENAME | winsound.SND_SYNC)
-            except Exception:
-                pass
-
-sound_manager = SoundManager(BASE_DIR)
-
 MAX_TRACKED_ITEMS = 50000
 MAX_PROCESSED_IDS = 10000
 MAX_TIMESTAMP_ITEMS = 5000
@@ -320,12 +149,6 @@ _processed_ids = BoundedSet(MAX_PROCESSED_IDS)
 _connection_time = 0
 
 _settings = settings.Settings()
-SETTINGS_OPEN = False
-
-def set_settings_open(is_open):
-    global SETTINGS_OPEN
-    SETTINGS_OPEN = is_open
-
 def _is_processed(event):
     uid = getattr(event, "msgId", None)
     if not uid:
@@ -345,14 +168,9 @@ def apply_settings(new):
     """Use these settings from now on; sounds still queued stop when sounds are off."""
     global _settings
     if not new.play_sounds:
-        try:
-            with sound_manager._queue.mutex:
-                sound_manager._queue.queue.clear()
-            winsound.PlaySound(None, winsound.SND_PURGE)
-        except Exception:
-            pass
+        announcer.silence()
     _settings = new
-    sound_manager.set_volume(new.volume)
+    announcer.sound_manager.set_volume(new.volume)
 
 def _sanitize_name(name):
     if not _settings.clean_usernames or not isinstance(name, str):
@@ -456,13 +274,6 @@ def _log_to_events(log_text):
     except Exception:
         pass
 
-def _speak_text(text):
-    try:
-        with open(SPEECH_BUFFER_FILE, "a", encoding="utf-8") as f:
-            f.write(json.dumps({"text": text}, ensure_ascii=False) + "\n")
-    except Exception:
-        pass
-
 def _extract_comment_payload(event):
     user = getattr(event, "user", None)
     nickname = getattr(user, "nickname", None) or getattr(user, "unique_id", None) or "someone"
@@ -492,30 +303,11 @@ def _extract_comment_payload(event):
     return nickname, str(comment_text)
 
 def _handle_speech_and_sound(event_key, speak_text):
-    """
-    Handles sound playing and speech queuing with delay.
-    event_key: 'comments', 'followers', etc.
-    speak_text: The text to speak.
-    """
-    if SETTINGS_OPEN:
-        return
-        
-    sound_enabled = _settings.play_sounds and _settings.sounds.get(event_key, False)
-    speech_enabled = _settings.auto_speak.get(event_key, False)
-    
+    """Announce an event, but not in the first 10 seconds of a connection, which
+    bring the live's history."""
     if _connection_time == 0 or (time.time() - _connection_time) < 10.0:
-        sound_enabled = False
-        speech_enabled = False
-
-    if sound_enabled or speech_enabled:
-        cb = None
-        if speech_enabled:
-            def _on_complete():
-                _speak_text(speak_text)
-
-            cb = _on_complete
-
-        sound_manager.play(event_key, play_file=sound_enabled, on_complete=cb)
+        return
+    announcer.announce(event_key, speak_text, _settings)
 
 def _track_user(event):
     user = getattr(event, "user", None)
@@ -1049,10 +841,10 @@ def connect(username=None, on_connect=None, on_retry=None, on_fail=None, retry_c
         return
 
     _settings = settings.load()
-    sound_manager.set_volume(_settings.volume)
-    sound_manager.start()
-    sound_manager.clear()
-    _clear_speech_buffer()
+    announcer.sound_manager.set_volume(_settings.volume)
+    announcer.sound_manager.start()
+    announcer.sound_manager.clear()
+    announcer.clear_speech_buffer()
     _known_comments.clear()
     _known_events.clear()
     _processed_ids.clear()
@@ -1123,8 +915,7 @@ def disconnect():
         
         like_manager.stop()
         
-        if 'sound_manager' in globals():
-            sound_manager.stop()
+        announcer.sound_manager.stop()
         
         old_thread = _thread
         _thread = None

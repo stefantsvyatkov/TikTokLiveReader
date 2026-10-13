@@ -139,9 +139,6 @@ def _keep_out_of_addon_folder():
 	if settings is not None:
 		settings.LEGACY_CONFIG_PATH = ROOT / "legacy-config.ini"
 		settings.LEGACY_POSITIONS_PATH = ROOT / "legacy-positions.json"
-	client = sys.modules.get(f"{PACKAGE}.client")
-	if client is not None:
-		client.SPEECH_BUFFER_FILE = ROOT / "speechbuffer.json"
-	plugin = sys.modules.get(f"{PACKAGE}.globalPlugin")
-	if plugin is not None:
-		plugin.SPEECH_BUFFER_FILE = ROOT / "speechbuffer.json"
+	announcer = sys.modules.get(f"{PACKAGE}.announcer")
+	if announcer is not None:
+		announcer.SPEECH_BUFFER_FILE = ROOT / "speechbuffer.json"

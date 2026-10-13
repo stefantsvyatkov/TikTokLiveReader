@@ -4,7 +4,7 @@ import re
 import threading
 import time
 
-from . import client, settings, store
+from . import announcer, client, settings, store
 from .i18n import _
 from globalPluginHandler import GlobalPlugin as NVDA_GlobalPlugin
 from scriptHandler import script
@@ -12,9 +12,6 @@ import gui
 from gui import message
 import ui
 import wx
-
-ADDON_DIR = Path(__file__).resolve().parent
-SPEECH_BUFFER_FILE = ADDON_DIR / "speechbuffer.json"
 
 
 def _add_event_checkboxes(parent, sizer, values):
@@ -79,78 +76,6 @@ def _filename_key_map():
 INDEX_TO_KEY = _filename_key_map()
 
 
-class SpeechManager:
-    def __init__(self, plugin):
-        self._running = False
-        self._thread = None
-        self.plugin = plugin
-
-    def start(self):
-        if self._running:
-            return
-        self._running = True
-        self._thread = threading.Thread(target=self._worker, daemon=True)
-        self._thread.start()
-
-    def stop(self):
-        self._running = False
-        if self._thread:
-            self._thread.join(timeout=1)
-            self._thread = None
-
-    def speak(self, text):
-        try:
-            with open(SPEECH_BUFFER_FILE, "a", encoding="utf-8") as f:
-                rec = {"text": text, "time": time.time()}
-                f.write(json.dumps(rec, ensure_ascii=False) + "\n")
-        except Exception:
-            pass
-
-    def _worker(self):
-        me = threading.current_thread()
-
-        last_pos = 0
-        if SPEECH_BUFFER_FILE.exists():
-            last_pos = SPEECH_BUFFER_FILE.stat().st_size
-
-        while self._running and self._thread is me:
-            if not SPEECH_BUFFER_FILE.exists():
-                time.sleep(0.5)
-                continue
-                
-            try:
-                curr_size = SPEECH_BUFFER_FILE.stat().st_size
-                if curr_size < last_pos:
-                    last_pos = 0
-                
-                if curr_size > last_pos:
-                    with open(SPEECH_BUFFER_FILE, "r", encoding="utf-8") as f:
-                        f.seek(last_pos)
-                        lines = f.readlines()
-                        last_pos = f.tell()
-                        
-                    for line in lines:
-                        if not self._running or self._thread is not me:
-                            break
-                        line = line.strip()
-                        if not line:
-                            continue
-                        try:
-
-                            data = json.loads(line)
-                            txt = data.get("text", "")
-                            if txt:
-                                ui.message(txt)
-                                time.sleep(float(self.plugin.autoSpeakDelay))
-                        except Exception as e:
-                            pass
-
-            except Exception:
-                pass
-            
-            time.sleep(0.5)
-
-
 class GlobalPlugin(NVDA_GlobalPlugin):
     __gestures = {
         "kb:NVDA+control+shift+t": "toggleActive",
@@ -164,12 +89,11 @@ class GlobalPlugin(NVDA_GlobalPlugin):
         self.index = -1
         self._watcherThread = None
         self._settingsDialog = None
-        self.speech_manager = SpeechManager(self)
+        self.speech_manager = announcer.SpeechReader()
         self.currentFileIndex = 0
         self.filePositions = {i: -1 for i in range(len(FILES))}
         settings.migrate_user_files()
         self.settings = settings.load_and_complete()
-        self.autoSpeakDelay = 1.0
         self._sessionConnected = False
 
         store.set_folder(self.settings.text_files_destination)
@@ -320,8 +244,7 @@ class GlobalPlugin(NVDA_GlobalPlugin):
 
     def _cleanup_temp_files(self, hard_reset=False):
         try:
-            if SPEECH_BUFFER_FILE.exists():
-                SPEECH_BUFFER_FILE.unlink()
+            announcer.remove_speech_buffer()
             
             if hard_reset:
                 if settings.POSITIONS_PATH.exists():
@@ -336,9 +259,7 @@ class GlobalPlugin(NVDA_GlobalPlugin):
 
     def _ensure_temp_files_exist(self):
         try:
-            if not SPEECH_BUFFER_FILE.exists():
-                with open(SPEECH_BUFFER_FILE, "w", encoding="utf-8") as f:
-                    pass
+            announcer.ensure_speech_buffer()
             if not settings.POSITIONS_PATH.exists():
                 with open(settings.POSITIONS_PATH, "w", encoding="utf-8") as f:
                     json.dump({"version": 1, "files": {}}, f)
@@ -391,11 +312,10 @@ class GlobalPlugin(NVDA_GlobalPlugin):
         old_username = self.settings.username
         if was_active:
             self.speech_manager.stop()
-            with client.sound_manager._queue.mutex:
-                client.sound_manager._queue.queue.clear()
-            client.set_settings_open(True)
+            announcer.sound_manager.clear()
+            announcer.set_settings_open(True)
             
-        client.sound_manager.start()
+        announcer.sound_manager.start()
             
         dlg = wx.Dialog(gui.mainFrame, title=_("TikTok Live Reader Settings"))
         self._settingsDialog = dlg
@@ -509,7 +429,7 @@ class GlobalPlugin(NVDA_GlobalPlugin):
             
         def on_volume_change(evt):
             vol = slider_volume.GetValue()
-            client.sound_manager.set_volume(vol)
+            announcer.sound_manager.set_volume(vol)
             
         chk_play_sounds.Bind(wx.EVT_CHECKBOX, on_toggle_sounds)
         slider_volume.Bind(wx.EVT_SLIDER, on_volume_change)
@@ -547,7 +467,7 @@ class GlobalPlugin(NVDA_GlobalPlugin):
                           (_("Visitor"), "visitors"),
                       ]
                       
-                      client.sound_manager.set_volume(vol)
+                      announcer.sound_manager.set_volume(vol)
                       
                       for label, event_key in sequence:
                           if self._stop_learning.is_set():
@@ -564,7 +484,7 @@ class GlobalPlugin(NVDA_GlobalPlugin):
                               break
 
                           done = threading.Event()
-                          client.sound_manager.play(event_key, play_file=True, post_delay=0.0, on_complete=lambda d=done: d.set())
+                          announcer.sound_manager.play(event_key, play_file=True, post_delay=0.0, on_complete=lambda d=done: d.set())
                           
                           start_wait = time.time()
                           while not done.is_set():
@@ -655,7 +575,7 @@ class GlobalPlugin(NVDA_GlobalPlugin):
             self._stop_learning.set()
             
         if was_active:
-            client.set_settings_open(False)
+            announcer.set_settings_open(False)
             
         if res == wx.ID_OK:
             self._apply_settings(settings.Settings(
@@ -684,7 +604,7 @@ class GlobalPlugin(NVDA_GlobalPlugin):
                     self._cleanup_temp_files(hard_reset=True)
                     
                     self.active = True
-                    client.sound_manager.clear()
+                    announcer.sound_manager.clear()
                     self._bind_nav()
                     if not self.settings.clear_on_start:
                         self._load_positions_json()
@@ -813,7 +733,7 @@ class GlobalPlugin(NVDA_GlobalPlugin):
             return
 
         self._cleanup_temp_files(hard_reset=True)
-        client.sound_manager.clear()
+        announcer.sound_manager.clear()
         store.clear_all()
         
         try:

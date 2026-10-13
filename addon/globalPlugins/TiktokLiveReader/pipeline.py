@@ -160,12 +160,12 @@ def forget_seen():
 def remember_logged():
 	"""Treat what the text files already hold as seen, when they are kept."""
 	try:
-		for line in store.path(store.COMMENTS).read_text(encoding="utf-8").splitlines():
+		for line in store.read_text(store.COMMENTS).split("\n"):
 			line = line.strip()
 			if line:
 				_comments_logged_before.add(line.rsplit("  ", 1)[0])
 		if store.path(store.EVENTS).exists():
-			for line in store.path(store.EVENTS).read_text(encoding="utf-8").splitlines():
+			for line in store.read_text(store.EVENTS).split("\n"):
 				line = line.strip()
 				if line:
 					_events_logged_before.add(line.rsplit("  ", 1)[0])

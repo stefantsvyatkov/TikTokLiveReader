@@ -3,6 +3,7 @@ connection, read by navigation, cleared and archived."""
 
 import datetime
 import shutil
+import threading
 from pathlib import Path
 
 from . import settings
@@ -35,6 +36,10 @@ BACKUPS_DIR_NAME = "Backups"
 _INVALID_NAME_CHARS = '<>:"/\\|?*'
 
 folder = settings.DEFAULT_LOG_DIR
+# The connection thread, the like timers and NVDA's main thread all write here;
+# Windows appends by seeking to the end, so unguarded writes overwrite each
+# other (F30), and clearing raced with writing (F22).
+_lock = threading.Lock()
 
 
 def set_folder(directory):
@@ -80,26 +85,32 @@ def ensure_files_exist():
 
 
 def clear_all():
-	for file in session_files():
-		with open(file, "w", encoding="utf-8"):
-			pass
+	with _lock:
+		for file in session_files():
+			with open(file, "w", encoding="utf-8"):
+				pass
 
 
 def append(name, line):
-	with open(folder / name, "a", encoding="utf-8") as handle:
+	with _lock, open(folder / name, "a", encoding="utf-8") as handle:
 		handle.write(line + "\n")
 
 
 def write(name, text):
-	with open(folder / name, "w", encoding="utf-8") as handle:
+	with _lock, open(folder / name, "w", encoding="utf-8") as handle:
 		handle.write(text)
+
+
+def read_text(name):
+	"""The file's text; a damaged character reads as U+FFFD instead of failing."""
+	with _lock:
+		return (folder / name).read_text(encoding="utf-8", errors="replace")
 
 
 def read_entries(name):
 	"""The file's non-empty lines, stripped; none when it cannot be opened."""
 	try:
-		with (folder / name).open("r", encoding="utf-8") as handle:
-			return [line.strip() for line in handle if line.strip()]
+		return [line.strip() for line in read_text(name).split("\n") if line.strip()]
 	except OSError:
 		return []
 

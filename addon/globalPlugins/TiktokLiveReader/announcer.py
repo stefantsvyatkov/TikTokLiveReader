@@ -1,10 +1,9 @@
 """What the add-on plays and says for an event: the event's sound first, then its
-text, which goes through the speech buffer to NVDA's speech."""
+text, which the speech reader passes to NVDA's speech while auto speak is on."""
 
 import array
 import functools
 import io
-import json
 import queue
 import threading
 import time
@@ -15,7 +14,6 @@ from pathlib import Path
 import ui
 
 ADDON_DIR = Path(__file__).resolve().parent
-SPEECH_BUFFER_FILE = ADDON_DIR / "speechbuffer.json"
 # winsound has no name for it: playing synchronously is the absence of SND_ASYNC.
 SND_SYNC = 0x0000
 
@@ -155,36 +153,30 @@ def announce(event_key, text, settings):
 		sound_manager.play(event_key, play_file=sound_enabled, on_complete=then_speak)
 
 
+# Texts waiting for the speech reader. 1.8 used a file polled every 0.5 s,
+# written from several threads (F19, F30).
+_speech = queue.Queue()
+_listening = False
+
+
 def queue_speech(text):
-	try:
-		with open(SPEECH_BUFFER_FILE, "a", encoding="utf-8") as handle:
-			handle.write(json.dumps({"text": text}, ensure_ascii=False) + "\n")
-	except Exception:
-		pass
+	"""Speak ``text`` when the speech reader runs; without it the text is dropped,
+	as the reader starts with what comes after it."""
+	if _listening:
+		_speech.put(text)
 
 
-def clear_speech_buffer():
-	try:
-		with open(SPEECH_BUFFER_FILE, "w", encoding="utf-8"):
-			pass
-	except Exception:
-		pass
-
-
-def ensure_speech_buffer():
-	if not SPEECH_BUFFER_FILE.exists():
-		with open(SPEECH_BUFFER_FILE, "w", encoding="utf-8"):
-			pass
-
-
-def remove_speech_buffer():
-	if SPEECH_BUFFER_FILE.exists():
-		SPEECH_BUFFER_FILE.unlink()
+def forget_pending_speech():
+	while True:
+		try:
+			_speech.get_nowait()
+		except queue.Empty:
+			return
 
 
 class SpeechReader:
-	"""Speaks what is added to the speech buffer while it runs, with ``delay``
-	seconds after each text."""
+	"""Speaks the texts queued for speech while it runs, with ``delay`` seconds
+	after each."""
 
 	def __init__(self, delay=1.0):
 		self.delay = delay
@@ -192,13 +184,18 @@ class SpeechReader:
 		self._thread = None
 
 	def start(self):
+		global _listening
 		if self._running:
 			return
+		forget_pending_speech()
+		_listening = True
 		self._running = True
 		self._thread = threading.Thread(target=self._worker, daemon=True)
 		self._thread.start()
 
 	def stop(self):
+		global _listening
+		_listening = False
 		self._running = False
 		if self._thread:
 			self._thread.join(timeout=1)
@@ -206,42 +203,15 @@ class SpeechReader:
 
 	def _worker(self):
 		me = threading.current_thread()
-
-		last_pos = 0
-		if SPEECH_BUFFER_FILE.exists():
-			last_pos = SPEECH_BUFFER_FILE.stat().st_size
-
 		while self._running and self._thread is me:
-			if not SPEECH_BUFFER_FILE.exists():
-				time.sleep(0.5)
-				continue
-
 			try:
-				curr_size = SPEECH_BUFFER_FILE.stat().st_size
-				if curr_size < last_pos:
-					last_pos = 0
-
-				if curr_size > last_pos:
-					with open(SPEECH_BUFFER_FILE, "r", encoding="utf-8") as handle:
-						handle.seek(last_pos)
-						lines = handle.readlines()
-						last_pos = handle.tell()
-
-					for line in lines:
-						if not self._running or self._thread is not me:
-							break
-						line = line.strip()
-						if not line:
-							continue
-						try:
-							text = json.loads(line).get("text", "")
-							if text:
-								ui.message(text)
-								time.sleep(self.delay)
-						except Exception:
-							pass
-
+				text = _speech.get(timeout=0.5)
+			except queue.Empty:
+				continue
+			if not self._running or self._thread is not me:
+				break
+			try:
+				ui.message(text)
 			except Exception:
 				pass
-
-			time.sleep(0.5)
+			time.sleep(self.delay)

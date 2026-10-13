@@ -84,7 +84,8 @@ are right.
 - F25 Live. Guest requests carrying only `user_id` (LinkMicMethod) are not
   resolved to a name; real requests may use other message shapes. Needs
   recordings.
-- F30 Confirmed live. Text files are appended from several threads (the
+- F30 Fixed in phase 3: `store.py` writes and clears under one lock and reads
+  with damaged characters replaced; the speech buffer is gone (F19). Before: Text files are appended from several threads (the
   connection thread, one like timer per person) without a lock; Windows emulates
   append as seek-to-end plus write, so two lines written at the same moment
   overwrite each other. Replaying a busy live left a like line cut in half,
@@ -116,9 +117,12 @@ are right.
 - F18 Importing the add-on at NVDA start imports TikTokLive and its
   dependencies, reads the settings and starts the sound thread, even when the
   add-on is never used.
-- F19 Speech goes through `speechbuffer.json`, polled every 0.5 s, although
-  writer and reader are in the same process.
-- F29 Pinned. The settings file is read as plain UTF-8: saved with a byte order
+- F19 Fixed in phase 3: texts for speech go through an in-memory queue to the
+  speech reader, only while it runs. Before: speech went through
+  `speechbuffer.json`, polled every 0.5 s, although writer and reader are in
+  the same process; replaying a busy live in real time corrupted it (F30).
+- F29 Fixed in phase 3: the settings file is read as `utf-8-sig`. Before: it
+  was read as plain UTF-8: saved with a byte order
   mark (old Notepad, PowerShell 5's `-Encoding UTF8`), the first section header
   is not recognised, reading fails and every setting silently falls back to
   its default. Found by the sandbox, whose agent first wrote the file that way.
@@ -138,8 +142,8 @@ are right.
   partial and an odd file).
 - F21 Exceptions are swallowed without logging, so failures cannot be
   diagnosed from NVDA's log.
-- F22 Clearing files (main thread) races with handlers writing (connection
-  thread); there is no lock.
+- F22 Fixed in phase 3 with F30's lock. Before: clearing files (main thread)
+  raced with handlers writing (connection thread).
 - F24 Script categories differ (literal, translated, none), so the scripts
   are scattered in Input gestures. Dead code: `_watcherThread`, the inactive
   branch of `script_reportViewers` (`SpeechManager.speak`, `audioop` and the

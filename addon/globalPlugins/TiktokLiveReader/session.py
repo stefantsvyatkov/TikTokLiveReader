@@ -122,7 +122,7 @@ def connect(username=None, on_connect=None, on_retry=None, on_fail=None, retry_c
 	announcer.sound_manager.set_volume(loaded.volume)
 	announcer.sound_manager.start()
 	announcer.sound_manager.clear()
-	announcer.clear_speech_buffer()
+	announcer.forget_pending_speech()
 	pipeline.forget_seen()
 	if not loaded.clear_on_start:
 		pipeline.remember_logged()

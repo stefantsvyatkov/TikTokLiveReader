@@ -225,7 +225,7 @@ class GlobalPlugin(NVDA_GlobalPlugin):
 
 	def _cleanup_temp_files(self, hard_reset=False):
 		try:
-			announcer.remove_speech_buffer()
+			announcer.forget_pending_speech()
 
 			if hard_reset:
 				positions.remove()
@@ -239,7 +239,6 @@ class GlobalPlugin(NVDA_GlobalPlugin):
 
 	def _ensure_temp_files_exist(self):
 		try:
-			announcer.ensure_speech_buffer()
 			positions.create_if_missing()
 		except Exception:
 			pass

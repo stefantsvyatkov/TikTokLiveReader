@@ -267,6 +267,7 @@ class Session:
 	sounds: object = None
 	threads: list = field(default_factory=list)
 	clock: object = None
+	speech: list = field(default_factory=list)
 
 
 class VirtualClock:
@@ -393,6 +394,13 @@ def replaying(*frames, end="clean", past_grace_period=True, clock=None):
 	session = Session(frames, end, past_grace_period, clock=clock)
 	real_sounds = announcer.sound_manager
 	session.sounds = announcer.sound_manager = _RecordingSounds()
+	real_queue_speech = announcer.queue_speech
+
+	def queue_speech(text):
+		session.speech.append(text)
+		real_queue_speech(text)
+
+	announcer.queue_speech = queue_speech
 	runtime = adapter.RUNTIME.modules["TikTokLive"]
 	real_client_class = runtime.TikTokLiveClient
 	runtime.TikTokLiveClient = _ReplayClient
@@ -406,6 +414,7 @@ def replaying(*frames, end="clean", past_grace_period=True, clock=None):
 				thread.join(10)
 			runtime.TikTokLiveClient = real_client_class
 			announcer.sound_manager = real_sounds
+			announcer.queue_speech = real_queue_speech
 
 
 def run_session(
@@ -470,22 +479,12 @@ def run_session(
 		files[path.name] = (
 			path.read_text(encoding="utf-8", errors="replace").splitlines() if path.exists() else None
 		)
-	return Result(files, read_speech(), session.sounds.played, callbacks, log_dir, stats)
+	return Result(files, session.speech, session.sounds.played, callbacks, log_dir, stats)
 
 
 def settle_like_timers():
 	"""Fire the like aggregator's pending timers now instead of after 10 seconds."""
 	pipeline.like_manager.flush_pending()
-
-
-def read_speech():
-	"""What the connection asked to be spoken, from the speech buffer."""
-	speech = []
-	if announcer.SPEECH_BUFFER_FILE.exists():
-		for line in announcer.SPEECH_BUFFER_FILE.read_text(encoding="utf-8").splitlines():
-			if line.strip():
-				speech.append(json.loads(line)["text"])
-	return speech
 
 
 def without_times(lines):

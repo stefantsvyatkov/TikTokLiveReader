@@ -129,6 +129,16 @@ class Navigation(PluginTest):
 		p.script_prevItem(None)
 		self.assertSaid(r"\(1 of 3\)$")
 
+	def test_a_damaged_line_does_not_stop_navigation(self):
+		# F30: two lines written at the same moment once cut a line inside a character.
+		with open(store.path("comments.txt"), "ab") as handle:
+			handle.write(b"Bob: \xf0\x9f broken  10:00:00\nAlice: four  10:00:01\n")
+		p = self.plugin
+		p.script_lastItem(None)
+		self.assertSaid(r"^Alice: four  .* \(5 of 5\)$")
+		p.script_prevItem(None)
+		self.assertSaid(r"^Bob: � broken  .* \(4 of 5\)$")
+
 	def test_files_wrap_around(self):
 		p = self.plugin
 		p.script_nextFile(None)
@@ -268,6 +278,13 @@ class Archiving(PluginTest):
 
 
 class SettingsFile(unittest.TestCase):
+	def test_a_byte_order_mark_is_not_part_of_the_settings(self):
+		# F29: old Notepad and PowerShell 5 save UTF-8 with a byte order mark.
+		make_plugin(main={"username": "someone"})
+		text = settings.CONFIG_PATH.read_text(encoding="utf-8")
+		settings.CONFIG_PATH.write_text("﻿" + text, encoding="utf-8")
+		self.assertEqual(G.GlobalPlugin().settings.username, "someone")
+
 	def test_saved_settings_are_read_back(self):
 		plugin, log_dir = make_plugin()
 		prefs = dict(settings.DEFAULT_EVENT_PREFS, likes=False)

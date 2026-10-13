@@ -109,7 +109,9 @@ def _as_ini(value):
 def read_config_file():
 	config = configparser.ConfigParser()
 	if CONFIG_PATH.exists():
-		config.read(CONFIG_PATH, encoding="utf-8")
+		# utf-8-sig: a byte order mark (old Notepad, PowerShell 5) is not part of
+		# the first section header (F29).
+		config.read(CONFIG_PATH, encoding="utf-8-sig")
 	if "events" not in config and "auto_read" in config:
 		config["events"] = config["auto_read"]
 	return config

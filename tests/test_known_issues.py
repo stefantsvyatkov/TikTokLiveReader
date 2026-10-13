@@ -12,21 +12,6 @@ from . import feed as f
 from . import support
 from .test_plugin import make_plugin, said
 
-alice, bob = f.user("Alice"), f.user("Bob")
-
-
-def logged(result, name):
-	return f.without_times(result.files[name])
-
-
-class KnownIssues(unittest.TestCase):
-	def test_F29_settings_saved_with_a_byte_order_mark_are_ignored(self):
-		plugin, _ = make_plugin(main={"username": "someone"})
-		text = f.addon_settings.CONFIG_PATH.read_text(encoding="utf-8")
-		f.addon_settings.CONFIG_PATH.write_text("﻿" + text, encoding="utf-8")
-		again = type(plugin)()
-		self.assertEqual(again.settings.username, "")
-
 
 class ConnectionIssues(unittest.TestCase):
 	def test_F1_F27_switching_off_leaves_the_connection_open_and_blocks_three_seconds(self):

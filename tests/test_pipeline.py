@@ -144,11 +144,58 @@ class ConnectionLifecycle(unittest.TestCase):
 		second = f.run_session(f.comment(bob, "two"), settings=off, log_dir=first.log_dir)
 		self.assertEqual(logged(second, "comments.txt"), ["Alice: one", "Bob: two"])
 
+	def test_history_already_in_kept_files_is_not_logged_again(self):
+		off = {"behavior": {"clear_on_start": False}}
+		first = f.run_session(f.comment(alice, "one"), settings=off)
+		second = f.run_session(
+			f.comment(alice, "one"), f.comment(bob, "two"), settings=off, log_dir=first.log_dir
+		)
+		self.assertEqual(logged(second, "comments.txt"), ["Alice: one", "Bob: two"])
+		self.assertEqual(logged(second, "events.txt"), ["Alice: one", "Bob: two"])
+
 	def test_stats_file_has_five_lines(self):
 		r = f.run_session()
 		self.assertEqual(
 			r.files["stats.txt"], ["Viewers: 0", "Visitors: 0", "Likes: 0", "Followers: 0", "Diamonds: 0"]
 		)
+
+
+class EachMessageOnce(unittest.TestCase):
+	"""Duplicates are recognised by TikTok's message id (findings F4, F5, F6, F8,
+	F13, F32, F33): a message delivered twice counts once, two messages twice."""
+
+	def test_a_comment_delivered_twice_is_logged_once(self):
+		message = f.comment(alice, "hi")
+		r = f.run_session(message, message)
+		self.assertEqual(logged(r, "comments.txt"), ["Alice: hi"])
+		self.assertEqual(r.speech, ["Alice: hi"])
+
+	def test_the_same_comment_written_twice_is_logged_twice(self):
+		r = f.run_session(f.comment(alice, "hi"), f.comment(alice, "hi"))
+		self.assertEqual(logged(r, "comments.txt"), ["Alice: hi", "Alice: hi"])
+		self.assertEqual(logged(r, "events.txt"), ["Alice: hi", "Alice: hi"])
+
+	def test_a_like_delivered_twice_counts_once(self):
+		message = f.like(alice, 5, 5)
+		r = f.run_session(message, message)
+		self.assertEqual(logged(r, "likes.txt"), ["Alice: 5 likes"])
+
+	def test_the_same_gift_sent_twice_is_logged_twice(self):
+		r = f.run_session(
+			f.gift(alice, "Rose", 1, 1, repeat_end=1), f.gift(alice, "Rose", 1, 1, repeat_end=1)
+		)
+		self.assertEqual(logged(r, "gifts.txt"), ["Alice: 1 Rose", "Alice: 1 Rose"])
+		self.assertEqual(r.stats["total_diamonds"], 2)
+
+	def test_every_share_is_logged(self):
+		r = f.run_session(f.share(alice), f.share(alice), f.share(alice))
+		self.assertEqual(logged(r, "shares.txt"), ["Alice", "Alice", "Alice"])
+		self.assertEqual(logged(r, "events.txt"), ["Alice shared the live"] * 3)
+
+	def test_a_follow_counts_once_although_the_library_reports_it_twice(self):
+		r = f.run_session(f.follow(alice))
+		self.assertEqual(logged(r, "events.txt"), ["New follower: Alice"])
+		self.assertEqual(r.speech, ["New follower: Alice"])
 
 
 if __name__ == "__main__":

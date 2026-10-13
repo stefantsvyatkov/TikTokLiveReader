@@ -47,10 +47,10 @@ does not put the working folder on `sys.path` for `-m unittest tests.x`).
   the fields the add-on reads, by meaning, so 7.x renames line up.
 - `tools/compare_libs.py <a> <b>` compares two decodings.
 - `tools/check_addon.py <recording> [pace]` replays a recording through the
-  add-on's real connection thread (`feed.recorded_frames`, pauses scaled by
-  pace; 1 keeps the timing the one- and ten-second rules depend on) and
-  compares its files with what happened, counted once per message id. Output
-  in `artifacts/checks/`. Guest requests have no independent count yet: the
+  add-on's real connection thread on recorded time (`feed.VirtualClock`; with
+  a pace it waits the recorded pauses scaled by it instead) and compares its
+  files with what happened, counted once per message id. Output in
+  `artifacts/checks/`. Guest requests have no independent count yet: the
   link layer carries applicant queues, not single requests (F28).
 
 - `tools/snapshot_addon.py <out.json> <recording> [...]` replays recordings

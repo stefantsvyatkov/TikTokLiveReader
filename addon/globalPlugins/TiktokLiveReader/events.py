@@ -1,6 +1,6 @@
 """The add-on's own events, made from the library's by tiktok_adapter.py: what the
-pipeline reads, as plain values. ``legacy_id`` is what 1.8 deduplicates by (F4:
-never set by TikTokLive 6.6.5)."""
+pipeline reads, as plain values. ``message_id`` is TikTok's id of the message an
+event came in (0 when unknown): the same message delivered twice has the same id."""
 
 from dataclasses import dataclass
 
@@ -20,26 +20,26 @@ class Person:
 
 @dataclass(frozen=True)
 class Comment:
-	legacy_id: object
+	message_id: int
 	user: Person | None
 	text: object
 
 
 @dataclass(frozen=True)
 class Follow:
-	legacy_id: object
+	message_id: int
 	user: Person | None
 
 
 @dataclass(frozen=True)
 class Share:
-	legacy_id: object
+	message_id: int
 	user: Person | None
 
 
 @dataclass(frozen=True)
 class Gift:
-	legacy_id: object
+	message_id: int
 	user: Person | None
 	repeat_end: object
 	repeat_count: object
@@ -51,6 +51,7 @@ class Gift:
 class Like:
 	"""``total`` is the live's like count, None when the message has none."""
 
+	message_id: int
 	user: Person | None
 	total: object
 	count: int
@@ -58,6 +59,7 @@ class Like:
 
 @dataclass(frozen=True)
 class Join:
+	message_id: int
 	user: Person | None
 
 
@@ -65,6 +67,7 @@ class Join:
 class ViewerCount:
 	"""``total`` is None when the message has no count."""
 
+	message_id: int
 	total: object
 
 
@@ -73,6 +76,7 @@ class LinkMessage:
 	"""A guest request, invitation or link layer change, with the people in it in
 	the order 1.8 looks at them."""
 
+	message_id: int
 	kind: str
 	has_apply: bool
 	applicant: Person | None

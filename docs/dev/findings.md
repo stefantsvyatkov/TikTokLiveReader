@@ -30,6 +30,17 @@ confirms it.
 
 ## Events
 
+Fixed in phase 3 (2026-10-13): F4, F5, F6, F8, F13, F32, F33. Every event
+carries TikTok's message id and `pipeline.handle` handles each (kind, id) once;
+the text and one-second rules are gone, a person still counts once as a
+follower and as a visitor. With kept text files, comment and event lines of
+earlier sessions are not logged again (the history sent on connecting); a
+comment identical to one in those files is skipped, the one case left of F5.
+`tools/check_addon.py` on the three 2026-10-13 lives, before -> after: comments
+78 -> 102 of 102, 92 -> 96 of 97 (the one left is a sticker, F31) and 43 -> 45
+of 45; shares 58 -> 71 of 71; the like sums that were off by a repeated message
+are right.
+
 - F4 Pinned. `_is_processed` looks for `msgId`, `id` and
   `base_message.msg_id`; the field is `base_message.message_id`, so
   deduplication by message id never happens and only the text checks below

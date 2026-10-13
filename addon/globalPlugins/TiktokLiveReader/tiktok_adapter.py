@@ -1,7 +1,7 @@
 """Everything that knows TikTokLive: the bundled copy, the client, and turning the
 library's events into the add-on's own (events.py). The listeners are those of
-1.8, doubled registrations included: a comment reaches the pipeline twice, a
-follow or share once as itself and once as a social message (see findings.md)."""
+1.8: a comment reaches the pipeline twice, a follow or share once as itself and
+once as a social message; the pipeline handles each message once by its id."""
 
 from pathlib import Path
 
@@ -123,15 +123,8 @@ def run(client):
 		client.run()
 
 
-def legacy_id(event):
-	ident = getattr(event, "msgId", None)
-	if not ident:
-		ident = getattr(event, "id", None)
-	if not ident:
-		base = getattr(event, "base_message", None)
-		if base:
-			ident = getattr(base, "msg_id", None)
-	return ident
+def message_id(event):
+	return getattr(getattr(event, "base_message", None), "message_id", 0) or 0
 
 
 def _person(user):
@@ -169,15 +162,15 @@ def _comment_text(event):
 
 
 def _comment(event):
-	return events.Comment(legacy_id(event), _user(event), _comment_text(event))
+	return events.Comment(message_id(event), _user(event), _comment_text(event))
 
 
 def _follow(event):
-	return events.Follow(legacy_id(event), _user(event))
+	return events.Follow(message_id(event), _user(event))
 
 
 def _share(event):
-	return events.Share(legacy_id(event), _user(event))
+	return events.Share(message_id(event), _user(event))
 
 
 def _social(event):
@@ -195,7 +188,7 @@ def _social(event):
 def _gift(event):
 	gift = getattr(event, "gift", None)
 	return events.Gift(
-		legacy_id=legacy_id(event),
+		message_id=message_id(event),
 		user=_user(event),
 		repeat_end=getattr(event, "repeat_end", True),
 		repeat_count=getattr(event, "repeat_count", 1),
@@ -219,19 +212,19 @@ def _like(event):
 		0,
 	)
 	count = increment if isinstance(increment, int) and increment > 0 else 1
-	return events.Like(_user(event), total, count)
+	return events.Like(message_id(event), _user(event), total, count)
 
 
 def _join(event):
-	return events.Join(_user(event))
+	return events.Join(message_id(event), _user(event))
 
 
 def _viewer_count(event):
 	if hasattr(event, "m_total"):
-		return events.ViewerCount(event.m_total)
+		return events.ViewerCount(message_id(event), event.m_total)
 	if hasattr(event, "viewer_count"):
-		return events.ViewerCount(event.viewer_count)
-	return events.ViewerCount(None)
+		return events.ViewerCount(message_id(event), event.viewer_count)
+	return events.ViewerCount(message_id(event), None)
 
 
 def _as_int(value):
@@ -266,6 +259,7 @@ def _link(event):
 						if hasattr(application, "link_user") and application.link_user:
 							applied.append(_person(application.link_user))
 		return events.LinkMessage(
+			message_id=message_id(event),
 			kind=type(event).__name__,
 			has_apply=has_apply,
 			applicant=_person(getattr(event.apply_content, "applicant", None)) if has_apply else None,

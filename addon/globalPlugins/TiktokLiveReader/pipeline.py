@@ -12,7 +12,9 @@ from .i18n import _
 from .settings import Settings
 
 MAX_TRACKED_ITEMS = 50000
-MAX_PROCESSED_IDS = 10000
+# Message ids remembered to recognise a message delivered again; repeats come
+# within seconds, the history repeated in the first frames.
+MAX_MESSAGE_IDS = 10000
 MAX_TIMESTAMP_ITEMS = 5000
 STATS_MIN_INTERVAL = 1.0
 # Announcements wait this long after connecting: the first seconds bring the
@@ -53,14 +55,14 @@ total_diamonds = 0
 visitors = set()
 viewer_count = 0
 total_viewers = 0
-_known_comments = BoundedSet(MAX_TRACKED_ITEMS)
-_known_events = BoundedSet(MAX_TRACKED_ITEMS)
+# Lines of earlier sessions in kept text files: the history TikTok sends on
+# connecting is not logged again.
+_comments_logged_before = BoundedSet(MAX_TRACKED_ITEMS)
+_events_logged_before = BoundedSet(MAX_TRACKED_ITEMS)
 _known_followers = BoundedSet(MAX_TRACKED_ITEMS)
-_known_shares = {}
-_known_gifts = {}
 _known_users = {}
 _requests_log = {}
-_processed_ids = BoundedSet(MAX_PROCESSED_IDS)
+_seen_messages = BoundedSet(MAX_MESSAGE_IDS)
 
 _stats_lock = threading.Lock()
 _stats_dirty = False
@@ -90,14 +92,6 @@ def _remember_user(uid, name):
 	_known_users[str(uid)] = name
 	while len(_known_users) > MAX_TRACKED_ITEMS:
 		del _known_users[next(iter(_known_users))]
-
-
-def _is_processed(legacy_id):
-	if legacy_id:
-		if legacy_id in _processed_ids:
-			return True
-		_processed_ids.add(legacy_id)
-	return False
 
 
 def _sanitize_name(name):
@@ -136,13 +130,11 @@ def _nickname(person, default):
 def forget_seen():
 	"""Start a connection: nothing has been seen yet."""
 	global connection_time
-	_known_comments.clear()
-	_known_events.clear()
-	_processed_ids.clear()
-	_known_gifts.clear()
+	_comments_logged_before.clear()
+	_events_logged_before.clear()
+	_seen_messages.clear()
 	connection_time = 0
 	_known_followers.clear()
-	_known_shares.clear()
 
 
 def remember_logged():
@@ -151,12 +143,12 @@ def remember_logged():
 		for line in store.path(store.COMMENTS).read_text(encoding="utf-8").splitlines():
 			line = line.strip()
 			if line:
-				_known_comments.add(line.rsplit("  ", 1)[0])
+				_comments_logged_before.add(line.rsplit("  ", 1)[0])
 		if store.path(store.EVENTS).exists():
 			for line in store.path(store.EVENTS).read_text(encoding="utf-8").splitlines():
 				line = line.strip()
 				if line:
-					_known_events.add(line.rsplit("  ", 1)[0])
+					_events_logged_before.add(line.rsplit("  ", 1)[0])
 	except Exception:
 		pass
 
@@ -173,13 +165,11 @@ def reset_accumulators():
 	viewer_count = 0
 	total_viewers = 0
 
-	_known_comments.clear()
-	_known_events.clear()
+	_comments_logged_before.clear()
+	_events_logged_before.clear()
 	_known_followers.clear()
-	_known_shares.clear()
 	_requests_log.clear()
-	_processed_ids.clear()
-	_known_gifts.clear()
+	_seen_messages.clear()
 
 
 def _write_stats_file():
@@ -232,10 +222,8 @@ def write_top_files():
 
 
 def _log_to_events(log_text):
-	event_text = log_text.rsplit("  ", 1)[0]
-	if event_text in _known_events:
+	if log_text.rsplit("  ", 1)[0] in _events_logged_before:
 		return
-	_known_events.add(event_text)
 	try:
 		store.append(store.EVENTS, log_text)
 	except Exception:
@@ -273,8 +261,6 @@ like_manager = likes.LikeAggregator(_report_likes)
 
 
 def _on_comment(event):
-	if _is_processed(event.legacy_id):
-		return
 	_track_user(event.user)
 
 	nickname = _sanitize_name(_display_name(event.user))
@@ -282,9 +268,8 @@ def _on_comment(event):
 	if not event.text:
 		return
 	user_comment = f"{nickname}: {event.text}"
-	if user_comment in _known_comments:
+	if user_comment in _comments_logged_before:
 		return
-	_known_comments.add(user_comment)
 	log_line = f"{user_comment}  {_now()}"
 	store.append(store.COMMENTS, log_line)
 	if _settings.events.get("comments", True):
@@ -294,8 +279,6 @@ def _on_comment(event):
 
 def _on_follow(event):
 	global total_followers
-	if _is_processed(event.legacy_id):
-		return
 	_track_user(event.user)
 
 	unique_id = event.user.unique_id if event.user.unique_id is not None else event.user.nickname
@@ -316,8 +299,6 @@ def _on_follow(event):
 
 def _on_gift(event):
 	global total_diamonds
-	if _is_processed(event.legacy_id):
-		return
 	_track_user(event.user)
 
 	if not event.repeat_end:
@@ -326,13 +307,6 @@ def _on_gift(event):
 	name = event.name
 	diamonds = count * event.diamond_count
 	display_name = _sanitize_name(_nickname(event.user, "someone"))
-
-	gift_key = f"{display_name}_{name}_{count}"
-	now = time.time()
-	if now - _known_gifts.get(gift_key, 0) < 1.0:
-		return
-	_known_gifts[gift_key] = now
-	_prune_timestamps(_known_gifts, 1.0)
 
 	if diamonds > 0:
 		total_diamonds += diamonds
@@ -369,17 +343,9 @@ def _on_like(event):
 
 
 def _on_share(event):
-	if _is_processed(event.legacy_id):
-		return
 	_track_user(event.user)
 
 	display_name = _sanitize_name(event.user.nickname)
-	now = time.time()
-	if now - _known_shares.get(display_name, 0) < 1.0:
-		return
-	_known_shares[display_name] = now
-	_prune_timestamps(_known_shares, 1.0)
-
 	store.append(store.SHARES, f"{display_name}  {_now()}")
 	if _settings.events.get("shares", False):
 		# Translators: Announced when a user shares the live stream. {name} is the user's name.
@@ -521,4 +487,11 @@ _HANDLERS = {
 
 
 def handle(event):
+	"""Handle an event once: TikTok sends some messages twice, and the library
+	turns one message into more than one event of a kind (findings F4, F13)."""
+	if event.message_id:
+		key = (type(event), event.message_id)
+		if key in _seen_messages:
+			return
+		_seen_messages.add(key)
 	_HANDLERS[type(event)](event)

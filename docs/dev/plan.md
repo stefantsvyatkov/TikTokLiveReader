@@ -74,6 +74,7 @@ live recording.
    Phase 4 also runs the smoke with NVDA in Bulgarian (translations come
    through `i18n.py` since step 1).
 3. Fixes from `findings.md`, each with a test or recording.
+   - [x] F4 with F5, F6, F8, F13, F32, F33: duplicates by message id
 4. Stress test in the sandbox on all three NVDA versions, live comparison
    loop.
 5. Version 2.0, minimum 2026.1, changelog draft for the user.

@@ -20,31 +20,11 @@ def logged(result, name):
 
 
 class KnownIssues(unittest.TestCase):
-	def test_F4_message_id_is_never_read(self):
-		event = type("Event", (), {"base_message": type("Common", (), {"message_id": 7})()})()
-		self.assertFalse(f.pipeline._is_processed(f.adapter.legacy_id(event)))
-		self.assertFalse(f.pipeline._is_processed(f.adapter.legacy_id(event)))
-
-	def test_F5_same_comment_from_same_person_is_dropped(self):
-		r = f.run_session(f.comment(alice, "hi"), f.comment(alice, "hi"))
-		self.assertEqual(logged(r, "comments.txt"), ["Alice: hi"])
-
-	def test_F6_repeated_event_line_is_dropped_from_events_file(self):
-		r = f.run_session(f.share(alice), 1.2, f.share(alice))
-		self.assertEqual(logged(r, "shares.txt"), ["Alice", "Alice"])
-		self.assertEqual(logged(r, "events.txt"), ["Alice shared the live"])
-
 	def test_F7_gift_that_cannot_streak_is_dropped_when_repeat_end_is_zero(self):
 		# Needs live data: what repeat_end TikTok really sends for such gifts.
 		r = f.run_session(f.gift(alice, "Lion", 29999, 1, repeat_end=0, streakable=False))
 		self.assertEqual(r.files["gifts.txt"], [])
 		self.assertEqual(r.stats["total_diamonds"], 0)
-
-	def test_F8_same_gift_twice_within_a_second_is_one(self):
-		r = f.run_session(
-			f.gift(alice, "Rose", 1, 1, repeat_end=1), f.gift(alice, "Rose", 1, 1, repeat_end=1)
-		)
-		self.assertEqual(logged(r, "gifts.txt"), ["Alice: 1 Rose"])
 
 	def test_F9_new_line_in_a_comment_splits_the_entry(self):
 		r = f.run_session(f.comment(alice, "line1\nline2"))

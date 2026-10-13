@@ -138,10 +138,19 @@ class SettingsDialog(wx.Dialog):
 		self.learn = wx.Button(panel, label=_("L&earn sounds"))
 		sizer.Add(self.learn, flag=wx.ALL, border=5)
 		# Shown only while sounds are on.
-		self._sound_controls = [first_line, *self.sound_checks.values(), second_line, volume_label, self.volume, self.learn]
+		self._sound_controls = [
+			first_line,
+			*self.sound_checks.values(),
+			second_line,
+			volume_label,
+			self.volume,
+			self.learn,
+		]
 
 		self.play_sounds.Bind(wx.EVT_CHECKBOX, self._on_toggle_sounds)
-		self.volume.Bind(wx.EVT_SLIDER, lambda evt: announcer.sound_manager.set_volume(self.volume.GetValue()))
+		self.volume.Bind(
+			wx.EVT_SLIDER, lambda evt: announcer.sound_manager.set_volume(self.volume.GetValue())
+		)
 		self._on_toggle_sounds(None)
 		self.learn.Bind(wx.EVT_BUTTON, self._on_learn)
 		panel.SetSizer(sizer)
@@ -238,9 +247,13 @@ class SettingsDialog(wx.Dialog):
 				if not self._wait(1.0):
 					break
 				played = threading.Event()
-				announcer.sound_manager.play(event_key, play_file=True, post_delay=0.0, on_complete=played.set)
+				announcer.sound_manager.play(
+					event_key, play_file=True, post_delay=0.0, on_complete=played.set
+				)
 				started = time.time()
-				while not played.is_set() and not self._stop_learning.is_set() and time.time() - started <= 5.0:
+				while (
+					not played.is_set() and not self._stop_learning.is_set() and time.time() - started <= 5.0
+				):
 					time.sleep(0.1)
 				if self._stop_learning.is_set():
 					break

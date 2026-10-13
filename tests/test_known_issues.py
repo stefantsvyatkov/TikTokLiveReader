@@ -41,7 +41,9 @@ class KnownIssues(unittest.TestCase):
 		self.assertEqual(r.stats["total_diamonds"], 0)
 
 	def test_F8_same_gift_twice_within_a_second_is_one(self):
-		r = f.run_session(f.gift(alice, "Rose", 1, 1, repeat_end=1), f.gift(alice, "Rose", 1, 1, repeat_end=1))
+		r = f.run_session(
+			f.gift(alice, "Rose", 1, 1, repeat_end=1), f.gift(alice, "Rose", 1, 1, repeat_end=1)
+		)
 		self.assertEqual(logged(r, "gifts.txt"), ["Alice: 1 Rose"])
 
 	def test_F9_new_line_in_a_comment_splits_the_entry(self):

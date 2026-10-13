@@ -18,7 +18,9 @@ from pathlib import Path
 REPO = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(REPO))
 
-EVERYTHING = {key: True for key in ("comments", "followers", "gifts", "likes", "requests", "shares", "visitors")}
+EVERYTHING = {
+	key: True for key in ("comments", "followers", "gifts", "likes", "requests", "shares", "visitors")
+}
 CONFIGURATIONS = {
 	"clean names": {"behavior": {"clean_usernames": True}},
 	"raw names": {"behavior": {"clean_usernames": False}},

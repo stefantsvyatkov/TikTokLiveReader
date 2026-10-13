@@ -72,7 +72,9 @@ class SwitchingOnAndOff(PluginTest):
 		self.assertTrue(plugin.active)
 		self.assertIn("kb:control+shift+downArrow", plugin.boundGestures)
 		plugin.script_toggleActive(None)
-		self.assertEqual(support.spoken, ["TikTok Live Reader On", "Connected to user: host", "TikTok Live Reader Off"])
+		self.assertEqual(
+			support.spoken, ["TikTok Live Reader On", "Connected to user: host", "TikTok Live Reader Off"]
+		)
 		self.assertEqual(set(plugin.boundGestures), BASE_GESTURES)
 
 	def test_stream_end_switches_off(self):
@@ -80,7 +82,9 @@ class SwitchingOnAndOff(PluginTest):
 		with f.replaying(f.comment(alice, "bye")):
 			plugin.script_toggleActive(None)
 			self.assertTrue(f.wait_until(said("The live has ended")), support.spoken)
-		self.assertEqual(support.spoken, ["TikTok Live Reader On", "Connected to user: host", "The live has ended"])
+		self.assertEqual(
+			support.spoken, ["TikTok Live Reader On", "Connected to user: host", "The live has ended"]
+		)
 		self.assertFalse(plugin.active)
 		self.assertEqual(set(plugin.boundGestures), BASE_GESTURES)
 
@@ -102,7 +106,9 @@ class SwitchingOnAndOff(PluginTest):
 class Navigation(PluginTest):
 	def setUp(self):
 		self.plugin, _ = make_plugin()
-		self.start(self.plugin, f.comment(alice, "one"), f.comment(bob, "two"), f.comment(alice, "three"), lines=3)
+		self.start(
+			self.plugin, f.comment(alice, "one"), f.comment(bob, "two"), f.comment(alice, "three"), lines=3
+		)
 		support.spoken.clear()
 
 	def assertSaid(self, pattern):
@@ -267,10 +273,21 @@ class SettingsFile(unittest.TestCase):
 		prefs = dict(settings.DEFAULT_EVENT_PREFS, likes=False)
 		speak = dict(settings.DEFAULT_EVENT_PREFS, gifts=False)
 		sounds = dict(settings.DEFAULT_EVENT_PREFS, visitors=True)
-		plugin._apply_settings(settings.Settings(
-			username="someone", text_files_destination=str(log_dir), events=prefs, auto_speak=speak, sounds=sounds,
-			clear_on_start=False, clean_usernames=False, retry_count=7, backup_sessions=True, play_sounds=True, volume=40,
-		))
+		plugin._apply_settings(
+			settings.Settings(
+				username="someone",
+				text_files_destination=str(log_dir),
+				events=prefs,
+				auto_speak=speak,
+				sounds=sounds,
+				clear_on_start=False,
+				clean_usernames=False,
+				retry_count=7,
+				backup_sessions=True,
+				play_sounds=True,
+				volume=40,
+			)
+		)
 		again = G.GlobalPlugin().settings
 		self.assertEqual(again.username, "someone")
 		self.assertEqual((again.events, again.auto_speak, again.sounds), (prefs, speak, sounds))

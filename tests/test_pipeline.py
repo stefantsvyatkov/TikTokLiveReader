@@ -30,7 +30,9 @@ class Comments(unittest.TestCase):
 
 class Gifts(unittest.TestCase):
 	def test_streak_is_logged_once_when_it_ends(self):
-		r = f.run_session(f.gift(alice, "Rose", 1, 3, repeat_end=0), f.gift(alice, "Rose", 1, 5, repeat_end=1))
+		r = f.run_session(
+			f.gift(alice, "Rose", 1, 3, repeat_end=0), f.gift(alice, "Rose", 1, 5, repeat_end=1)
+		)
 		self.assertEqual(logged(r, "gifts.txt"), ["Alice: 5 Rose"])
 		self.assertEqual(logged(r, "events.txt"), ["Gift: Alice: 5 Rose"])
 		self.assertEqual(r.speech, ["Gift: Alice: 5 Rose"])
@@ -144,7 +146,9 @@ class ConnectionLifecycle(unittest.TestCase):
 
 	def test_stats_file_has_five_lines(self):
 		r = f.run_session()
-		self.assertEqual(r.files["stats.txt"], ["Viewers: 0", "Visitors: 0", "Likes: 0", "Followers: 0", "Diamonds: 0"])
+		self.assertEqual(
+			r.files["stats.txt"], ["Viewers: 0", "Visitors: 0", "Likes: 0", "Followers: 0", "Diamonds: 0"]
+		)
 
 
 if __name__ == "__main__":

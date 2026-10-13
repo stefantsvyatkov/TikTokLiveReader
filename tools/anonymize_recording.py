@@ -28,8 +28,25 @@ import betterproto  # noqa: E402
 from TikTokLive.events.proto_events import EVENT_MAPPINGS  # noqa: E402
 
 NAME_FIELDS = {"nick_name", "nickname", "username", "display_id", "unique_id", "inviter_nickname"}
-TEXT_FIELDS = {"content", "signature", "bio_description", "describe", "pop_str", "share_target", "default_pattern"}
-DROP_FIELDS = {"sec_uid", "id_str", "url_list", "uri", "avatar_thumb", "avatar_medium", "avatar_large", "web_url"}
+TEXT_FIELDS = {
+	"content",
+	"signature",
+	"bio_description",
+	"describe",
+	"pop_str",
+	"share_target",
+	"default_pattern",
+}
+DROP_FIELDS = {
+	"sec_uid",
+	"id_str",
+	"url_list",
+	"uri",
+	"avatar_thumb",
+	"avatar_medium",
+	"avatar_large",
+	"web_url",
+}
 ID_FIELDS = {"id", "uid", "user_id", "invite_uid", "target_user_id", "anchor_id", "to_user_id"}
 
 

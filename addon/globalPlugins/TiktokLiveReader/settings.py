@@ -137,7 +137,9 @@ def apply_config_defaults(config):
 
 
 def _section(config, section):
-	return {key: config.getboolean(section, key, fallback=value) for key, value in DEFAULT_EVENT_PREFS.items()}
+	return {
+		key: config.getboolean(section, key, fallback=value) for key, value in DEFAULT_EVENT_PREFS.items()
+	}
 
 
 def from_config(config):
@@ -148,10 +150,16 @@ def from_config(config):
 		auto_speak=_section(config, "auto_speak"),
 		sounds=_section(config, "sound_events"),
 		auto_speak_enabled=config.getboolean("auto_speak", "enabled", fallback=False),
-		clear_on_start=config.getboolean("behavior", "clear_on_start", fallback=DEFAULT_BEHAVIOR["clear_on_start"]),
-		clean_usernames=config.getboolean("behavior", "clean_usernames", fallback=DEFAULT_BEHAVIOR["clean_usernames"]),
+		clear_on_start=config.getboolean(
+			"behavior", "clear_on_start", fallback=DEFAULT_BEHAVIOR["clear_on_start"]
+		),
+		clean_usernames=config.getboolean(
+			"behavior", "clean_usernames", fallback=DEFAULT_BEHAVIOR["clean_usernames"]
+		),
 		retry_count=config.getint("behavior", "retry_count", fallback=DEFAULT_BEHAVIOR["retry_count"]),
-		backup_sessions=config.getboolean("behavior", "backup_sessions", fallback=DEFAULT_BEHAVIOR["backup_sessions"]),
+		backup_sessions=config.getboolean(
+			"behavior", "backup_sessions", fallback=DEFAULT_BEHAVIOR["backup_sessions"]
+		),
 		play_sounds=config.getboolean("sounds", "play_sounds", fallback=DEFAULT_SOUNDS["play_sounds"]),
 		volume=config.getint("sounds", "volume", fallback=DEFAULT_SOUNDS["volume"]),
 	)

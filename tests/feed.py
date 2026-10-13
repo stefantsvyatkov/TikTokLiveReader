@@ -52,6 +52,8 @@ def _in_runtime(function):
 			return function(*args, **kwargs)
 
 	return wrapper
+
+
 METHODS = {event: method for method, event in proto_events.EVENT_MAPPINGS.items()}
 
 
@@ -85,12 +87,14 @@ def comment(who, text):
 
 @_in_runtime
 def gift(who, name, diamonds=1, count=1, repeat_end=1, streakable=True):
-	return _message(proto_events.GiftEvent(
-		from_user=who,
-		repeat_count=count,
-		repeat_end=repeat_end,
-		m_gift=proto.Gift(name=name, diamond_count=diamonds, type=1 if streakable else 2),
-	))
+	return _message(
+		proto_events.GiftEvent(
+			from_user=who,
+			repeat_count=count,
+			repeat_end=repeat_end,
+			m_gift=proto.Gift(name=name, diamond_count=diamonds, type=1 if streakable else 2),
+		)
+	)
 
 
 @_in_runtime
@@ -167,22 +171,29 @@ def write_recording(path, *items, user="host", start=None):
 	"""Write messages (and pauses in seconds) in the recorder's format, one frame per message."""
 	clock = start if start is not None else time.time()
 	with Path(path).open("w", encoding="utf-8") as out:
-		out.write(json.dumps({"header": True, "user": user, "started": "synthetic", "library": "6.6.5"}) + "\n")
+		out.write(
+			json.dumps({"header": True, "user": user, "started": "synthetic", "library": "6.6.5"}) + "\n"
+		)
 		number = 0
 		for item in items:
 			if isinstance(item, (int, float)):
 				clock += item
 				continue
 			number += 1
-			out.write(json.dumps({
-				"t": round(clock, 3),
-				"frame": number,
-				"is_first": number == 1,
-				"method": item.method,
-				"msg_id": item.msg_id,
-				"is_history": False,
-				"payload": base64.b64encode(item.payload).decode("ascii"),
-			}) + "\n")
+			out.write(
+				json.dumps(
+					{
+						"t": round(clock, 3),
+						"frame": number,
+						"is_first": number == 1,
+						"method": item.method,
+						"msg_id": item.msg_id,
+						"is_history": False,
+						"payload": base64.b64encode(item.payload).decode("ascii"),
+					}
+				)
+				+ "\n"
+			)
 
 
 class _ReplayClient(TikTokLive.TikTokLiveClient):
@@ -397,8 +408,16 @@ def replaying(*frames, end="clean", past_grace_period=True, clock=None):
 			announcer.sound_manager = real_sounds
 
 
-def run_session(*frames, end="clean", past_grace_period=True, settle_likes=True, settings=None, log_dir=None, timeout=60,
-		clock=None):
+def run_session(
+	*frames,
+	end="clean",
+	past_grace_period=True,
+	settle_likes=True,
+	settings=None,
+	log_dir=None,
+	timeout=60,
+	clock=None,
+):
 	"""Run one connection through the add-on's real thread, replaying ``frames``.
 
 	``settle_likes`` lets the like aggregator's 10 second timers fire before
@@ -418,6 +437,7 @@ def run_session(*frames, end="clean", past_grace_period=True, settle_likes=True,
 			callbacks.append(name)
 			if last:
 				finished.set()
+
 		return callback
 
 	with replaying(*frames, end=end, past_grace_period=past_grace_period, clock=clock) as session:
@@ -447,7 +467,9 @@ def run_session(*frames, end="clean", past_grace_period=True, settle_likes=True,
 
 	files = {}
 	for path in store.session_files():
-		files[path.name] = path.read_text(encoding="utf-8", errors="replace").splitlines() if path.exists() else None
+		files[path.name] = (
+			path.read_text(encoding="utf-8", errors="replace").splitlines() if path.exists() else None
+		)
 	return Result(files, read_speech(), session.sounds.played, callbacks, log_dir, stats)
 
 

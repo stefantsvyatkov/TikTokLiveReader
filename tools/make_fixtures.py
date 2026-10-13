@@ -21,13 +21,21 @@ def smoke():
 	alice, bob = f.user("Alice"), f.user("Bob")
 	return [
 		f.viewers(37),
-		0.5, f.comment(alice, "hello"),
-		0.5, f.comment(bob, "hi there"),
-		0.5, f.join(alice), f.join(bob),
-		0.5, f.gift(alice, "Rose", 1, 3, repeat_end=1),
-		0.5, f.like(bob, 5, 120),
-		0.5, f.follow(bob),
-		0.5, f.share(alice),
+		0.5,
+		f.comment(alice, "hello"),
+		0.5,
+		f.comment(bob, "hi there"),
+		0.5,
+		f.join(alice),
+		f.join(bob),
+		0.5,
+		f.gift(alice, "Rose", 1, 3, repeat_end=1),
+		0.5,
+		f.like(bob, 5, 120),
+		0.5,
+		f.follow(bob),
+		0.5,
+		f.share(alice),
 	]
 
 

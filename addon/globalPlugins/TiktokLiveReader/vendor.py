@@ -37,7 +37,9 @@ def _has_code(folder):
 	if (folder / "__init__.py").exists():
 		return True
 	candidates = [folder, *(child for child in folder.iterdir() if child.is_dir())]
-	return any(next(candidate.glob(pattern), None) for candidate in candidates for pattern in ("*.py", "*.pyd"))
+	return any(
+		next(candidate.glob(pattern), None) for candidate in candidates for pattern in ("*.py", "*.pyd")
+	)
 
 
 class Runtime:
@@ -55,7 +57,9 @@ class Runtime:
 		return module_name.partition(".")[0] in self.names
 
 	def _enter(self):
-		self._displaced = {name: module for name, module in list(sys.modules.items()) if self.is_private(name)}
+		self._displaced = {
+			name: module for name, module in list(sys.modules.items()) if self.is_private(name)
+		}
 		for name in self._displaced:
 			del sys.modules[name]
 		sys.modules.update(self.modules)

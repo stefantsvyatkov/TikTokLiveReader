@@ -114,7 +114,11 @@ def _install_nvda_stand_ins():
 	)
 	_module("gui", mainFrame=None, message=message)
 	# The settings dialog is tested in the sandbox; here wx only has to import.
-	_module("wx", CallAfter=lambda function, *args, **kwargs: function(*args, **kwargs), Dialog=type("Dialog", (), {}))
+	_module(
+		"wx",
+		CallAfter=lambda function, *args, **kwargs: function(*args, **kwargs),
+		Dialog=type("Dialog", (), {}),
+	)
 	_module("NVDAState", WritePaths=types.SimpleNamespace(configDir=str(NVDA_CONFIG)))
 
 

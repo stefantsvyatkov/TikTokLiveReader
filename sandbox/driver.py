@@ -24,15 +24,32 @@ KEYEVENTF_EXTENDEDKEY = 0x0001
 KEYEVENTF_KEYUP = 0x0002
 EXTENDED = {"insert", "home", "end", "up", "down", "left", "right", "delete", "pageup", "pagedown"}
 VK = {
-	"nvda": 0x2D, "insert": 0x2D, "control": 0x11, "shift": 0x10, "alt": 0x12,
-	"home": 0x24, "end": 0x23, "up": 0x26, "down": 0x28, "left": 0x25, "right": 0x27,
-	"tab": 0x09, "enter": 0x0D, "escape": 0x1B, "space": 0x20,
+	"nvda": 0x2D,
+	"insert": 0x2D,
+	"control": 0x11,
+	"shift": 0x10,
+	"alt": 0x12,
+	"home": 0x24,
+	"end": 0x23,
+	"up": 0x26,
+	"down": 0x28,
+	"left": 0x25,
+	"right": 0x27,
+	"tab": 0x09,
+	"enter": 0x0D,
+	"escape": 0x1B,
+	"space": 0x20,
 }
 
 
 class KEYBDINPUT(ctypes.Structure):
-	_fields_ = [("wVk", wintypes.WORD), ("wScan", wintypes.WORD), ("dwFlags", wintypes.DWORD),
-		("time", wintypes.DWORD), ("dwExtraInfo", ctypes.c_size_t)]
+	_fields_ = [
+		("wVk", wintypes.WORD),
+		("wScan", wintypes.WORD),
+		("dwFlags", wintypes.DWORD),
+		("time", wintypes.DWORD),
+		("dwExtraInfo", ctypes.c_size_t),
+	]
 
 
 class INPUT(ctypes.Structure):
@@ -45,7 +62,9 @@ class INPUT(ctypes.Structure):
 
 def _send(name, up):
 	vk = VK.get(name) or ord(name.upper())
-	flags = (KEYEVENTF_KEYUP if up else 0) | (KEYEVENTF_EXTENDEDKEY if name in EXTENDED or name == "nvda" else 0)
+	flags = (KEYEVENTF_KEYUP if up else 0) | (
+		KEYEVENTF_EXTENDEDKEY if name in EXTENDED or name == "nvda" else 0
+	)
 	scan = user32.MapVirtualKeyW(vk, 0)
 	event = INPUT(type=INPUT_KEYBOARD, ki=KEYBDINPUT(vk, scan, flags, 0, 0))
 	user32.SendInput(1, ctypes.byref(event), ctypes.sizeof(INPUT))
@@ -117,7 +136,7 @@ class Run:
 		return ok
 
 	def since_mark(self):
-		return self.log.speech()[self.mark:]
+		return self.log.speech()[self.mark :]
 
 	def press_and_hear(self, combo, pattern, name, timeout=8):
 		"""Press keys and wait until an utterance after the press matches ``pattern``."""
@@ -159,7 +178,9 @@ class Run:
 	def finish(self):
 		errors = self.log.errors()
 		self.check("no errors in NVDA's log", not errors, "\n".join(errors)[:4000])
-		lines = [f"{status}  {name}" + (f"  - {detail}" if detail else "") for status, name, detail in self.results]
+		lines = [
+			f"{status}  {name}" + (f"  - {detail}" if detail else "") for status, name, detail in self.results
+		]
 		lines += ["", "--- transcript ---"] + self.log.speech()
 		(self.out / "results.txt").write_text("\n".join(lines) + "\n", encoding="utf-8")
 		return 0 if all(status == "PASS" for status, _, _ in self.results) else 1
@@ -183,7 +204,9 @@ def scenario_smoke(run):
 	press("nvda+control+shift+t")
 	run.hear(r"^TikTok Live Reader Off$", "switching off", timeout=8)
 	run.press_and_hear("nvda+t", r".", "NVDA answers right after switching off", timeout=10)
-	run.results[-1] = run.results[-1][:2] + (run.results[-1][2] + f"; {time.monotonic() - started:.2f} s after the off key",)
+	run.results[-1] = run.results[-1][:2] + (
+		run.results[-1][2] + f"; {time.monotonic() - started:.2f} s after the off key",
+	)
 	run.end_stream()
 
 
@@ -282,7 +305,9 @@ def scenario_settings(run):
 	open_dialog(run, "dialog for the sounds")
 	run.press_and_hear("control+tab", r"^Comments check box", "events page again")
 	run.press_and_hear("control+tab", r"^Auto speak selected events check box", "auto speak page")
-	run.press_and_hear("control+tab", r"^Play sounds for the selected events check box\s+not checked", "sounds page")
+	run.press_and_hear(
+		"control+tab", r"^Play sounds for the selected events check box\s+not checked", "sounds page"
+	)
 	run.press_and_hear("space", r"^checked$", "play sounds checked")
 	tab_to(run, r"^Learn sounds button", "learn sounds button")
 	run.mark = len(run.log.speech())

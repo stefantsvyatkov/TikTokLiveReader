@@ -65,6 +65,9 @@ exclude = [
 	"__pycache__",
 	".venv",
 	"buildVars.py",
+	# The bundled TikTokLive and its dependencies, kept as published.
+	"addon/globalPlugins/TiktokLiveReader/lib",
+	"artifacts",
 ]
 
 [tool.ruff.format]

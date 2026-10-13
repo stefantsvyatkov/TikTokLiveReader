@@ -19,7 +19,9 @@ from pathlib import Path
 REPO = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(REPO))
 
-EVERYTHING = {key: True for key in ("comments", "followers", "gifts", "likes", "requests", "shares", "visitors")}
+EVERYTHING = {
+	key: True for key in ("comments", "followers", "gifts", "likes", "requests", "shares", "visitors")
+}
 SETTINGS = {
 	"events": EVERYTHING,
 	"auto_speak": dict(EVERYTHING, enabled=True),
@@ -31,8 +33,17 @@ SETTINGS = {
 def decode(recording, out_dir):
 	decoded = out_dir / "decoded-6.6.5.jsonl"
 	subprocess.run(
-		[sys.executable, "-X", "utf8", "-W", "ignore", str(REPO / "tools" / "decode_recording.py"),
-			str(recording), str(REPO / "addon" / "globalPlugins" / "TiktokLiveReader" / "lib"), str(decoded)],
+		[
+			sys.executable,
+			"-X",
+			"utf8",
+			"-W",
+			"ignore",
+			str(REPO / "tools" / "decode_recording.py"),
+			str(recording),
+			str(REPO / "addon" / "globalPlugins" / "TiktokLiveReader" / "lib"),
+			str(decoded),
+		],
 		check=True,
 	)
 	rows = [json.loads(line) for line in decoded.read_text(encoding="utf-8").splitlines()]
@@ -59,7 +70,9 @@ def expected_from(events):
 		elif kind == "GiftEvent":
 			streakable = fields.get("gift.streakable")
 			if not streakable or not fields.get("streaking"):
-				expected["gifts"].append(f"{name}: {fields.get('repeat_count', 1) or 1} {fields.get('gift.name', '')}")
+				expected["gifts"].append(
+					f"{name}: {fields.get('repeat_count', 1) or 1} {fields.get('gift.name', '')}"
+				)
 		elif kind == "FollowEvent":
 			expected["followers"].append(name)
 		elif kind == "ShareEvent":
@@ -97,7 +110,9 @@ def logged_from(result, feed):
 	corrupted = [
 		f"{name}: {line}" for name, lines in result.files.items() for line in lines or [] if "�" in line
 	]
-	logged["(lines with broken characters, F30)"] = corrupted + [f"unreadable like line: {line}" for line in broken]
+	logged["(lines with broken characters, F30)"] = corrupted + [
+		f"unreadable like line: {line}" for line in broken
+	]
 	return logged
 
 
@@ -117,8 +132,10 @@ def compare(expected, logged):
 		got = collections.Counter(logged.get(category, []))
 		missing = want - got
 		extra = got - want
-		lines.append(f"{category}: happened {sum(want.values())}, add-on {sum(got.values())}, "
-			f"missing {sum(missing.values())}, extra {sum(extra.values())}")
+		lines.append(
+			f"{category}: happened {sum(want.values())}, add-on {sum(got.values())}, "
+			f"missing {sum(missing.values())}, extra {sum(extra.values())}"
+		)
 		for item, count in list(missing.items())[:12]:
 			lines.append(f"    missing {count}x  {item!r}")
 		for item, count in list(extra.items())[:12]:

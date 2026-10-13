@@ -107,7 +107,10 @@ async def decode(rows, out):
 		]
 		by_id = {row["msg_id"]: row for row in group}
 		try:
-			frame = parse(ProtoMessageFetchResult, bytes(ProtoMessageFetchResult(messages=messages, is_first=group[0]["is_first"])))
+			frame = parse(
+				ProtoMessageFetchResult,
+				bytes(ProtoMessageFetchResult(messages=messages, is_first=group[0]["is_first"])),
+			)
 			for message in frame.messages:
 				if takes_frame:
 					events = await client._parse_webcast_response_message(
@@ -119,14 +122,20 @@ async def decode(rows, out):
 					if event is None or type(event).__name__ == "WebsocketResponseEvent":
 						continue
 					counts["events"] += 1
-					out.write(json.dumps({
-						"frame": frame_number,
-						"msg_id": message.msg_id,
-						"method": message.method,
-						"is_history": by_id.get(message.msg_id, {}).get("is_history"),
-						"event": type(event).__name__,
-						"fields": fields_of(event),
-					}, ensure_ascii=False) + "\n")
+					out.write(
+						json.dumps(
+							{
+								"frame": frame_number,
+								"msg_id": message.msg_id,
+								"method": message.method,
+								"is_history": by_id.get(message.msg_id, {}).get("is_history"),
+								"event": type(event).__name__,
+								"fields": fields_of(event),
+							},
+							ensure_ascii=False,
+						)
+						+ "\n"
+					)
 		except Exception:
 			counts["errors"] += 1
 			out.write(json.dumps({"frame": frame_number, "error": traceback.format_exc(limit=3)}) + "\n")
@@ -142,7 +151,9 @@ def main():
 	rows = [row for row in rows if not row.get("header")]
 	output.parent.mkdir(parents=True, exist_ok=True)
 	with output.open("w", encoding="utf-8") as out:
-		out.write(json.dumps({"header": True, "library": PACKAGE_VERSION, "recording": recording.name}) + "\n")
+		out.write(
+			json.dumps({"header": True, "library": PACKAGE_VERSION, "recording": recording.name}) + "\n"
+		)
 		counts = asyncio.run(decode(rows, out))
 	print(f"TikTokLive {PACKAGE_VERSION}: {counts}")
 

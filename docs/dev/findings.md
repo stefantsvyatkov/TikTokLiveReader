@@ -33,8 +33,9 @@ instead of 85 and leave no event loop unclosed.
   each connection also leaves two event loops unclosed (ResourceWarning in the
   tests).
 - F16 `DiggEvent` is imported unconditionally; TikTokLive 6.6.6+ has no such
-  class, so updating the library would break connecting. Since phase 2 step 5
-  only `tiktok_adapter.event_classes()` imports event classes.
+  class, so updating the library would break connecting. Fixed: only
+  `tiktok_adapter.event_classes()` imports event classes, `DiggEvent` as an
+  optional one; the add-on runs on TikTokLive 7.0.1.
 - F23 After a quick off/on, the old stats thread can keep running beside the
   new one (`_stop_event` is cleared again before it notices).
 

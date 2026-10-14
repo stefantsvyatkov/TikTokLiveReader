@@ -1,19 +1,17 @@
 import decimal
 from collections.abc import Callable
 from dataclasses import dataclass
-from typing import Any, Optional, Type, Union
-
-from typing_extensions import Literal
+from typing import Any, Literal
 
 from mashumaro.core.const import Sentinel
 
 __all__ = [
-    "SerializableType",
-    "GenericSerializableType",
-    "SerializationStrategy",
-    "RoundedDecimal",
-    "Discriminator",
     "Alias",
+    "Discriminator",
+    "GenericSerializableType",
+    "RoundedDecimal",
+    "SerializableType",
+    "SerializationStrategy",
 ]
 
 
@@ -24,9 +22,7 @@ class SerializableType:
 
     def __init_subclass__(
         cls,
-        use_annotations: Union[
-            bool, Literal[Sentinel.MISSING]
-        ] = Sentinel.MISSING,
+        use_annotations: bool | Literal[Sentinel.MISSING] = Sentinel.MISSING,
         **kwargs: Any,
     ):
         super().__init_subclass__(**kwargs)
@@ -44,27 +40,29 @@ class SerializableType:
 class GenericSerializableType:
     __slots__ = ()
 
-    def _serialize(self, types: list[Type]) -> Any:
+    def _serialize(self, types: list[type]) -> Any:
         raise NotImplementedError
 
     @classmethod
-    def _deserialize(cls, value: Any, types: list[Type]) -> Any:
+    def _deserialize(cls, value: Any, types: list[type]) -> Any:
         raise NotImplementedError
 
 
 class SerializationStrategy:
     __use_annotations__ = False
+    __match_subclasses__ = False
 
     def __init_subclass__(
         cls,
-        use_annotations: Union[
-            bool, Literal[Sentinel.MISSING]
-        ] = Sentinel.MISSING,
+        use_annotations: bool | Literal[Sentinel.MISSING] = Sentinel.MISSING,
+        match_subclasses: bool | Literal[Sentinel.MISSING] = Sentinel.MISSING,
         **kwargs: Any,
     ):
         super().__init_subclass__(**kwargs)
         if use_annotations is not Sentinel.MISSING:
             cls.__use_annotations__ = use_annotations
+        if match_subclasses is not Sentinel.MISSING:
+            cls.__match_subclasses__ = match_subclasses
 
     def serialize(self, value: Any) -> Any:
         raise NotImplementedError
@@ -74,9 +72,7 @@ class SerializationStrategy:
 
 
 class RoundedDecimal(SerializationStrategy):
-    def __init__(
-        self, places: Optional[int] = None, rounding: Optional[str] = None
-    ):
+    def __init__(self, places: int | None = None, rounding: str | None = None):
         if places is not None:
             self.exp = decimal.Decimal((0, (1,), -places))
         else:
@@ -98,10 +94,10 @@ class RoundedDecimal(SerializationStrategy):
 
 @dataclass(unsafe_hash=True)
 class Discriminator:
-    field: Optional[str] = None
+    field: str | None = None
     include_supertypes: bool = False
     include_subtypes: bool = False
-    variant_tagger_fn: Optional[Callable[[Any], Any]] = None
+    variant_tagger_fn: Callable[[Any], Any] | None = None
 
     def __post_init__(self) -> None:
         if not self.include_supertypes and not self.include_subtypes:
@@ -118,7 +114,7 @@ class Alias:
     def __repr__(self) -> str:
         return f"Alias(name='{self.name}')"
 
-    def __eq__(self, other: Any) -> bool:
+    def __eq__(self, other: object) -> bool:
         if not isinstance(other, Alias):
             return False
         return self.name == other.name

@@ -1,4 +1,5 @@
 import datetime
+import inspect
 import ipaddress
 import os
 import sys
@@ -6,7 +7,6 @@ import warnings
 from base64 import encodebytes
 from collections import ChainMap, Counter, deque
 from collections.abc import (  # type: ignore[attr-defined]
-    ByteString,
     Callable,
     Collection,
     Iterable,
@@ -19,11 +19,12 @@ from decimal import Decimal
 from enum import Enum
 from fractions import Fraction
 from functools import cached_property
-from typing import Any, ForwardRef, Optional, Tuple, Type, Union
+from typing import Tuple  # noqa: UP035
+from typing import Any, ForwardRef, TypeAlias
 from uuid import UUID
 from zoneinfo import ZoneInfo
 
-from typing_extensions import NotRequired, TypeAlias
+from typing_extensions import Buffer, NoExtraItems, NotRequired
 
 from mashumaro.config import BaseConfig
 from mashumaro.core.const import PY_311_MIN
@@ -32,8 +33,12 @@ from mashumaro.core.meta.helpers import (
     get_args,
     get_function_return_annotation,
     get_literal_values,
+    get_orig_bases,
+    get_slice_type_args,
     get_type_origin,
+    get_type_var_default,
     is_annotated,
+    is_bottom_type,
     is_generic,
     is_literal,
     is_named_tuple,
@@ -41,6 +46,7 @@ from mashumaro.core.meta.helpers import (
     is_not_required,
     is_readonly,
     is_required,
+    is_self,
     is_special_typing_primitive,
     is_type_alias_type,
     is_type_var,
@@ -50,7 +56,10 @@ from mashumaro.core.meta.helpers import (
     is_union,
     is_unpack,
     resolve_type_params,
+    resolve_typed_dict_annotations,
+    substitute_type_params,
     type_name,
+    type_var_has_default,
 )
 from mashumaro.core.meta.types.common import NoneType, clean_id
 from mashumaro.helper import pass_through
@@ -85,7 +94,7 @@ from mashumaro.jsonschema.models import (
     JSONSchemaInstanceType,
     JSONSchemaStringFormat,
 )
-from mashumaro.types import SerializationStrategy
+from mashumaro.types import Alias, SerializationStrategy
 
 try:
     from mashumaro.mixins.orjson import (
@@ -94,10 +103,18 @@ try:
 except ImportError:  # pragma: no cover
     from mashumaro.mixins.json import DataClassJSONMixin  # type: ignore
 
-if sys.version_info >= (3, 14):
-    from typing import evaluate_forward_ref
+if sys.version_info < (3, 15):
+    from collections.abc import ByteString  # noqa: PYI057
 
+    _BASE64_TYPES = (ByteString, bytes, bytearray, memoryview)
+    _BUFFER_ORIGINS = (Buffer, ByteString)
+else:
+    _BASE64_TYPES = (bytes, bytearray, memoryview)
+    _BUFFER_ORIGINS = (Buffer,)
+
+if sys.version_info >= (3, 14):
     from annotationlib import get_annotations
+    from typing import evaluate_forward_ref
 else:
     from typing_extensions import evaluate_forward_ref, get_annotations
 
@@ -107,16 +124,18 @@ UTC_OFFSET_PATTERN = r"^UTC([+-][0-2][0-9]:[0-5][0-9])?$"
 
 @dataclass
 class Instance:
-    type: Type
-    name: Optional[str] = None
+    # Derived field annotations can contain Required and NotRequired, which
+    # are annotation qualifiers rather than TypeForm values.
+    type: Any
+    name: str | None = None
 
-    __owner_builder: Optional[CodeBuilder] = None
-    __self_builder: Optional[CodeBuilder] = None
+    __owner_builder: CodeBuilder | None = None
+    __self_builder: CodeBuilder | None = None
 
     # Original type despite custom serialization. To be revised.
-    _original_type: Type = field(init=False)
+    _original_type: Any = field(init=False)
 
-    origin_type: Type = field(init=False)
+    origin_type: Any = field(init=False)
     annotations: list[Annotation] = field(init=False, default_factory=list)
 
     @cached_property
@@ -132,17 +151,30 @@ class Instance:
         return self.__self_builder
 
     @property
-    def alias(self) -> Optional[str]:
+    def alias(self) -> str | None:
         alias = self.metadata.get("alias")
+        if alias is None:
+            alias = next(
+                (
+                    annotation.name
+                    for annotation in self.annotations
+                    if isinstance(annotation, Alias)
+                ),
+                None,
+            )
         if alias is None:
             aliases_config = self.get_owner_config().aliases
             alias = aliases_config.get(self.name)  # type: ignore
+        # A field may declare several aliases; the schema uses the first
+        # (primary) one, matching what serialization writes.
+        if alias is not None and not isinstance(alias, str):
+            alias = next(iter(alias), None)
         if alias is None:
             alias = self.name
         return alias
 
     @property
-    def owner_class(self) -> Optional[Type]:
+    def owner_class(self) -> type | None:
         if self.__owner_builder:
             return self.__owner_builder.cls
         return None
@@ -152,7 +184,9 @@ class Instance:
         if isinstance(new_type, ForwardRef):
             changes["type"] = evaluate_forward_ref(new_type)
         new_instance = replace(self, **changes)
-        if is_dataclass(self.origin_type):
+        if isinstance(self.origin_type, type) and is_dataclass(
+            self.origin_type
+        ):
             new_instance.__owner_builder = self.__self_builder
             new_instance.update_type(new_instance.type)
         return new_instance
@@ -165,21 +199,22 @@ class Instance:
             self.type = get_args(self.type)[0]
             self.origin_type = get_type_origin(self.type)
 
-    def update_type(self, new_type: Type) -> None:
+    def update_type(self, new_type: Any) -> None:
         if self.__owner_builder:
             self.type = self.__owner_builder.get_real_type(
-                field_name=self.name,  # type: ignore
-                field_type=new_type,
+                field_name=self.name, field_type=new_type  # type: ignore
             )
         self.origin_type = get_type_origin(self.type)
-        if is_dataclass(self.origin_type):
+        if isinstance(self.origin_type, type) and is_dataclass(
+            self.origin_type
+        ):
             type_args = get_args(self.type)
             self.__self_builder = CodeBuilder(self.origin_type, type_args)
             self.__self_builder.reset()
         else:
             self.__self_builder = None
 
-    def fields(self) -> Iterable[tuple[str, Type, bool, Any]]:
+    def fields(self) -> Iterable[tuple[str, Any, bool, Any]]:
         for f_name, f_type in self._self_builder.get_field_types(
             include_extras=True
         ).items():
@@ -189,7 +224,9 @@ class Instance:
             f_default = f.default
             if f_default is MISSING:
                 f_default = self._self_builder.namespace.get(f_name, MISSING)
-            if f_default is not MISSING:
+            if f_default is not MISSING and not inspect.isdatadescriptor(
+                f_default
+            ):
                 f_default = _default(f_type, f_default, self.get_self_config())
 
             has_default = (
@@ -198,9 +235,7 @@ class Instance:
 
             yield f_name, f_type, has_default, f_default
 
-    def get_overridden_serialization_method(
-        self,
-    ) -> Optional[Union[Callable, str]]:
+    def get_overridden_serialization_method(self) -> Callable | str | None:
         if not self.__owner_builder:
             return None
         serialize_option = self.metadata.get("serialize")
@@ -221,7 +256,7 @@ class Instance:
                 return serialize_option
         return None
 
-    def get_owner_config(self) -> Type[BaseConfig]:
+    def get_owner_config(self) -> type[BaseConfig]:
         if self.__owner_builder:
             return self.__owner_builder.get_config()
         else:
@@ -237,7 +272,7 @@ class Instance:
         else:
             return default
 
-    def get_self_config(self) -> Type[BaseConfig]:
+    def get_self_config(self) -> type[BaseConfig]:
         if self.__self_builder:
             return self.__self_builder.get_config()
         else:
@@ -245,7 +280,7 @@ class Instance:
 
 
 InstanceSchemaCreator: TypeAlias = Callable[
-    [Instance, Context], Optional[JSONSchema]
+    [Instance, Context], JSONSchema | None
 ]
 
 
@@ -276,6 +311,8 @@ def get_schema(
             if with_dialect_uri:
                 schema.schema = ctx.dialect.uri
             break
+    if schema is not None:
+        apply_schema_annotations(instance, schema)
     for plugin in ctx.plugins:
         try:
             new_schema = plugin.get_schema(instance, ctx, schema)
@@ -291,18 +328,31 @@ def get_schema(
     )
 
 
-def _get_schema_or_none(
-    instance: Instance, ctx: Context
-) -> Optional[JSONSchema]:
+def _get_schema_or_none(instance: Instance, ctx: Context) -> JSONSchema | None:
     schema = get_schema(instance, ctx)
     if isinstance(schema, EmptyJSONSchema):
         return None
     return schema
 
 
-def _default(
-    f_type: Optional[Type], f_value: Any, config_cls: Type[BaseConfig]
-) -> Any:
+def apply_schema_annotations(
+    instance: Instance, schema: JSONSchema
+) -> JSONSchema:
+    for annotation in instance.annotations:
+        if isinstance(annotation, JSONSchema):
+            annotation_dict = replace(annotation).to_dict()
+            for key in annotation_dict:
+                if key in ("$schema", "$ref", "$defs"):
+                    continue
+                if key in ("const", "default"):
+                    value = annotation_dict[key]
+                else:
+                    value = getattr(annotation, key)
+                setattr(schema, key, value)
+    return schema
+
+
+def _default(f_type: Any, f_value: Any, config_cls: type[BaseConfig]) -> Any:
     @dataclass
     class CC(DataClassJSONMixin):
         x: f_type = f_value  # type: ignore
@@ -332,7 +382,7 @@ BASIC_TYPES = {str, int, float, bool}
 @register
 def on_type_with_overridden_serialization(
     instance: Instance, ctx: Context
-) -> Optional[JSONSchema]:
+) -> JSONSchema | None:
     def override_with_any(reason: Any) -> None:
         if instance.owner_class is not None:
             name = f"{type_name(instance.owner_class)}.{instance.name}"
@@ -357,68 +407,89 @@ def on_type_with_overridden_serialization(
                 return None
             else:
                 instance.update_type(new_type)
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001
             override_with_any(e)
         return get_schema(instance, ctx)
 
 
 @register
-def on_dataclass(instance: Instance, ctx: Context) -> Optional[JSONSchema]:
-    # TODO: Self references might not work
-    if is_dataclass(instance.origin_type):
+def on_dataclass(instance: Instance, ctx: Context) -> JSONSchema | None:
+    if isinstance(instance.origin_type, type) and is_dataclass(
+        instance.origin_type
+    ):
+        # When dataclasses reference themselves (typing.Self) or each other,
+        # we must break infinite recursion by forcing $ref/$defs.
+        origin = instance.origin_type
+
         if ctx.all_refs:
-            title = clean_id(type_name(instance.type, short=True))
-            title = title.strip("_")
+            def_key = clean_id(type_name(instance.type, short=True)).strip("_")
         else:
-            title = instance.origin_type.__name__
-        jsonschema_config = instance.get_self_config().json_schema
-        schema = JSONObjectSchema(
-            title=title,
-            additionalProperties=jsonschema_config.get(
-                "additionalProperties", False
-            ),
-        )
-        properties: dict[str, JSONSchema] = {}
-        required = []
-        field_schema_overrides = jsonschema_config.get("properties", {})
-        for f_name, f_type, has_default, f_default in instance.fields():
-            override = field_schema_overrides.get(f_name)
-            f_instance = instance.derive(type=f_type, name=f_name)
-            if override:
-                f_schema = JSONSchema.from_dict(override)
+            def_key = origin.__name__
+
+        ref_prefix = ctx.ref_prefix or ctx.dialect.definitions_root_pointer
+
+        if origin in ctx._building_dataclasses:
+            # Ensure placeholder exists so the final schema can fill it in.
+            ctx.definitions.setdefault(def_key, EmptyJSONSchema())
+            return JSONSchema(reference=f"{ref_prefix}/{def_key}")
+
+        ctx._building_dataclasses.add(origin)
+        try:
+            # If a placeholder exists (recursion), we'll populate it later
+            jsonschema_config = instance.get_self_config().json_schema
+            schema = JSONObjectSchema(
+                title=def_key,
+                additionalProperties=jsonschema_config.get(
+                    "additionalProperties", False
+                ),
+            )
+            properties: dict[str, JSONSchema] = {}
+            required = []
+            field_schema_overrides = jsonschema_config.get("properties", {})
+            for f_name, f_type, has_default, f_default in instance.fields():
+                override = field_schema_overrides.get(f_name)
+                f_instance = instance.derive(type=f_type, name=f_name)
+                if override:
+                    f_schema = JSONSchema.from_dict(override)
+                else:
+                    f_schema = get_schema(f_instance, ctx)
+                if f_instance.alias:
+                    f_name = f_instance.alias
+                if f_default is not MISSING and not inspect.isdatadescriptor(
+                    f_default
+                ):
+                    f_schema.default = f_default
+                description = f_instance.metadata.get("description")
+                if description:
+                    f_schema.description = description
+
+                if not has_default:
+                    required.append(f_name)
+
+                properties[f_name] = f_schema
+            if properties:
+                schema.properties = properties
+            if required:
+                schema.required = required
+
+            # If recursion was detected, we need $defs/$ref regardless
+            existing = ctx.definitions.get(def_key)
+            if ctx.all_refs or isinstance(existing, EmptyJSONSchema):
+                ctx.definitions[def_key] = schema
+                return JSONSchema(reference=f"{ref_prefix}/{def_key}")
             else:
-                f_schema = get_schema(f_instance, ctx)
-            if f_instance.alias:
-                f_name = f_instance.alias
-            if f_default is not MISSING:
-                f_schema.default = f_default
-            description = f_instance.metadata.get("description")
-            if description:
-                f_schema.description = description
-
-            if not has_default:
-                required.append(f_name)
-
-            properties[f_name] = f_schema
-        if properties:
-            schema.properties = properties
-        if required:
-            schema.required = required
-        if ctx.all_refs:
-            ctx.definitions[title] = schema
-            ref_prefix = ctx.ref_prefix or ctx.dialect.definitions_root_pointer
-            return JSONSchema(reference=f"{ref_prefix}/{title}")
-        else:
-            return schema
+                return schema
+        finally:
+            ctx._building_dataclasses.discard(origin)
 
 
 @register
-def on_any(instance: Instance, ctx: Context) -> Optional[JSONSchema]:
+def on_any(instance: Instance, ctx: Context) -> JSONSchema | None:
     if instance.type is Any:
         return EmptyJSONSchema()
 
 
-def on_literal(instance: Instance, ctx: Context) -> Optional[JSONSchema]:
+def on_literal(instance: Instance, ctx: Context) -> JSONSchema | None:
     enum_values = []
     for value in get_literal_values(instance.type):
         if isinstance(value, Enum):
@@ -436,7 +507,7 @@ def on_literal(instance: Instance, ctx: Context) -> Optional[JSONSchema]:
 @register
 def on_special_typing_primitive(
     instance: Instance, ctx: Context
-) -> Optional[JSONSchema]:
+) -> JSONSchema | None:
     if not is_special_typing_primitive(instance.origin_type):
         return None
 
@@ -449,7 +520,11 @@ def on_special_typing_primitive(
     elif is_type_var_any(instance.type):
         return EmptyJSONSchema()
     elif is_type_var(instance.type):
-        constraints = getattr(instance.type, "__constraints__")
+        if type_var_has_default(instance.type):
+            return get_schema(
+                instance.derive(type=get_type_var_default(instance.type)), ctx
+            )
+        constraints = instance.type.__constraints__
         if constraints:
             return JSONSchema(
                 anyOf=[
@@ -458,7 +533,7 @@ def on_special_typing_primitive(
                 ]
             )
         else:
-            bound = getattr(instance.type, "__bound__")
+            bound = instance.type.__bound__
             return get_schema(instance.derive(type=bound), ctx)
     elif is_new_type(instance.type):
         return get_schema(
@@ -466,8 +541,16 @@ def on_special_typing_primitive(
         )
     elif is_literal(instance.type):
         return on_literal(instance, ctx)
-    # elif is_self(instance.type):
-    #     raise NotImplementedError
+    elif is_self(instance.type):
+        # typing.Self / typing_extensions.Self is only meaningful inside
+        # a class body. In dataclasses, Instance.owner_class points to the
+        # dataclass that defines the field.
+        owner = instance.owner_class
+        if owner is None:  # pragma: no cover
+            raise NotImplementedError(
+                "typing.Self is supported only for dataclass fields"
+            )
+        return get_schema(instance.derive(type=owner), ctx)
     elif is_required(instance.type) or is_not_required(instance.type):
         return get_schema(instance.derive(type=args[0]), ctx)
     elif is_unpack(instance.type):
@@ -516,7 +599,7 @@ def on_special_typing_primitive(
 
 
 @register
-def on_number(instance: Instance, ctx: Context) -> Optional[JSONSchema]:
+def on_number(instance: Instance, ctx: Context) -> JSONSchema | None:
     if instance.origin_type is int:
         schema = JSONSchema(type=JSONSchemaInstanceType.INTEGER)
     elif instance.origin_type is float:
@@ -538,19 +621,19 @@ def on_number(instance: Instance, ctx: Context) -> Optional[JSONSchema]:
 
 
 @register
-def on_bool(instance: Instance, ctx: Context) -> Optional[JSONSchema]:
+def on_bool(instance: Instance, ctx: Context) -> JSONSchema | None:
     if instance.origin_type is bool:
         return JSONSchema(type=JSONSchemaInstanceType.BOOLEAN)
 
 
 @register
-def on_none(instance: Instance, ctx: Context) -> Optional[JSONSchema]:
+def on_none(instance: Instance, ctx: Context) -> JSONSchema | None:
     if instance.origin_type in (NoneType, None):
         return JSONSchema(type=JSONSchemaInstanceType.NULL)
 
 
 @register
-def on_date_objects(instance: Instance, ctx: Context) -> Optional[JSONSchema]:
+def on_date_objects(instance: Instance, ctx: Context) -> JSONSchema | None:
     if instance.origin_type in (
         datetime.datetime,
         datetime.date,
@@ -563,7 +646,7 @@ def on_date_objects(instance: Instance, ctx: Context) -> Optional[JSONSchema]:
 
 
 @register
-def on_timedelta(instance: Instance, ctx: Context) -> Optional[JSONSchema]:
+def on_timedelta(instance: Instance, ctx: Context) -> JSONSchema | None:
     if instance.origin_type is datetime.timedelta:
         return JSONSchema(
             type=JSONSchemaInstanceType.NUMBER,
@@ -572,7 +655,7 @@ def on_timedelta(instance: Instance, ctx: Context) -> Optional[JSONSchema]:
 
 
 @register
-def on_timezone(instance: Instance, ctx: Context) -> Optional[JSONSchema]:
+def on_timezone(instance: Instance, ctx: Context) -> JSONSchema | None:
     if instance.origin_type is datetime.timezone:
         return JSONSchema(
             type=JSONSchemaInstanceType.STRING, pattern=UTC_OFFSET_PATTERN
@@ -580,7 +663,26 @@ def on_timezone(instance: Instance, ctx: Context) -> Optional[JSONSchema]:
 
 
 @register
-def on_zone_info(instance: Instance, ctx: Context) -> Optional[JSONSchema]:
+def on_slice(instance: Instance, ctx: Context) -> JSONSchema | None:
+    if instance.origin_type is slice:
+        component_schemas: list[JSONSchema] = []
+        for type_arg in get_slice_type_args(instance.type):
+            component_schema: JSONSchema
+            if type_arg is Any:
+                component_schema = EmptyJSONSchema()
+            else:
+                nullable_type = type_arg | None
+                component_schema = get_schema(
+                    instance.derive(type=nullable_type), ctx
+                )
+            component_schemas.append(component_schema)
+        return JSONArraySchema(
+            prefixItems=component_schemas, minItems=3, maxItems=3
+        )
+
+
+@register
+def on_zone_info(instance: Instance, ctx: Context) -> JSONSchema | None:
     if instance.origin_type is ZoneInfo:
         return JSONSchema(
             type=JSONSchemaInstanceType.STRING,
@@ -589,7 +691,7 @@ def on_zone_info(instance: Instance, ctx: Context) -> Optional[JSONSchema]:
 
 
 @register
-def on_uuid(instance: Instance, ctx: Context) -> Optional[JSONSchema]:
+def on_uuid(instance: Instance, ctx: Context) -> JSONSchema | None:
     if instance.origin_type is UUID:
         return JSONSchema(
             type=JSONSchemaInstanceType.STRING,
@@ -598,7 +700,7 @@ def on_uuid(instance: Instance, ctx: Context) -> Optional[JSONSchema]:
 
 
 @register
-def on_ipaddress(instance: Instance, ctx: Context) -> Optional[JSONSchema]:
+def on_ipaddress(instance: Instance, ctx: Context) -> JSONSchema | None:
     if instance.origin_type in (
         ipaddress.IPv4Address,
         ipaddress.IPv6Address,
@@ -614,7 +716,7 @@ def on_ipaddress(instance: Instance, ctx: Context) -> Optional[JSONSchema]:
 
 
 @register
-def on_decimal(instance: Instance, ctx: Context) -> Optional[JSONSchema]:
+def on_decimal(instance: Instance, ctx: Context) -> JSONSchema | None:
     if instance.origin_type is Decimal:
         return JSONSchema(
             type=JSONSchemaInstanceType.STRING,
@@ -623,7 +725,7 @@ def on_decimal(instance: Instance, ctx: Context) -> Optional[JSONSchema]:
 
 
 @register
-def on_fraction(instance: Instance, ctx: Context) -> Optional[JSONSchema]:
+def on_fraction(instance: Instance, ctx: Context) -> JSONSchema | None:
     if instance.origin_type is Fraction:
         return JSONSchema(
             type=JSONSchemaInstanceType.STRING,
@@ -634,7 +736,7 @@ def on_fraction(instance: Instance, ctx: Context) -> Optional[JSONSchema]:
 def on_tuple(instance: Instance, ctx: Context) -> JSONArraySchema:
     args = get_args(instance.type)
     if not args:
-        if instance.type in (Tuple, tuple):
+        if instance.type in (Tuple, tuple):  # noqa: UP006
             args = [Any, ...]  # type: ignore
         else:
             return JSONArraySchema(maxItems=0)
@@ -648,8 +750,8 @@ def on_tuple(instance: Instance, ctx: Context) -> JSONArraySchema:
         min_items = 0
         max_items = 0
         prefix_items = []
-        items: Optional[JSONSchema] = None
-        unpack_schema: Optional[JSONSchema] = None
+        items: JSONSchema | None = None
+        unpack_schema: JSONSchema | None = None
         unpack_idx = 0
         for arg_idx, arg in enumerate(args, start=1):
             if not is_unpack(arg):
@@ -724,18 +826,58 @@ def on_named_tuple(instance: Instance, ctx: Context) -> JSONSchema:
         )
 
 
+def _resolve_typed_dict_openness(
+    typ: Any, resolved_type_params: dict[Any, dict[Any, Any]] | None = None
+) -> tuple[bool | None, Any]:
+    origin = get_type_origin(typ)
+    if resolved_type_params is None:
+        resolved_type_params = resolve_type_params(origin, get_args(typ))
+    resolved = resolved_type_params[origin]
+    # `closed` and `extra_items` are mutually exclusive within the same
+    # TypedDict definition.
+    if (is_closed := getattr(origin, "__closed__", None)) is not None:
+        return is_closed, NoExtraItems
+    extra_items = getattr(origin, "__extra_items__", NoExtraItems)
+    if extra_items is not NoExtraItems:
+        return None, substitute_type_params(extra_items, resolved)
+
+    inherited_closed: bool | None = None
+    inherited_extra_items: Any = NoExtraItems
+    for orig_base in get_orig_bases(origin):
+        base = get_type_origin(orig_base)
+        if is_typed_dict(base):
+            base_closed, base_extra_items = _resolve_typed_dict_openness(
+                base, resolved_type_params
+            )
+            # An open base does not constrain a subclass. For valid multiple
+            # inheritance, a later restricted base is compatible with or
+            # narrows the effective openness of the preceding bases.
+            if base_closed is False:
+                if (
+                    inherited_closed is None
+                    and inherited_extra_items is NoExtraItems
+                ):
+                    inherited_closed = False
+            elif base_closed is True or base_extra_items is not NoExtraItems:
+                inherited_closed = base_closed
+                inherited_extra_items = base_extra_items
+    return inherited_closed, inherited_extra_items
+
+
 def on_typed_dict(instance: Instance, ctx: Context) -> JSONObjectSchema:
-    resolved = resolve_type_params(
-        instance.origin_type, get_args(instance.type)
-    )[instance.origin_type]
-    annotations = {
-        k: resolved.get(v, v)
-        for k, v in get_annotations(
-            instance.origin_type, eval_str=True
-        ).items()
-    }
+    annotations = resolve_typed_dict_annotations(instance.type)
     all_keys = list(annotations.keys())
-    required_keys = set(getattr(instance.type, "__required_keys__", all_keys))
+    required_keys = set(
+        getattr(instance.origin_type, "__required_keys__", all_keys)
+    )
+
+    # PEP 728
+    additional_properties: JSONSchema | bool = False
+    is_closed, extra_items = _resolve_typed_dict_openness(instance.type)
+    if is_closed is not None:
+        additional_properties = not is_closed
+    elif extra_items is not NoExtraItems and not is_bottom_type(extra_items):
+        additional_properties = get_schema(Instance(extra_items), ctx=ctx)
 
     # workaround for https://github.com/python/cpython/issues/97727
     for key, annotation in annotations.items():
@@ -751,17 +893,16 @@ def on_typed_dict(instance: Instance, ctx: Context) -> JSONObjectSchema:
         }
         or None,
         required=sorted(required_keys) or None,
-        additionalProperties=False,
+        additionalProperties=additional_properties,
     )
 
 
 def apply_array_constraints(
-    instance: Instance,
-    schema: JSONSchema,
+    instance: Instance, schema: JSONSchema
 ) -> JSONSchema:
     has_contains = False
-    min_contains: Optional[int] = None
-    max_contains: Optional[int] = None
+    min_contains: int | None = None
+    max_contains: int | None = None
     for annotation in instance.annotations:
         if isinstance(annotation, MinItems):
             schema.minItems = annotation.value
@@ -798,15 +939,15 @@ def apply_object_constraints(
 
 
 @register
-def on_collection(instance: Instance, ctx: Context) -> Optional[JSONSchema]:
-    if not issubclass(instance.origin_type, Collection):
+def on_collection(instance: Instance, ctx: Context) -> JSONSchema | None:
+    if not issubclass(instance.origin_type, Collection):  # noqa: SIM114
         return None
     elif issubclass(instance.origin_type, Enum):
         return None
 
     args = get_args(instance.type)
 
-    if issubclass(instance.origin_type, ByteString):  # type: ignore[arg-type]
+    if issubclass(instance.origin_type, _BASE64_TYPES):
         return JSONSchema(
             type=JSONSchemaInstanceType.STRING,
             format=JSONSchemaInstanceFormatExtension.BASE64,
@@ -877,7 +1018,7 @@ def on_collection(instance: Instance, ctx: Context) -> Optional[JSONSchema]:
         instance.origin_type, Counter
     ):
         schema = JSONObjectSchema(
-            additionalProperties=get_schema(instance.derive(type=int), ctx),
+            additionalProperties=get_schema(instance.derive(type=int), ctx)
         )
         if args:
             schema.propertyNames = _get_schema_or_none(
@@ -918,7 +1059,16 @@ def on_collection(instance: Instance, ctx: Context) -> Optional[JSONSchema]:
 
 
 @register
-def on_pathlike(instance: Instance, ctx: Context) -> Optional[JSONSchema]:
+def on_buffer(instance: Instance, ctx: Context) -> JSONSchema | None:
+    if instance.origin_type in _BUFFER_ORIGINS:
+        return JSONSchema(
+            type=JSONSchemaInstanceType.STRING,
+            format=JSONSchemaInstanceFormatExtension.BASE64,
+        )
+
+
+@register
+def on_pathlike(instance: Instance, ctx: Context) -> JSONSchema | None:
     if issubclass(instance.origin_type, os.PathLike):
         schema = JSONSchema(
             type=JSONSchemaInstanceType.STRING,
@@ -933,7 +1083,7 @@ def on_pathlike(instance: Instance, ctx: Context) -> Optional[JSONSchema]:
 
 
 @register
-def on_enum(instance: Instance, ctx: Context) -> Optional[JSONSchema]:
+def on_enum(instance: Instance, ctx: Context) -> JSONSchema | None:
     if issubclass(instance.origin_type, Enum):
         return JSONSchema(enum=[m.value for m in instance.origin_type])
 

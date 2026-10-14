@@ -28,7 +28,8 @@ Store. The user is Bulgarian; answer in Bulgarian and address them with "ти".
   sounds and speech (the speech buffer, its reader, the sound queue),
   `likes.py` each person's likes summed until a 10 s pause, `i18n.py` the
   one `_` every module imports, `vendor.py` keeps `lib/` private, the
-  vendored TikTokLive 6.6.5 and its pure-Python dependencies).
+  bundled TikTokLive 7.0.1 and its dependencies, built by
+  `tools/build_lib.py`).
 - `tests/` - unittest suite run outside NVDA (`support.py` stands in for NVDA,
   `feed.py` replays real-format TikTok messages through the add-on's own
   connection thread).

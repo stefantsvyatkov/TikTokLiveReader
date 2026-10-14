@@ -3,9 +3,10 @@ import ipaddress
 from collections.abc import Sequence
 from dataclasses import MISSING, dataclass, field
 from enum import Enum
-from typing import Any, Dict, List, Optional, Union
+from types import MappingProxyType
+from typing import TYPE_CHECKING, Any, TypeAlias
 
-from typing_extensions import TYPE_CHECKING, Self, TypeAlias
+from typing_extensions import Self
 
 from mashumaro.config import BaseConfig
 from mashumaro.core.meta.helpers import iter_all_subclasses
@@ -26,7 +27,7 @@ except ImportError:  # pragma: no cover
 
 
 # https://github.com/python/mypy/issues/3186
-Number: TypeAlias = Union[int, float]
+Number: TypeAlias = int | float
 
 Null = object()
 
@@ -111,66 +112,70 @@ def _deserialize_json_schema_instance_format(
 @dataclass(unsafe_hash=True)
 class JSONSchema(DataClassJSONMixin):
     # Common keywords
-    schema: Optional[str] = None
-    type: Optional[JSONSchemaInstanceType] = None
-    enum: Optional[list[Any]] = None
-    const: Optional[Any] = field(default_factory=lambda: MISSING)
-    format: Optional[JSONSchemaInstanceFormat] = None
-    title: Optional[str] = None
-    description: Optional[str] = None
-    anyOf: Optional[List["JSONSchema"]] = None
-    reference: Optional[str] = None
-    definitions: Optional[Dict[str, "JSONSchema"]] = None
-    default: Optional[Any] = field(default_factory=lambda: MISSING)
-    deprecated: Optional[bool] = None
-    examples: Optional[list[Any]] = None
+    schema: str | None = None
+    type: JSONSchemaInstanceType | None = None
+    enum: list[Any] | None = None
+    const: Any | None = field(default_factory=lambda: MISSING)
+    format: JSONSchemaInstanceFormat | None = None
+    title: str | None = None
+    description: str | None = None
+    anyOf: "list[JSONSchema] | None" = None
+    reference: str | None = None
+    definitions: "dict[str, JSONSchema] | None" = None
+    default: Any | None = field(default_factory=lambda: MISSING)
+    deprecated: bool | None = None
+    examples: list[Any] | None = None
     # Keywords for Objects
-    properties: Optional[Dict[str, "JSONSchema"]] = None
-    patternProperties: Optional[Dict[str, "JSONSchema"]] = None
-    additionalProperties: Union["JSONSchema", bool, None] = None
-    propertyNames: Optional["JSONSchema"] = None
+    properties: "dict[str, JSONSchema] | None" = None
+    patternProperties: "dict[str, JSONSchema] | None" = None
+    additionalProperties: "JSONSchema | bool | None" = None
+    propertyNames: "JSONSchema | None" = None
     # Keywords for Arrays
-    prefixItems: Optional[List["JSONSchema"]] = None
-    items: Optional["JSONSchema"] = None
-    contains: Optional["JSONSchema"] = None
+    prefixItems: "list[JSONSchema] | None" = None
+    items: "JSONSchema | None" = None
+    contains: "JSONSchema | None" = None
     # Validation keywords for numeric instances
-    multipleOf: Optional[Number] = None
-    maximum: Optional[Number] = None
-    exclusiveMaximum: Optional[Number] = None
-    minimum: Optional[Number] = None
-    exclusiveMinimum: Optional[Number] = None
+    multipleOf: Number | None = None
+    maximum: Number | None = None
+    exclusiveMaximum: Number | None = None
+    minimum: Number | None = None
+    exclusiveMinimum: Number | None = None
     # Validation keywords for Strings
-    maxLength: Optional[int] = None
-    minLength: Optional[int] = None
-    pattern: Optional[str] = None
+    maxLength: int | None = None
+    minLength: int | None = None
+    pattern: str | None = None
     # Validation keywords for Arrays
-    maxItems: Optional[int] = None
-    minItems: Optional[int] = None
-    uniqueItems: Optional[bool] = None
-    maxContains: Optional[int] = None
-    minContains: Optional[int] = None
+    maxItems: int | None = None
+    minItems: int | None = None
+    uniqueItems: bool | None = None
+    maxContains: int | None = None
+    minContains: int | None = None
     # Validation keywords for Objects
-    maxProperties: Optional[int] = None
-    minProperties: Optional[int] = None
-    required: Optional[list[str]] = None
-    dependentRequired: Optional[dict[str, set[str]]] = None
+    maxProperties: int | None = None
+    minProperties: int | None = None
+    required: list[str] | None = None
+    dependentRequired: dict[str, set[str]] | None = None
+    # A Vocabulary for the Contents of String-Encoded Data
+    contentEncoding: str | None = None
+    contentMediaType: str | None = None
+    contentSchema: "JSONSchema | None" = None
 
     class Config(BaseConfig):
         omit_none = True
         serialize_by_alias = True
-        aliases = {
-            "schema": "$schema",
-            "reference": "$ref",
-            "definitions": "$defs",
-        }
-        serialization_strategy = {
-            int: pass_through,
-            float: pass_through,
-            Null: pass_through,
-            JSONSchemaInstanceFormat: {
-                "deserialize": _deserialize_json_schema_instance_format,
-            },
-        }
+        aliases = MappingProxyType(
+            {"schema": "$schema", "reference": "$ref", "definitions": "$defs"}
+        )
+        serialization_strategy = MappingProxyType(
+            {
+                int: pass_through,
+                float: pass_through,
+                Null: pass_through,
+                JSONSchemaInstanceFormat: {
+                    "deserialize": _deserialize_json_schema_instance_format
+                },
+            }
+        )
 
     def __pre_serialize__(self) -> Self:
         if self.const is None:
@@ -195,20 +200,22 @@ class JSONSchema(DataClassJSONMixin):
 
 @dataclass
 class JSONObjectSchema(JSONSchema):
-    type: Optional[JSONSchemaInstanceType] = JSONSchemaInstanceType.OBJECT
+    type: JSONSchemaInstanceType | None = JSONSchemaInstanceType.OBJECT
 
 
 @dataclass
 class JSONArraySchema(JSONSchema):
-    type: Optional[JSONSchemaInstanceType] = JSONSchemaInstanceType.ARRAY
+    type: JSONSchemaInstanceType | None = JSONSchemaInstanceType.ARRAY
 
 
 @dataclass
 class Context:
     dialect: JSONSchemaDialect = DRAFT_2020_12
     definitions: dict[str, JSONSchema] = field(default_factory=dict)
-    all_refs: Optional[bool] = None
-    ref_prefix: Optional[str] = None
+    all_refs: bool | None = None
+    ref_prefix: str | None = None
     plugins: Sequence[BasePlugin] = ()
     # PEP 695 TypeAliasType recursion guard
     _building_type_aliases: set[int] = field(default_factory=set, repr=False)
+    # Dataclass recursion guard (e.g. typing.Self, direct or mutual references)
+    _building_dataclasses: set[type] = field(default_factory=set, repr=False)

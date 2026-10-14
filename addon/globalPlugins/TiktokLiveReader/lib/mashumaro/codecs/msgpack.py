@@ -1,16 +1,8 @@
 from collections.abc import Callable
-from typing import (
-    Any,
-    Generic,
-    Optional,
-    Type,
-    TypeVar,
-    Union,
-    final,
-    overload,
-)
+from typing import Any, Generic, TypeVar, final
 
 import msgpack
+from typing_extensions import TypeForm
 
 from mashumaro.codecs._builder import CodecCodeBuilder
 from mashumaro.core.meta.helpers import get_args
@@ -33,30 +25,12 @@ def _default_encoder(data: Any) -> EncodedData:
 
 
 class MessagePackDecoder(Generic[T]):
-    @overload
     def __init__(
         self,
-        shape_type: Type[T],
+        shape_type: TypeForm[T],
         *,
-        default_dialect: Optional[Type[Dialect]] = None,
-        pre_decoder_func: Optional[PreDecoderFunc] = _default_decoder,
-    ): ...
-
-    @overload
-    def __init__(
-        self,
-        shape_type: Any,
-        *,
-        default_dialect: Optional[Type[Dialect]] = None,
-        pre_decoder_func: Optional[PreDecoderFunc] = _default_decoder,
-    ): ...
-
-    def __init__(
-        self,
-        shape_type: Union[Type[T], Any],
-        *,
-        default_dialect: Optional[Type[Dialect]] = None,
-        pre_decoder_func: Optional[PreDecoderFunc] = _default_decoder,
+        default_dialect: type[Dialect] | None = None,
+        pre_decoder_func: PreDecoderFunc | None = _default_decoder,
     ):
         if default_dialect is not None:
             default_dialect = MessagePackDialect.merge(default_dialect)
@@ -72,30 +46,12 @@ class MessagePackDecoder(Generic[T]):
 
 
 class MessagePackEncoder(Generic[T]):
-    @overload
     def __init__(
         self,
-        shape_type: Type[T],
+        shape_type: TypeForm[T],
         *,
-        default_dialect: Optional[Type[Dialect]] = None,
-        post_encoder_func: Optional[PostEncoderFunc] = _default_encoder,
-    ): ...
-
-    @overload
-    def __init__(
-        self,
-        shape_type: Any,
-        *,
-        default_dialect: Optional[Type[Dialect]] = None,
-        post_encoder_func: Optional[PostEncoderFunc] = _default_encoder,
-    ): ...
-
-    def __init__(
-        self,
-        shape_type: Union[Type[T], Any],
-        *,
-        default_dialect: Optional[Type[Dialect]] = None,
-        post_encoder_func: Optional[PostEncoderFunc] = _default_encoder,
+        default_dialect: type[Dialect] | None = None,
+        post_encoder_func: PostEncoderFunc | None = _default_encoder,
     ):
         if default_dialect is not None:
             default_dialect = MessagePackDialect.merge(default_dialect)
@@ -110,11 +66,11 @@ class MessagePackEncoder(Generic[T]):
     def encode(self, obj: T) -> EncodedData: ...
 
 
-def msgpack_decode(data: EncodedData, shape_type: Union[Type[T], Any]) -> T:
+def msgpack_decode(data: EncodedData, shape_type: TypeForm[T]) -> T:
     return MessagePackDecoder(shape_type).decode(data)
 
 
-def msgpack_encode(obj: T, shape_type: Union[Type[T], Any]) -> EncodedData:
+def msgpack_encode(obj: T, shape_type: TypeForm[T]) -> EncodedData:
     return MessagePackEncoder(shape_type).encode(obj)
 
 
@@ -125,8 +81,8 @@ encode = msgpack_encode
 __all__ = [
     "MessagePackDecoder",
     "MessagePackEncoder",
-    "msgpack_decode",
-    "msgpack_encode",
     "decode",
     "encode",
+    "msgpack_decode",
+    "msgpack_encode",
 ]

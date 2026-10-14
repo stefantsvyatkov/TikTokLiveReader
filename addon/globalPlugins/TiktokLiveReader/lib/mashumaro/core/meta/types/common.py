@@ -5,9 +5,9 @@ from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass, field, replace
 from functools import cached_property
 from types import new_class
-from typing import TYPE_CHECKING, Any, Optional, Type, TypeVar, Union
+from typing import TYPE_CHECKING, Any, TypeAlias, TypeVar
 
-from typing_extensions import ParamSpec, TypeAlias
+from typing_extensions import ParamSpec
 
 from mashumaro.core.meta.code.lines import CodeLines
 from mashumaro.core.meta.helpers import (
@@ -31,7 +31,7 @@ class TypeMatchEligibleExpression(str):
 
 
 NoneType = type(None)
-Expression: TypeAlias = Union[str, TypeMatchEligibleExpression]
+Expression: TypeAlias = str | TypeMatchEligibleExpression
 
 P = ParamSpec("P")
 T = TypeVar("T")
@@ -41,7 +41,7 @@ _PY_VALID_ID_RE = re.compile(r"\W|^(?=\d)")
 
 class AttrsHolder:
     def __new__(
-        cls, name: Optional[str] = None, *args: Any, **kwargs: Any
+        cls, name: str | None = None, *args: Any, **kwargs: Any
     ) -> Any:
         ah = new_class("AttrsHolder")
         ah_id = id(ah)
@@ -60,8 +60,8 @@ class ExpressionWrapper:
 class FieldContext:
     name: str
     metadata: Mapping
-    packer: Optional[str] = None
-    unpacker: Optional[str] = None
+    packer: str | None = None
+    unpacker: str | None = None
 
     def copy(self, **changes: Any) -> "FieldContext":
         return replace(self, **changes)
@@ -69,15 +69,17 @@ class FieldContext:
 
 @dataclass
 class ValueSpec:
-    type: Type
-    origin_type: Type = field(init=False)
+    # Field annotations may include qualifiers such as Final, Required,
+    # NotRequired, and Unpack, which are not TypeForm values.
+    type: Any
+    origin_type: Any = field(init=False)
     expression: Expression
     builder: CodeBuilder
     field_ctx: FieldContext
     could_be_none: bool = True
-    annotated_type: Optional[Type] = None
-    owner: Optional[Type] = None
-    no_copy_collections: Sequence = tuple()
+    annotated_type: Any = None
+    owner: type | None = None
+    no_copy_collections: Sequence = ()
 
     def __setattr__(self, key: str, value: Any) -> None:
         if key == "type":
@@ -183,7 +185,7 @@ class AbstractMethodBuilder(ABC):
     def _before_build(self, spec: ValueSpec) -> None:
         pass
 
-    def _get_existing_method(self, spec: ValueSpec) -> Optional[str]:
+    def _get_existing_method(self, spec: ValueSpec) -> str | None:
         return None
 
     def build(self, spec: ValueSpec) -> str:
@@ -199,7 +201,7 @@ class AbstractMethodBuilder(ABC):
         return self._get_call_expr(spec, method_name)
 
 
-ValueSpecExprCreator: TypeAlias = Callable[[ValueSpec], Optional[Expression]]
+ValueSpecExprCreator: TypeAlias = Callable[[ValueSpec], Expression | None]
 
 
 @dataclass
@@ -234,7 +236,7 @@ def ensure_generic_collection(spec: ValueSpec) -> bool:
 
 
 def ensure_mapping_key_type_hashable(
-    spec: ValueSpec, type_args: Sequence[Type]
+    spec: ValueSpec, type_args: Sequence[type]
 ) -> bool:
     if type_args:
         first_type_arg = type_args[0]
@@ -252,7 +254,7 @@ def ensure_mapping_key_type_hashable(
 
 
 def ensure_generic_collection_subclass(
-    spec: ValueSpec, *checked_types: Type
+    spec: ValueSpec, *checked_types: type
 ) -> bool:
     return issubclass(
         spec.origin_type, checked_types
@@ -260,7 +262,7 @@ def ensure_generic_collection_subclass(
 
 
 def ensure_generic_mapping(
-    spec: ValueSpec, args: Sequence[Type], checked_type: Type
+    spec: ValueSpec, args: Sequence[type], checked_type: type
 ) -> bool:
     return ensure_generic_collection_subclass(
         spec, checked_type

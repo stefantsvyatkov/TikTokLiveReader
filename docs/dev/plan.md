@@ -86,6 +86,8 @@ live recording.
    - [x] F18: nothing loaded or started before the add-on is used
    - [x] F21: failures logged
    - [x] F28: the newcomer in the applicant queue (F25 waits for data)
+   - [x] TikTokLive 7.0.1: snapshots of the three lives the same as on 6.6.5
+     but for one anonymous join ("someone" instead of an empty name)
 4. Stress test in the sandbox on all three NVDA versions, live comparison
    loop.
 5. Version 2.0, minimum 2026.1, changelog draft for the user.

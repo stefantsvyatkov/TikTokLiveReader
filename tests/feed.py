@@ -34,10 +34,11 @@ announcer = support.load("announcer")
 
 with adapter.library_scope():
 	import TikTokLive
-	from TikTokLive.events import ConnectEvent
-	from TikTokLive.events import proto_events
-	from TikTokLive.proto import tiktok_proto as proto
+	from TikTokLive import proto
+	from TikTokLive.events import ConnectEvent, proto_events
 	from TikTokLive.proto.custom_proto import ControlAction
+	from TikTokLiveProto.v3.webcast.model.message import linkcore
+	from TikTokLiveProto.v3.webcast.model.message.common import Text as DisplayText
 
 _ids = itertools.count(1_000_001)
 
@@ -61,38 +62,38 @@ METHODS = {event: method for method, event in proto_events.EVENT_MAPPINGS.items(
 def user(nickname, unique_id=None, user_id=None):
 	return proto.User(
 		id=user_id if user_id is not None else abs(hash(unique_id or nickname)) % 10**12,
-		nick_name=nickname,
-		username=unique_id or nickname.lower().replace(" ", "_"),
+		nickname=nickname,
+		display_id=unique_id or nickname.lower().replace(" ", "_"),
 	)
 
 
 @_in_runtime
 def _message(event, display_key=""):
-	event.base_message = proto.CommonMessageData(
-		message_id=next(_ids),
+	event.common = proto.CommonMessageData(
+		msg_id=next(_ids),
 		create_time=int(time.time() * 1000),
-		display_text=proto.Text(key=display_key),
+		display_text=DisplayText(key=display_key),
 	)
 	return proto.ProtoMessageFetchResultBaseProtoMessage(
 		method=METHODS[type(event)],
 		payload=bytes(event),
-		msg_id=event.base_message.message_id,
+		msg_id=event.common.msg_id,
 	)
 
 
 @_in_runtime
 def comment(who, text):
-	return _message(proto_events.CommentEvent(user_info=who, content=text))
+	return _message(proto_events.CommentEvent(user=who, content=text))
 
 
 @_in_runtime
 def gift(who, name, diamonds=1, count=1, repeat_end=1, streakable=True):
 	return _message(
 		proto_events.GiftEvent(
-			from_user=who,
+			user=who,
 			repeat_count=count,
 			repeat_end=repeat_end,
-			m_gift=proto.Gift(name=name, diamond_count=diamonds, type=1 if streakable else 2),
+			gift=proto.Gift(name=name, diamond_count=diamonds, type=1 if streakable else 2),
 		)
 	)
 
@@ -119,37 +120,35 @@ def join(who):
 
 @_in_runtime
 def viewers(total):
-	return _message(proto_events.RoomUserSeqEvent(m_total=total))
+	return _message(proto_events.RoomUserSeqEvent(total=total))
 
 
 @_in_runtime
 def guest_request(who):
-	return _message(proto_events.LinkMicMethodEvent(m_type=1, user_id=who.id))
+	return _message(proto_events.LinkMicMethodEvent(message_type=1, user_id=who.id))
 
 
 @_in_runtime
 def applicant_queue(*people):
 	"""A link layer list change with these people waiting to join, as user ids."""
-	queue = [proto.LinkLayerListUser(link_user=proto.Player(room_id=1, uid=person.id)) for person in people]
+	queue = [linkcore.LinkLayerListUser(user=linkcore.Player(room_id=1, user_id=person.id)) for person in people]
 	return _message(
 		proto_events.LinkLayerEvent(
-			list_content=proto.LinkListChangeContent(
-				list_change_type=2, user_list=proto.AllListUser(applied_list=queue)
-			)
+			list_change_content=linkcore.LinkListChangeContent(type=2, list=linkcore.AllListUser(applied_list=queue))
 		)
 	)
 
 
 @_in_runtime
 def live_ended():
-	return _message(proto_events.ControlEvent(action=ControlAction.CONTROL_ACTION_STREAM_ENDED))
+	return _message(proto_events.ControlEvent(action=ControlAction.STREAM_ENDED))
 
 
 @_in_runtime
 def frame(*messages):
 	"""Messages as one websocket frame, decoded the way the websocket loop decodes it."""
 	whole = proto.ProtoMessageFetchResult(messages=list(messages))
-	return proto.ProtoMessageFetchResult().parse(bytes(whole))
+	return proto.ProtoMessageFetchResult.parse(bytes(whole))
 
 
 @_in_runtime
@@ -176,7 +175,7 @@ def recorded_frames(path, pace=1.0):
 			for row in group
 		]
 		whole = proto.ProtoMessageFetchResult(messages=messages, is_first=group[0]["is_first"])
-		frames.append(proto.ProtoMessageFetchResult().parse(bytes(whole)))
+		frames.append(proto.ProtoMessageFetchResult.parse(bytes(whole)))
 	return frames
 
 
@@ -185,7 +184,7 @@ def write_recording(path, *items, user="host", start=None):
 	clock = start if start is not None else time.time()
 	with Path(path).open("w", encoding="utf-8") as out:
 		out.write(
-			json.dumps({"header": True, "user": user, "started": "synthetic", "library": "6.6.5"}) + "\n"
+			json.dumps({"header": True, "user": user, "started": "synthetic", "library": "7.0.1"}) + "\n"
 		)
 		number = 0
 		for item in items:
@@ -217,6 +216,7 @@ class _ReplayClient(TikTokLive.TikTokLiveClient):
 	async def connect(self, **kwargs):
 		session = self.session
 		session.threads.append(threading.current_thread())
+		self._room_id = 1
 		await self._replay(session)
 
 	async def _replay(self, session):
@@ -234,7 +234,7 @@ class _ReplayClient(TikTokLive.TikTokLiveClient):
 					await asyncio.sleep(item)
 				continue
 			async for event in self._parse_webcast_response(item):
-				self.emit(event.type, event)
+				self.emit(event.get_type(), event)
 			await self.wait_for_complete()
 		if session.end == "hold":
 			while not session.release.is_set():

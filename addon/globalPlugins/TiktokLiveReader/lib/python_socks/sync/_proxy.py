@@ -1,18 +1,21 @@
+from __future__ import annotations
+
 import socket
-from typing import Optional, Any
-import warnings
+from typing import Any
 
-from .._errors import ProxyConnectionError, ProxyTimeoutError, ProxyError
-
-from .._types import ProxyType
+from .._connectors.factory_sync import create_connector
+from .._errors import (
+    IncompleteReadError,
+    ProxyConnectionError,
+    ProxyError,
+    ProxyTimeoutError,
+)
 from .._helpers import parse_proxy_url
 from .._protocols.errors import ReplyError
-from .._connectors.factory_sync import create_connector
-
-from ._stream import SyncSocketStream
-from ._resolver import SyncResolver
+from .._types import ProxyType
 from ._connect import connect_tcp
-
+from ._resolver import SyncResolver
+from ._stream import SyncSocketStream
 
 DEFAULT_TIMEOUT = 60
 
@@ -23,16 +26,18 @@ class SyncProxy:
         proxy_type: ProxyType,
         host: str,
         port: int,
-        username: Optional[str] = None,
-        password: Optional[str] = None,
-        rdns: Optional[bool] = None,
-    ):
+        username: str | None = None,
+        password: str | None = None,
+        rdns: bool | None = None,  # noqa: FBT001
+        forward: SyncProxy | None = None,
+    ) -> None:
         self._proxy_type = proxy_type
         self._proxy_host = host
         self._proxy_port = port
         self._password = password
         self._username = username
         self._rdns = rdns
+        self._forward = forward
 
         self._resolver = SyncResolver()
 
@@ -40,38 +45,35 @@ class SyncProxy:
         self,
         dest_host: str,
         dest_port: int,
-        timeout: Optional[float] = None,
+        timeout: float | None = None,
         **kwargs: Any,
     ) -> socket.socket:
         if timeout is None:
             timeout = DEFAULT_TIMEOUT
 
-        _socket = kwargs.get('_socket')
-        if _socket is not None:
-            warnings.warn(
-                "The '_socket' argument is deprecated and will be removed in the future",
-                DeprecationWarning,
-                stacklevel=2,
+        if self._forward is not None:
+            sock = self._forward.connect(
+                dest_host=self._proxy_host,
+                dest_port=self._proxy_port,
+                timeout=timeout,
             )
-
-        if _socket is None:
-            local_addr = kwargs.get('local_addr')
+        else:
+            local_addr = kwargs.get("local_addr")
             try:
-                _socket = connect_tcp(
+                sock = connect_tcp(
                     host=self._proxy_host,
                     port=self._proxy_port,
                     timeout=timeout,
                     local_addr=local_addr,
                 )
             except OSError as e:
-                msg = 'Could not connect to proxy {}:{} [{}]'.format(
-                    self._proxy_host,
-                    self._proxy_port,
-                    e.strerror,
+                msg = (
+                    f"Could not connect to proxy "
+                    f"{self._proxy_host}:{self._proxy_port} [{e.strerror}]"
                 )
                 raise ProxyConnectionError(e.errno, msg) from e
 
-        stream = SyncSocketStream(_socket)
+        stream = SyncSocketStream(sock)
 
         try:
             connector = create_connector(
@@ -87,30 +89,27 @@ class SyncProxy:
                 port=dest_port,
             )
 
-            return _socket
+            return sock
         except socket.timeout as e:
             stream.close()
-            raise ProxyTimeoutError('Proxy connection timed out: {}'.format(timeout)) from e
+            raise ProxyTimeoutError(f"Proxy connection timed out: {timeout}") from e
         except ReplyError as e:
             stream.close()
-            raise ProxyError(e, error_code=e.error_code)
+            raise ProxyError(e, error_code=e.error_code) from e
+        except IncompleteReadError as e:
+            stream.close()
+            raise ProxyError(e) from e
         except Exception:
             stream.close()
             raise
 
-    @property
-    def proxy_host(self):
-        return self._proxy_host
-
-    @property
-    def proxy_port(self):
-        return self._proxy_port
-
     @classmethod
-    def create(cls, *args, **kwargs):  # for backward compatibility
+    def create(
+        cls, *args: Any, **kwargs: Any
+    ) -> SyncProxy:  # for backward compatibility
         return cls(*args, **kwargs)
 
     @classmethod
-    def from_url(cls, url: str, **kwargs) -> 'SyncProxy':
+    def from_url(cls, url: str, **kwargs: Any) -> SyncProxy:
         url_args = parse_proxy_url(url)
         return cls(*url_args, **kwargs)

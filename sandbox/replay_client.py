@@ -55,6 +55,8 @@ def _control():
 
 class TikTokLiveClient(_LiveClient):
 	async def connect(self, **kwargs):
+		# TikTokLive 7 parses frames only with a room id.
+		self._room_id = 1
 		await self._replay()
 
 	async def _replay(self):
@@ -67,7 +69,7 @@ class TikTokLiveClient(_LiveClient):
 				await asyncio.sleep(item)
 				continue
 			async for event in self._parse_webcast_response(item):
-				self.emit(event.type, event)
+				self.emit(event.get_type(), event)
 			await self.wait_for_complete()
 		while _control() not in ("end", "drop"):
 			await asyncio.sleep(0.1)

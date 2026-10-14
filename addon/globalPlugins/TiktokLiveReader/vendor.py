@@ -6,12 +6,15 @@ connection holds it for the whole live. Outside, NVDA and other add-ons see thei
 own copies of the same packages, which are put back when the last scope ends.
 
 Every top-level package and module in lib/ is private, found by looking at the
-folder, except copies of standard library modules (lib/secrets.py): those are a
-fallback for Python builds without them and stay where Python puts them.
+folder, except copies of standard library modules (lib/secrets.py, lib/zoneinfo)
+for Python builds without them: ``load`` imports each before anything else,
+Python's own where there is one, and they stay where Python puts them.
 """
 
 import contextlib
 import importlib
+import importlib.machinery
+import importlib.util
 import sys
 import threading
 from pathlib import Path
@@ -20,7 +23,16 @@ _lock = threading.RLock()
 
 
 def bundled_names(lib_dir):
-	"""The top-level names that can be imported from ``lib_dir``."""
+	"""The private top-level names that can be imported from ``lib_dir``."""
+	return _top_level_names(lib_dir) - set(sys.stdlib_module_names)
+
+
+def standard_copies(lib_dir):
+	"""The standard library modules ``lib_dir`` has copies of."""
+	return _top_level_names(lib_dir) & set(sys.stdlib_module_names)
+
+
+def _top_level_names(lib_dir):
 	names = set()
 	for entry in Path(lib_dir).iterdir():
 		name = entry.name.split(".")[0]
@@ -29,7 +41,7 @@ def bundled_names(lib_dir):
 				names.add(entry.name)
 		elif entry.suffix in (".py", ".pyd") and name.isidentifier():
 			names.add(name)
-	return names - set(sys.stdlib_module_names)
+	return names
 
 
 def _has_code(folder):
@@ -98,10 +110,30 @@ def scope(runtime):
 				runtime._leave()
 
 
+def _import_standard_copies(lib_dir):
+	for name in sorted(standard_copies(lib_dir)):
+		if name in sys.modules:
+			continue
+		try:
+			importlib.import_module(name)
+		except ModuleNotFoundError as error:
+			if error.name != name:
+				raise
+			spec = importlib.machinery.PathFinder.find_spec(name, [lib_dir])
+			module = importlib.util.module_from_spec(spec)
+			sys.modules[name] = module
+			try:
+				spec.loader.exec_module(module)
+			except BaseException:
+				del sys.modules[name]
+				raise
+
+
 def load(lib_dir, *modules, optional=()):
 	"""A runtime for ``lib_dir`` with ``modules`` imported (and ``optional`` ones
 	when they import)."""
 	runtime = Runtime(lib_dir)
+	_import_standard_copies(runtime.lib_dir)
 	with scope(runtime):
 		for name in modules:
 			importlib.import_module(name)

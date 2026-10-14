@@ -1,7 +1,40 @@
 # TikTokLive notes
 
-Vendored version 6.6.5 (MIT). Newer: 6.6.6 and 7.0.1 (AGPL-3.0 with a
-section 7 exception allowing integration into non-SaaS software).
+Bundled version 7.0.1 since 2026-10-13 (Modified AGPL-3.0: section 18 allows
+integrating it into non-SaaS software; TikTokLiveProto AGPL-3.0-only with the
+same sections; EulerApiSdk MIT), before that 6.6.5 (MIT), which signs through
+the old `tiktok.eulerstream.com`.
+
+`lib/` is built by `tools/build_lib.py` from the pinned wheels of
+`tools/lib-requirements.txt` (CPython 3.13 win_amd64, no `bin/`, no byte code;
+`protobuf3-to-dict` left out: no wheel, nothing imports it; licence texts the
+wheels lack from `tools/lib-licenses/`; `secrets.py` and `zoneinfo` kept).
+16.4 MB against 18 for 6.6.5. Loading takes 1.4 s with byte code cached (0.7 s for 6.6.5), about
+6 s the first time, when Python compiles it; since F18 that is on the first
+switch-on, in the connection thread.
+
+TikTokLive 7 differences the add-on meets, besides the renames below:
+`add_listener` takes event classes only (1.8 also listened by name);
+`_parse_webcast_response` needs `_room_id` set (the replay clients set it);
+events have no `.type`, emit with `get_type()`; `connect()` answers a cancel by
+running its loop again (`_clean_tasks`), which fails inside a running loop, so
+`Connection.stop` disconnects first and cancels only a task still connecting;
+`close()` does the same after closing the HTTP client, so `_close_loop` calls
+`client.web.close()`, all that 6.6.5's `close()` did;
+a missing user is None where 6.6.5 gave an empty one (an anonymous join reads
+"someone" instead of an empty name). The adapter reads both versions.
+
+NVDA's Python is a py2exe build with only the standard library modules NVDA
+uses (`library.zip`). pydantic, new in 7.x, imports `zoneinfo`, which no NVDA
+2026 ships, so the first sandbox run of 7.0.1 failed to load the library; the
+tests run on full Python and passed. Checked against each version's
+`library.zip` (extracted from the installers with 7-Zip), `zoneinfo` is the
+only module the library needs that is missing: `lib/zoneinfo` is CPython
+3.13.13's (four files from the v3.13.13 tag, with Python's licence), its C part
+`_zoneinfo` is missing too and it uses its pure-Python one. `secrets`, imported
+by websockets and pydantic, is missing in 2026.1.1 only; `lib/secrets.py`, a
+hand-written stand-in from 1.0, covers it. `test_vendor` hides both modules to
+reproduce NVDA.
 
 ## Event flow
 
@@ -43,7 +76,9 @@ list left `idna`, `certifi`, `h11`, `dateutil`, `six`, `mashumaro` and `ffmpy`
 in `sys.modules` for NVDA and every add-on after the first connection, and
 missed anything a library update adds (7.0.1 brings `attrs`, `pydantic`,
 `pydantic_core`, `annotated_types`, `typing_inspection`). Copies of standard
-library modules (`lib/secrets.py`) are not private. Scopes are counted, so
+library modules (`lib/secrets.py`, `lib/zoneinfo`) are not private: `load`
+imports each first, Python's own if it has one, so with lib/ first on
+`sys.path` a copy never hides the real module. Scopes are counted, so
 two overlapping connections (F1/F2) no longer take the modules away from each
 other: 1.8 restored a snapshot per scope, and the first to end removed them
 while the other was still decoding. While a connection runs, the bundled

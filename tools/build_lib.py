@@ -6,8 +6,9 @@ Run with a Python that has pip (the system one); the wheels are those for
 CPython 3.13 on 64-bit Windows, NVDA 2026.1 and later, whatever Python runs this.
 Every version is pinned, so nothing is resolved. Console scripts (bin/) and byte
 code are left out; licence texts missing from a wheel (tools/lib-licenses/) are
-added to its dist-info folder; lib/secrets.py, a copy of the standard library
-module for Python builds without it, is kept from the current lib/.
+added to its dist-info folder. Copies of standard library modules NVDA's Python
+lacks are kept from the current lib/: secrets.py (NVDA 2026.1) and zoneinfo
+(CPython 3.13.13, with Python's licence), which pydantic imports.
 """
 
 import shutil
@@ -19,7 +20,7 @@ REPO = Path(__file__).resolve().parents[1]
 CURRENT_LIB = REPO / "addon" / "globalPlugins" / "TiktokLiveReader" / "lib"
 REQUIREMENTS = REPO / "tools" / "lib-requirements.txt"
 LICENSES = REPO / "tools" / "lib-licenses"
-KEPT = ("secrets.py",)
+KEPT = ("secrets.py", "zoneinfo")
 
 
 def main():
@@ -60,7 +61,10 @@ def main():
 		target.mkdir(exist_ok=True)
 		shutil.copy2(licence, target / "LICENSE")
 	for name in KEPT:
-		shutil.copy2(CURRENT_LIB / name, out / name)
+		if (CURRENT_LIB / name).is_dir():
+			shutil.copytree(CURRENT_LIB / name, out / name, ignore=shutil.ignore_patterns("__pycache__"))
+		else:
+			shutil.copy2(CURRENT_LIB / name, out / name)
 	size = sum(file.stat().st_size for file in out.rglob("*") if file.is_file())
 	print(f"{out}: {size / 1e6:.1f} MB")
 

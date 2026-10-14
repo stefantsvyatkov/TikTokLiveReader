@@ -1,8 +1,6 @@
-from collections.abc import Callable, Sequence
-from types import new_class
-from typing import Any, Type, Union, cast
-
-from typing_extensions import Literal
+from collections.abc import Callable, Mapping, Sequence
+from types import MappingProxyType, new_class
+from typing import Any, Literal, cast
 
 from mashumaro.core.const import Sentinel
 from mashumaro.types import SerializationStrategy
@@ -10,27 +8,25 @@ from mashumaro.types import SerializationStrategy
 __all__ = ["Dialect"]
 
 
-SerializationStrategyValueType = Union[
-    SerializationStrategy, dict[str, Union[str, Callable]]
-]
+SerializationStrategyValueType = (
+    SerializationStrategy | dict[str, str | Callable]
+)
 
 
 class Dialect:
-    serialization_strategy: dict[Any, SerializationStrategyValueType] = {}
-    serialize_by_alias: Union[bool, Literal[Sentinel.MISSING]] = (
-        Sentinel.MISSING
+    serialization_strategy: Mapping[Any, SerializationStrategyValueType] = (
+        MappingProxyType({})
     )
-    namedtuple_as_dict: Union[bool, Literal[Sentinel.MISSING]] = (
-        Sentinel.MISSING
-    )
-    omit_none: Union[bool, Literal[Sentinel.MISSING]] = Sentinel.MISSING
-    omit_default: Union[bool, Literal[Sentinel.MISSING]] = Sentinel.MISSING
-    no_copy_collections: Union[Sequence[Any], Literal[Sentinel.MISSING]] = (
+    serialize_by_alias: bool | Literal[Sentinel.MISSING] = Sentinel.MISSING
+    namedtuple_as_dict: bool | Literal[Sentinel.MISSING] = Sentinel.MISSING
+    omit_none: bool | Literal[Sentinel.MISSING] = Sentinel.MISSING
+    omit_default: bool | Literal[Sentinel.MISSING] = Sentinel.MISSING
+    no_copy_collections: Sequence[Any] | Literal[Sentinel.MISSING] = (
         Sentinel.MISSING
     )
 
     @classmethod
-    def merge(cls, other: Type["Dialect"]) -> Type["Dialect"]:
+    def merge(cls, other: type["Dialect"]) -> type["Dialect"]:
         serialization_strategy: dict[Any, SerializationStrategyValueType] = {}
         for key, value in cls.serialization_strategy.items():
             if isinstance(value, SerializationStrategy):
@@ -38,7 +34,7 @@ class Dialect:
             else:
                 serialization_strategy[key] = value.copy()
         for key, value in other.serialization_strategy.items():
-            if isinstance(value, SerializationStrategy):
+            if isinstance(value, SerializationStrategy):  # noqa: SIM114
                 serialization_strategy[key] = value
             elif isinstance(
                 serialization_strategy.get(key), SerializationStrategy
@@ -52,7 +48,7 @@ class Dialect:
                         value
                     )
                 )
-        new_dialect = cast(Type[Dialect], new_class("Dialect", (Dialect,)))
+        new_dialect = cast(type[Dialect], new_class("Dialect", (Dialect,)))
         new_dialect.serialization_strategy = serialization_strategy
         for key in ("omit_none", "omit_default", "no_copy_collections"):
             if (others_value := getattr(other, key)) is not Sentinel.MISSING:

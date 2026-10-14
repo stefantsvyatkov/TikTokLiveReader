@@ -14,10 +14,11 @@ from contextlib import suppress
 from dataclasses import is_dataclass
 from decimal import Decimal
 from fractions import Fraction
-from typing import Any, ForwardRef, Optional, Tuple, Union
+from typing import Tuple  # noqa: UP035
+from typing import Any, ForwardRef
 
 import typing_extensions
-from typing_extensions import NotRequired
+from typing_extensions import Buffer, NotRequired, TypeForm
 
 from mashumaro.core.const import PY_311_MIN
 from mashumaro.core.meta.code.lines import CodeLines
@@ -26,6 +27,7 @@ from mashumaro.core.meta.helpers import (
     get_class_that_defines_method,
     get_function_return_annotation,
     get_literal_values,
+    get_slice_type_args,
     get_type_origin,
     get_type_var_default,
     is_final,
@@ -47,7 +49,9 @@ from mashumaro.core.meta.helpers import (
     is_union,
     is_unpack,
     not_none_type_arg,
+    resolve_type_alias_type,
     resolve_type_params,
+    resolve_typed_dict_annotations,
     substitute_type_params,
     type_name,
     type_var_has_default,
@@ -78,9 +82,8 @@ from mashumaro.types import (
 )
 
 if sys.version_info >= (3, 14):
-    from typing import evaluate_forward_ref
-
     from annotationlib import get_annotations
+    from typing import evaluate_forward_ref
 else:
     from typing_extensions import evaluate_forward_ref, get_annotations
 
@@ -92,18 +95,18 @@ register = PackerRegistry.register
 
 
 def _pack_with_annotated_serialization_strategy(
-    spec: ValueSpec,
-    strategy: SerializationStrategy,
+    spec: ValueSpec, strategy: SerializationStrategy
 ) -> Expression:
     strategy_type = type(strategy)
     try:
-        value_type: Union[type, Any] = get_function_return_annotation(
+        value_type: type | Any = get_function_return_annotation(
             strategy.serialize
         )
     except (KeyError, ValueError):
         value_type = Any
     if isinstance(value_type, ForwardRef):
-        value_type = evaluate_forward_ref(value_type)
+        type_params = getattr(strategy_type, "__type_params__", ())
+        value_type = evaluate_forward_ref(value_type, type_params=type_params)  # type: ignore[arg-type]
     value_type = substitute_type_params(
         value_type,  # type: ignore
         resolve_type_params(strategy_type, get_args(spec.type))[strategy_type],
@@ -135,7 +138,7 @@ def _pack_with_annotated_serialization_strategy(
 
 def get_overridden_serialization_method(
     spec: ValueSpec,
-) -> Optional[Union[Callable, str, ExpressionWrapper]]:
+) -> Callable | str | ExpressionWrapper | None:
     serialize_option = spec.field_ctx.metadata.get("serialize")
     if serialize_option is not None:
         return serialize_option
@@ -154,8 +157,7 @@ def get_overridden_serialization_method(
                 if strategy.__use_annotations__ or is_generic(type(strategy)):
                     return ExpressionWrapper(
                         _pack_with_annotated_serialization_strategy(
-                            spec=spec,
-                            strategy=strategy,
+                            spec=spec, strategy=strategy
                         )
                     )
                 else:
@@ -167,7 +169,7 @@ def get_overridden_serialization_method(
 @register
 def pack_type_with_overridden_serialization(
     spec: ValueSpec,
-) -> Optional[Expression]:
+) -> Expression | None:
     serialization_method = get_overridden_serialization_method(spec)
     if serialization_method is pass_through:
         return spec.expression
@@ -179,9 +181,7 @@ def pack_type_with_overridden_serialization(
         return f"{spec.self_attrs_name}.{overridden_fn}({spec.expression})"
 
 
-def _pack_annotated_serializable_type(
-    spec: ValueSpec,
-) -> Optional[Expression]:
+def _pack_annotated_serializable_type(spec: ValueSpec) -> Expression | None:
     try:
         # noinspection PyProtectedMember
         # noinspection PyUnresolvedReferences
@@ -198,7 +198,8 @@ def _pack_annotated_serializable_type(
     if is_self(value_type):
         return f"{spec.expression}._serialize()"
     if isinstance(value_type, ForwardRef):
-        value_type = evaluate_forward_ref(value_type)
+        type_params = getattr(spec.origin_type, "__type_params__", ())
+        value_type = evaluate_forward_ref(value_type, type_params=type_params)  # type: ignore[arg-type]
     value_type = substitute_type_params(
         value_type,
         resolve_type_params(spec.origin_type, get_args(spec.type))[
@@ -207,14 +208,13 @@ def _pack_annotated_serializable_type(
     )
     return PackerRegistry.get(
         spec.copy(
-            type=value_type,
-            expression=f"{spec.expression}._serialize()",
+            type=value_type, expression=f"{spec.expression}._serialize()"
         )
     )
 
 
 @register
-def pack_serializable_type(spec: ValueSpec) -> Optional[Expression]:
+def pack_serializable_type(spec: ValueSpec) -> Expression | None:
     try:
         if not issubclass(spec.origin_type, SerializableType):
             return None
@@ -227,7 +227,7 @@ def pack_serializable_type(spec: ValueSpec) -> Optional[Expression]:
 
 
 @register
-def pack_generic_serializable_type(spec: ValueSpec) -> Optional[Expression]:
+def pack_generic_serializable_type(spec: ValueSpec) -> Expression | None:
     with suppress(TypeError):
         if issubclass(spec.origin_type, GenericSerializableType):
             type_args = get_args(spec.type)
@@ -237,24 +237,22 @@ def pack_generic_serializable_type(spec: ValueSpec) -> Optional[Expression]:
 
 
 @register
-def pack_dataclass(spec: ValueSpec) -> Optional[Expression]:
-    if is_dataclass(spec.origin_type):
+def pack_dataclass(spec: ValueSpec) -> Expression | None:
+    if isinstance(spec.origin_type, type) and is_dataclass(spec.origin_type):
         type_args = get_args(spec.type)
         method_name = spec.builder.get_pack_method_name(
             type_args, spec.builder.format_name
         )
         method_loc = spec.origin_type if spec.builder.is_nailed else spec.attrs
-        if get_class_that_defines_method(
-            method_name, method_loc
-        ) != method_loc and (
-            spec.origin_type is not spec.builder.cls
-            or spec.builder.get_pack_method_name(
-                type_args=type_args,
-                format_name=spec.builder.format_name,
-                encoder=spec.builder.encoder,
-            )
-            != method_name
-        ):
+        method_is_defined = (
+            get_class_that_defines_method(method_name, method_loc)
+            == method_loc
+        )
+        method_is_in_progress = (
+            not method_is_defined
+            and (method_loc, method_name) in spec.builder.methods_in_progress
+        )
+        if not method_is_defined and not method_is_in_progress:
             builder = spec.builder.__class__(
                 spec.origin_type,
                 type_args,
@@ -265,12 +263,21 @@ def pack_dataclass(spec: ValueSpec) -> Optional[Expression]:
                 attrs_registry=(
                     spec.attrs_registry if not spec.builder.is_nailed else None
                 ),
+                allow_postponed_evaluation=(
+                    spec.builder.allow_postponed_evaluation
+                ),
+                methods_in_progress=spec.builder.methods_in_progress,
             )
             builder.add_pack_method()
         flags = spec.builder.get_pack_method_flags(spec.type)
         if spec.builder.is_nailed:
             return f"{spec.expression}.{method_name}({flags})"
         else:
+            if method_is_in_progress:
+                return (
+                    f"{spec.cls_attrs_name}.{method_name}"
+                    f"({spec.expression})"
+                )
             cls_alias = clean_id(type_name(spec.origin_type))
             method_name_alias = f"{cls_alias}_{method_name}"
             spec.builder.ensure_object_imported(
@@ -281,19 +288,19 @@ def pack_dataclass(spec: ValueSpec) -> Optional[Expression]:
 
 
 @register
-def pack_final(spec: ValueSpec) -> Optional[Expression]:
+def pack_final(spec: ValueSpec) -> Expression | None:
     if is_final(spec.type):
         return PackerRegistry.get(spec.copy(type=get_args(spec.type)[0]))
 
 
 @register
-def pack_any(spec: ValueSpec) -> Optional[Expression]:
+def pack_any(spec: ValueSpec) -> Expression | None:
     if spec.type is Any:
         return spec.expression
 
 
 def pack_union(
-    spec: ValueSpec, args: tuple[type, ...], prefix: str = "union"
+    spec: ValueSpec, args: tuple[TypeForm, ...], prefix: str = "union"
 ) -> Expression:
     if spec.type is spec.owner and spec.field_ctx.packer:
         return spec.field_ctx.packer
@@ -323,14 +330,18 @@ def pack_union(
     else:
         lines.append(f"def {method_name}({method_args}):")
     packers: list[str] = []
-    packer_arg_types: dict[str, list[type]] = {}
+    packer_arg_types: dict[str, list[TypeForm]] = {}
     for type_arg in args:
         packer = PackerRegistry.get(
             spec.copy(type=type_arg, expression="value", owner=spec.type)
         )
         if packer not in packers:
-            if packer == "value" and not issubclass(
-                get_type_origin(type_arg), Collection
+            resolved_origin = get_type_origin(
+                resolve_type_alias_type(type_arg)
+            )
+            if packer == "value" and (
+                not isinstance(resolved_origin, type)
+                or not issubclass(resolved_origin, Collection)
             ):
                 packers.insert(0, packer)
             else:
@@ -344,6 +355,7 @@ def pack_union(
         for packer in packers:
             packer_arg_type_names = []
             for packer_arg_type in packer_arg_types[packer]:
+                packer_arg_type = resolve_type_alias_type(packer_arg_type)
                 if is_generic(packer_arg_type):
                     packer_arg_type = get_type_origin(packer_arg_type)
                 packer_arg_type_name = clean_id(type_name(packer_arg_type))
@@ -358,8 +370,10 @@ def pack_union(
                 )
             else:
                 packer_arg_type_check = f"is {packer_arg_type_names[0]}"
-            if packer == "value" and not issubclass(
-                packer_arg_type, Collection
+            resolved_packer_arg_type = resolve_type_alias_type(packer_arg_type)
+            if packer == "value" and (
+                not isinstance(resolved_packer_arg_type, type)
+                or not issubclass(resolved_packer_arg_type, Collection)
             ):
                 with lines.indent(
                     f"if value.__class__ {packer_arg_type_check}:"
@@ -428,8 +442,7 @@ def pack_literal(spec: ValueSpec) -> Expression:
             )
             if isinstance(literal_value, enum.Enum):
                 enum_type_name = spec.builder.get_type_name_identifier(
-                    typ=value_type,
-                    resolved_type_params=resolved_type_params,
+                    typ=value_type, resolved_type_params=resolved_type_params
                 )
                 with lines.indent(
                     f"if value == {enum_type_name}.{literal_value.name}:"
@@ -442,8 +455,7 @@ def pack_literal(spec: ValueSpec) -> Expression:
                 with lines.indent(f"if value == {literal_value!r}:"):
                     lines.append(f"return {packer}")
         field_type = spec.builder.get_type_name_identifier(
-            typ=spec.type,
-            resolved_type_params=resolved_type_params,
+            typ=spec.type, resolved_type_params=resolved_type_params
         )
         if spec.builder.is_nailed:
             lines.append(
@@ -466,7 +478,7 @@ def pack_literal(spec: ValueSpec) -> Expression:
 
 
 @register
-def pack_special_typing_primitive(spec: ValueSpec) -> Optional[Expression]:
+def pack_special_typing_primitive(spec: ValueSpec) -> Expression | None:
     if is_special_typing_primitive(spec.origin_type):
         if is_union(spec.type):
             resolved_type_params = spec.builder.get_field_resolved_type_params(
@@ -487,14 +499,16 @@ def pack_special_typing_primitive(spec: ValueSpec) -> Optional[Expression]:
         elif is_type_var_any(spec.type):
             return spec.expression
         elif is_type_var(spec.type):
-            constraints = getattr(spec.type, "__constraints__")
+            if type_var_has_default(spec.type):
+                pv = PackerRegistry.get(
+                    spec.copy(type=get_type_var_default(spec.type))
+                )
+                return expr_or_maybe_none(spec, pv)
+            constraints = spec.type.__constraints__
             if constraints:
                 return pack_union(spec, constraints, "type_var")
             else:
-                if type_var_has_default(spec.type):
-                    bound = get_type_var_default(spec.type)
-                else:
-                    bound = getattr(spec.type, "__bound__")
+                bound = spec.type.__bound__
                 # act as if it was Optional[bound]
                 pv = PackerRegistry.get(spec.copy(type=bound))
                 return expr_or_maybe_none(spec, pv)
@@ -511,9 +525,16 @@ def pack_special_typing_primitive(spec: ValueSpec) -> Optional[Expression]:
             method_loc = (
                 spec.builder.cls if spec.builder.is_nailed else spec.attrs
             )
+            method_is_in_progress = (
+                get_class_that_defines_method(method_name, method_loc)
+                != method_loc
+                and (method_loc, method_name)
+                in spec.builder.methods_in_progress
+            )
             if (
                 get_class_that_defines_method(method_name, method_loc)
                 != method_loc
+                and not method_is_in_progress
                 # not hasattr(self.cls, method_name)
                 and spec.builder.get_pack_method_name(
                     format_name=spec.builder.format_name,
@@ -532,6 +553,7 @@ def pack_special_typing_primitive(spec: ValueSpec) -> Optional[Expression]:
                         if not spec.builder.is_nailed
                         else None
                     ),
+                    methods_in_progress=spec.builder.methods_in_progress,
                 )
                 builder.add_pack_method()
             flags = spec.builder.get_pack_method_flags(spec.builder.cls)
@@ -553,6 +575,13 @@ def pack_special_typing_primitive(spec: ValueSpec) -> Optional[Expression]:
                 return PackerRegistry.get(spec.copy(type=evaluated))
         elif is_type_alias_type(spec.type):
             return PackerRegistry.get(spec.copy(type=spec.type.__value__))
+        elif is_type_alias_type(get_type_origin(spec.type)):
+            origin = get_type_origin(spec.type)
+            type_params = getattr(origin, "__type_params__", ())
+            args = get_args(spec.type)
+            param_map = dict(zip(type_params, args))
+            resolved = substitute_type_params(origin.__value__, param_map)
+            return PackerRegistry.get(spec.copy(type=resolved))
         elif is_readonly(spec.type):
             return PackerRegistry.get(spec.copy(type=get_args(spec.type)[0]))
         raise UnserializableDataError(
@@ -561,43 +590,59 @@ def pack_special_typing_primitive(spec: ValueSpec) -> Optional[Expression]:
 
 
 @register
-def pack_number_and_bool_and_none(spec: ValueSpec) -> Optional[Expression]:
+def pack_number_and_bool_and_none(spec: ValueSpec) -> Expression | None:
     if spec.origin_type in (int, float, bool, NoneType, None):
         return spec.expression
 
 
 @register
-def pack_date_objects(spec: ValueSpec) -> Optional[Expression]:
+def pack_date_objects(spec: ValueSpec) -> Expression | None:
     if spec.origin_type in (datetime.datetime, datetime.date, datetime.time):
         return f"{spec.expression}.isoformat()"
 
 
 @register
-def pack_timedelta(spec: ValueSpec) -> Optional[Expression]:
+def pack_timedelta(spec: ValueSpec) -> Expression | None:
     if spec.origin_type is datetime.timedelta:
         return f"{spec.expression}.total_seconds()"
 
 
 @register
-def pack_timezone(spec: ValueSpec) -> Optional[Expression]:
+def pack_timezone(spec: ValueSpec) -> Expression | None:
     if spec.origin_type is datetime.timezone:
         return f"{spec.expression}.tzname(None)"
 
 
 @register
-def pack_zone_info(spec: ValueSpec) -> Optional[Expression]:
+def pack_slice(spec: ValueSpec) -> Expression | None:
+    if spec.origin_type is slice:
+        packers = []
+        for attr, type_arg in zip(
+            ("start", "stop", "step"), get_slice_type_args(spec.type)
+        ):
+            expression = f"{spec.expression}.{attr}"
+            component_spec = spec.copy(
+                type=type_arg, expression=expression, could_be_none=True
+            )
+            packer = PackerRegistry.get(component_spec)
+            packers.append(expr_or_maybe_none(component_spec, packer))
+        return f"[{', '.join(packers)}]"
+
+
+@register
+def pack_zone_info(spec: ValueSpec) -> Expression | None:
     if spec.origin_type is zoneinfo.ZoneInfo:
         return f"str({spec.expression})"
 
 
 @register
-def pack_uuid(spec: ValueSpec) -> Optional[Expression]:
+def pack_uuid(spec: ValueSpec) -> Expression | None:
     if spec.origin_type is uuid.UUID:
         return f"str({spec.expression})"
 
 
 @register
-def pack_ipaddress(spec: ValueSpec) -> Optional[Expression]:
+def pack_ipaddress(spec: ValueSpec) -> Expression | None:
     if spec.origin_type in (
         ipaddress.IPv4Address,
         ipaddress.IPv6Address,
@@ -610,20 +655,20 @@ def pack_ipaddress(spec: ValueSpec) -> Optional[Expression]:
 
 
 @register
-def pack_decimal(spec: ValueSpec) -> Optional[Expression]:
+def pack_decimal(spec: ValueSpec) -> Expression | None:
     if spec.origin_type is Decimal:
         return f"str({spec.expression})"
 
 
 @register
-def pack_fraction(spec: ValueSpec) -> Optional[Expression]:
+def pack_fraction(spec: ValueSpec) -> Expression | None:
     if spec.origin_type is Fraction:
         return f"str({spec.expression})"
 
 
 def pack_tuple(spec: ValueSpec, args: tuple[type, ...]) -> Expression:
     if not args:
-        if spec.type in (Tuple, tuple):
+        if spec.type in (Tuple, tuple):  # noqa: UP006
             args = [Any, ...]  # type: ignore
         else:
             return "[]"
@@ -636,8 +681,8 @@ def pack_tuple(spec: ValueSpec, args: tuple[type, ...]) -> Expression:
         )
         return f"[{packer} for value in {spec.expression}]"
     else:
-        arg_indexes: list[Union[int, tuple[int, Union[int, None]]]] = []
-        unpack_idx: Optional[int] = None
+        arg_indexes: list[int | tuple[int, int | None]] = []
+        unpack_idx: int | None = None
         for arg_idx, type_arg in enumerate(args):
             if is_unpack(type_arg):
                 if unpack_idx is not None:
@@ -665,9 +710,7 @@ def pack_tuple(spec: ValueSpec, args: tuple[type, ...]) -> Expression:
                 p_expr = f"{spec.expression}[{_arg_idx}]"
             packer = PackerRegistry.get(
                 spec.copy(
-                    type=args[_idx],
-                    expression=p_expr,
-                    could_be_none=True,
+                    type=args[_idx], expression=p_expr, could_be_none=True
                 )
             )
             if packer != "*[]":
@@ -718,16 +761,12 @@ def pack_named_tuple(spec: ValueSpec) -> Expression:
 
 
 def pack_typed_dict(spec: ValueSpec) -> Expression:
-    resolved = resolve_type_params(spec.origin_type, get_args(spec.type))[
-        spec.origin_type
-    ]
-    annotations = {
-        k: resolved.get(v, v)
-        for k, v in get_annotations(spec.origin_type, eval_str=True).items()
-    }
+    annotations = resolve_typed_dict_annotations(spec.type)
     all_keys = list(annotations.keys())
-    required_keys = set(getattr(spec.type, "__required_keys__", all_keys))
-    optional_keys = set(getattr(spec.type, "__optional_keys__", []))
+    required_keys = set(
+        getattr(spec.origin_type, "__required_keys__", all_keys)
+    )
+    optional_keys = set(getattr(spec.origin_type, "__optional_keys__", []))
 
     # workaround for https://github.com/python/cpython/issues/97727
     for key, annotation in annotations.items():
@@ -787,8 +826,8 @@ def pack_typed_dict(spec: ValueSpec) -> Expression:
 
 
 @register
-def pack_collection(spec: ValueSpec) -> Optional[Expression]:
-    if not issubclass(spec.origin_type, Collection):
+def pack_collection(spec: ValueSpec) -> Expression | None:
+    if not issubclass(spec.origin_type, Collection):  # noqa: SIM114
         return None
     elif issubclass(spec.origin_type, enum.Enum):
         return None
@@ -796,7 +835,7 @@ def pack_collection(spec: ValueSpec) -> Optional[Expression]:
     args = get_args(spec.type)
 
     def inner_expr(
-        arg_num: int = 0, v_name: str = "value", v_type: Optional[type] = None
+        arg_num: int = 0, v_name: str = "value", v_type: type | None = None
     ) -> Expression:
         if v_type:
             return PackerRegistry.get(
@@ -832,7 +871,7 @@ def pack_collection(spec: ValueSpec) -> Optional[Expression]:
                 return f"{spec.expression}.copy()"
         return f"{{{ke}: {ve} for key, value in {spec.expression}.items()}}"
 
-    if issubclass(spec.origin_type, typing.ByteString):  # type: ignore
+    if issubclass(spec.origin_type, (bytes, bytearray, memoryview)):
         spec.builder.ensure_object_imported(encodebytes)
         return f"encodebytes({spec.expression}).decode()"
     elif issubclass(spec.origin_type, str):
@@ -872,18 +911,25 @@ def pack_collection(spec: ValueSpec) -> Optional[Expression]:
 
 
 @register
-def pack_pathlike(spec: ValueSpec) -> Optional[Expression]:
+def pack_buffer(spec: ValueSpec) -> Expression | None:
+    if spec.origin_type is Buffer:
+        spec.builder.ensure_object_imported(encodebytes)
+        return f"encodebytes({spec.expression}).decode()"
+
+
+@register
+def pack_pathlike(spec: ValueSpec) -> Expression | None:
     if issubclass(spec.origin_type, os.PathLike):
         return f"{spec.expression}.__fspath__()"
 
 
 @register
-def pack_enum(spec: ValueSpec) -> Optional[Expression]:
+def pack_enum(spec: ValueSpec) -> Expression | None:
     if issubclass(spec.origin_type, enum.Enum):
         return f"{spec.expression}.value"
 
 
 @register
-def pack_pattern(spec: ValueSpec) -> Optional[Expression]:
+def pack_pattern(spec: ValueSpec) -> Expression | None:
     if spec.origin_type in (typing.Pattern, re.Pattern):
         return f"{spec.expression}.pattern"

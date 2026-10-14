@@ -1,7 +1,7 @@
 """Everything that knows TikTokLive: the bundled copy, the client, and turning the
-library's events into the add-on's own (events.py). The listeners are those of
-1.8: a comment reaches the pipeline twice, a follow or share once as itself and
-once as a social message; the pipeline handles each message once by its id."""
+library's events into the add-on's own (events.py). A follow or share reaches
+the pipeline as itself and as a social message; the pipeline handles each
+message once by its id. Reads TikTokLive 6 and 7 (docs/dev/library.md)."""
 
 import asyncio
 import contextlib
@@ -17,8 +17,6 @@ _runtime = None
 _runtime_lock = threading.Lock()
 
 LINK_EVENTS = ("LinkLayerEvent", "LinkMicMethodEvent", "GuestInviteEvent")
-# Listened to by name; TikTokLive emits no events by these names.
-LINK_MESSAGE_NAMES = ("WebcastLinkLayerMessage", "WebcastLinkMicMethodMessage", "WebcastGuestInviteMessage")
 
 
 def runtime():
@@ -73,7 +71,8 @@ def event_classes():
 		# Gone in TikTokLive 7 (1.8 imported DiggEvent unconditionally, F16).
 		classes.update(_optional(module, "DiggEvent"))
 		classes.update(_optional(module, "CommentsEvent"))
-		classes.update(_optional(module, "EmoteChatEvent", "ScreenChatEvent"))
+		classes.update(_optional(module, "EmoteChatEvent"))
+		classes.update(_optional(module, "ScreenChatEvent"))
 		classes.update(_optional(module, "ViewerUpdateEvent", "RoomUserSeqEvent"))
 		if classes["ViewerUpdateEvent"] is None:
 			classes.update(_optional(module, "RoomUserSeqEvent"))
@@ -100,7 +99,6 @@ def new_client(username, classes, deliver, on_connected, on_live_end):
 		for name in ("CommentEvent", "CommentsEvent", "EmoteChatEvent", "ScreenChatEvent"):
 			if classes[name]:
 				listen(classes[name], _comment)
-				listen(name, _comment)
 		listen(classes["FollowEvent"], _follow)
 		listen(classes["GiftEvent"], _gift)
 		listen(classes["LikeEvent"], _like)
@@ -119,9 +117,6 @@ def new_client(username, classes, deliver, on_connected, on_live_end):
 		for name in LINK_EVENTS:
 			if classes[name]:
 				listen(classes[name], _link)
-				listen(name, _link)
-		for name in LINK_MESSAGE_NAMES:
-			listen(name, _link)
 
 		async def connected(library_event):
 			on_connected()
@@ -132,7 +127,6 @@ def new_client(username, classes, deliver, on_connected, on_live_end):
 		client.add_listener(classes["ConnectEvent"], connected)
 		if classes["LiveEndEvent"]:
 			client.add_listener(classes["LiveEndEvent"], live_ended)
-		client.add_listener("LiveEndEvent", live_ended)
 	return Connection(client)
 
 
@@ -180,14 +174,18 @@ class Connection:
 	async def _shut_down(self):
 		with contextlib.suppress(Exception):
 			await self.client.disconnect()
-		if self._task is not None:
+		# Disconnecting ends a connected client's task; cancel only one still
+		# connecting. TikTokLive 7's connect() reacts to a cancel by running its
+		# loop again, which fails inside the running loop.
+		if self._task is not None and not self._task.done():
+			await asyncio.wait({self._task}, timeout=2)
 			self._task.cancel()
 
 
 def _close_loop(loop, client):
 	"""Leave nothing running on the loop and close it (F15)."""
 	with contextlib.suppress(Exception):
-		loop.run_until_complete(client.close())
+		loop.run_until_complete(client.web.close())
 	pending = [task for task in asyncio.all_tasks(loop) if not task.done()]
 	for task in pending:
 		task.cancel()

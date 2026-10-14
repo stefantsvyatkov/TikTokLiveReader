@@ -1,20 +1,20 @@
+from __future__ import annotations
+
 import socket
-from typing import Optional
 
-from .._abc import AsyncSocketStream, AsyncResolver
-from .abc import AsyncConnector
-
-from .._protocols import socks4
+from .._abc import AsyncResolver, AsyncSocketStream
 from .._helpers import is_ip_address
+from .._protocols import socks4
+from .abc import AsyncConnector
 
 
 class Socks4AsyncConnector(AsyncConnector):
     def __init__(
         self,
-        user_id: Optional[str],
-        rdns: Optional[bool],
+        user_id: str | None,
+        rdns: bool | None,  # noqa: FBT001
         resolver: AsyncResolver,
-    ):
+    ) -> None:
         if rdns is None:
             rdns = False
 
@@ -38,8 +38,8 @@ class Socks4AsyncConnector(AsyncConnector):
 
         request = socks4.ConnectRequest(host=host, port=port, user_id=self._user_id)
         data = conn.send(request)
-        await stream.write_all(data)
+        await stream.write(data)
 
-        data = await stream.read_exact(socks4.ConnectReply.SIZE)
+        data = await stream.read_exactly(socks4.ConnectReply.SIZE)
         reply: socks4.ConnectReply = conn.receive(data)
         return reply

@@ -12,6 +12,7 @@ import importlib
 import shutil
 import sys
 import tempfile
+import traceback
 import types
 from pathlib import Path
 
@@ -105,7 +106,14 @@ class _MessageDialog:
 
 class _Log:
 	def _record(self, level):
-		return lambda message, *args, **kwargs: logged.append((level, message))
+		def record(message, *args, exc_info=False, **kwargs):
+			if exc_info or level == "error":
+				error = traceback.format_exc()
+				if not error.startswith("NoneType: None"):
+					message = f"{message}\n{error}"
+			logged.append((level, message))
+
+		return record
 
 	def __getattr__(self, level):
 		return self._record("error" if level == "exception" else level)

@@ -1,14 +1,7 @@
 from collections.abc import Callable
-from typing import (
-    Any,
-    Generic,
-    Optional,
-    Type,
-    TypeVar,
-    Union,
-    final,
-    overload,
-)
+from typing import Any, Generic, TypeVar, final
+
+from typing_extensions import TypeForm
 
 from mashumaro.codecs._builder import CodecCodeBuilder
 from mashumaro.core.meta.helpers import get_args
@@ -18,30 +11,12 @@ T = TypeVar("T")
 
 
 class BasicDecoder(Generic[T]):
-    @overload
     def __init__(
         self,
-        shape_type: Type[T],
+        shape_type: TypeForm[T],
         *,
-        default_dialect: Optional[Type[Dialect]] = None,
-        pre_decoder_func: Optional[Callable[[Any], Any]] = None,
-    ): ...
-
-    @overload
-    def __init__(
-        self,
-        shape_type: Any,
-        *,
-        default_dialect: Optional[Type[Dialect]] = None,
-        pre_decoder_func: Optional[Callable[[Any], Any]] = None,
-    ): ...
-
-    def __init__(
-        self,
-        shape_type: Union[Type[T], Any],
-        *,
-        default_dialect: Optional[Type[Dialect]] = None,
-        pre_decoder_func: Optional[Callable[[Any], Any]] = None,
+        default_dialect: type[Dialect] | None = None,
+        pre_decoder_func: Callable[[Any], Any] | None = None,
     ):
         code_builder = CodecCodeBuilder.new(
             type_args=get_args(shape_type), default_dialect=default_dialect
@@ -53,30 +28,12 @@ class BasicDecoder(Generic[T]):
 
 
 class BasicEncoder(Generic[T]):
-    @overload
     def __init__(
         self,
-        shape_type: Type[T],
+        shape_type: TypeForm[T],
         *,
-        default_dialect: Optional[Type[Dialect]] = None,
-        post_encoder_func: Optional[Callable[[Any], Any]] = None,
-    ): ...
-
-    @overload
-    def __init__(
-        self,
-        shape_type: Any,
-        *,
-        default_dialect: Optional[Type[Dialect]] = None,
-        post_encoder_func: Optional[Callable[[Any], Any]] = None,
-    ): ...
-
-    def __init__(
-        self,
-        shape_type: Union[Type[T], Any],
-        *,
-        default_dialect: Optional[Type[Dialect]] = None,
-        post_encoder_func: Optional[Callable[[Any], Any]] = None,
+        default_dialect: type[Dialect] | None = None,
+        post_encoder_func: Callable[[Any], Any] | None = None,
     ):
         code_builder = CodecCodeBuilder.new(
             type_args=get_args(shape_type), default_dialect=default_dialect
@@ -87,17 +44,12 @@ class BasicEncoder(Generic[T]):
     def encode(self, obj: T) -> Any: ...
 
 
-def decode(data: Any, shape_type: Union[Type[T], Any]) -> T:
+def decode(data: Any, shape_type: TypeForm[T]) -> T:
     return BasicDecoder(shape_type).decode(data)
 
 
-def encode(obj: T, shape_type: Union[Type[T], Any]) -> Any:
+def encode(obj: T, shape_type: TypeForm[T]) -> Any:
     return BasicEncoder(shape_type).encode(obj)
 
 
-__all__ = [
-    "BasicDecoder",
-    "BasicEncoder",
-    "decode",
-    "encode",
-]
+__all__ = ["BasicDecoder", "BasicEncoder", "decode", "encode"]

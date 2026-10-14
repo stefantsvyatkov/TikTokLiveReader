@@ -18,7 +18,7 @@ from record_live import vendor_scope  # noqa: E402
 def main():
 	methods = set(sys.argv[1].split(","))
 	with vendor_scope():
-		from TikTokLive.proto import tiktok_proto as proto
+		from TikTokLive import proto
 
 		for path in sys.argv[2:]:
 			start = None

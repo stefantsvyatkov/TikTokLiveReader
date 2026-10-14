@@ -78,6 +78,31 @@ class Isolation(unittest.TestCase):
 		self.assertNotIn(self.runtime.lib_dir, sys.path)
 
 
+class StandardCopies(unittest.TestCase):
+	# grp is Unix only; colorsys is in every Python.
+	def setUp(self):
+		self.lib = make_lib()
+		for name in ("grp", "colorsys"):
+			(self.lib / f"{name}.py").write_text("WHO = 'bundled'\n", encoding="utf-8")
+			sys.modules.pop(name, None)
+
+	def tearDown(self):
+		for name in ("grp", "colorsys"):
+			sys.modules.pop(name, None)
+
+	@unittest.skipUnless(sys.platform == "win32", "grp is part of Python on Unix")
+	def test_a_copy_stands_in_for_a_module_python_lacks(self):
+		runtime = vendor.load(self.lib, "vt_alpha")
+		self.assertEqual(sys.modules["grp"].WHO, "bundled")
+		self.assertNotIn("grp", runtime.names)
+
+	def test_pythons_own_module_wins_over_the_copy(self):
+		runtime = vendor.load(self.lib, "vt_alpha")
+		with vendor.scope(runtime):
+			import colorsys
+		self.assertFalse(hasattr(colorsys, "WHO"))
+
+
 STARTING = """
 import sys, threading
 sys.path.insert(0, sys.argv[1])
@@ -88,8 +113,38 @@ adapter = sys.modules["tiktokAddon.tiktok_adapter"]
 print(adapter._runtime is None, "TikTokLive" in sys.modules, threading.active_count() - before)
 """
 
+# NVDA 2026.1 ships neither module, 2026.2 and 2026.3 lack zoneinfo.
+WITHOUT_STANDARD_MODULES = """
+import sys
+from pathlib import Path
+
+
+class Missing:
+	def find_spec(self, name, path=None, target=None):
+		if name in ("secrets", "zoneinfo", "_zoneinfo") and path is None:
+			raise ModuleNotFoundError(f"No module named {name!r}", name=name)
+
+
+sys.meta_path.insert(0, Missing())
+sys.path.insert(0, sys.argv[1])
+from tests import support
+adapter = support.load("tiktok_adapter")
+adapter.runtime()
+lib = Path(adapter.LIB_DIR).resolve()
+print(*(Path(sys.modules[name].__file__).resolve().is_relative_to(lib) for name in ("secrets", "zoneinfo")))
+"""
+
 
 class AddOnLibrary(unittest.TestCase):
+	def test_the_library_loads_without_standard_modules_nvda_lacks(self):
+		result = subprocess.run(
+			[sys.executable, "-X", "utf8", "-W", "ignore", "-c", WITHOUT_STANDARD_MODULES, str(support.REPO)],
+			capture_output=True,
+			text=True,
+			timeout=120,
+		)
+		self.assertEqual(result.stdout.split(), ["True", "True"], result.stderr)
+
 	def test_nvda_start_does_not_load_the_library(self):
 		# F18: in a fresh interpreter, as when NVDA starts.
 		result = subprocess.run(
@@ -107,6 +162,7 @@ class AddOnLibrary(unittest.TestCase):
 			self.assertIn(name, names)
 			self.assertNotIn(name, sys.modules)
 		self.assertNotIn("secrets", names)
+		self.assertNotIn("zoneinfo", names)
 
 
 if __name__ == "__main__":

@@ -1,4 +1,7 @@
-from typing import Optional
+from __future__ import annotations
+
+from typing import Any
+
 import anyio
 import anyio.abc
 
@@ -6,11 +9,10 @@ import anyio.abc
 async def connect_tcp(
     host: str,
     port: int,
-    local_host: Optional[str] = None,
+    **kwargs: Any,
 ) -> anyio.abc.SocketStream:
-
     return await anyio.connect_tcp(
         remote_host=host,
         remote_port=port,
-        local_host=local_host,
+        **kwargs,
     )

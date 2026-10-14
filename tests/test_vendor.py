@@ -1,5 +1,6 @@
 """The bundled libraries stay private to the add-on (vendor.py)."""
 
+import logging
 import subprocess
 import sys
 import tempfile
@@ -156,6 +157,15 @@ class AddOnLibrary(unittest.TestCase):
 			timeout=120,
 		)
 		self.assertEqual(result.stdout.split(), ["True"], result.stderr[-2000:])
+
+	def test_library_errors_go_to_nvdas_log_as_warnings(self):
+		support.load("tiktok_adapter").runtime()
+		logger = logging.getLogger("TikTokLive")
+		self.assertFalse(
+			[handler for handler in logger.handlers if isinstance(handler, logging.StreamHandler)]
+		)
+		logger.error("Failed to parse a message")
+		self.assertEqual(support.logged[-1], ("warning", "TikTokLive: Failed to parse a message"))
 
 	def test_the_library_loads_without_standard_modules_nvda_lacks(self):
 		result = subprocess.run(

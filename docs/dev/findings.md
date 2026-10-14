@@ -186,6 +186,14 @@ are right.
   winsound constant shims went with phase 2 step 3, the shims also patched
   the shared `winsound` module, which has no `SND_SYNC`; `setup()` and
   `client.py`'s `__main__` block with step 5).
+- F36 Fixed on 2026-10-14: TikTokLive's log (the client sets it to ERROR)
+  reaches NVDA's as warnings ("TikTokLive: ..."), through
+  `tiktok_adapter._LibraryLog`. Before: its own handler wrote to stderr, which
+  NVDA logs as ERROR (`logHandler.redirectStdout`), with the error sound in
+  NVDA's test builds. In 1.8 and 6.6.5 the same; on 7.0.1 a message that fails
+  to decode is such an error (the type 18 link layer message before
+  `_build_message_classes`). In 19 + 18 recorded lives no other library wrote
+  to stderr.
 
 ## Not issues
 

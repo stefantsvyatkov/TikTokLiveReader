@@ -5,6 +5,7 @@ message once by its id. Reads TikTokLive 6 and 7 (docs/dev/library.md)."""
 
 import asyncio
 import contextlib
+import logging
 import sys
 import threading
 from pathlib import Path
@@ -29,8 +30,29 @@ def runtime():
 			loaded = vendor.load(LIB_DIR, "TikTokLive", "httpx", "websockets", optional=("google.protobuf",))
 			with vendor.scope(loaded):
 				_build_message_classes()
+			_route_library_log()
 			_runtime = loaded
 		return _runtime
+
+
+class _LibraryLog(logging.Handler):
+	"""TikTokLive's log in NVDA's. Its own handler writes to stderr, which NVDA
+	logs as errors, with the error sound in test builds."""
+
+	def emit(self, record):
+		try:
+			text = f"TikTokLive: {self.format(record)}"
+		except Exception:
+			return
+		(log.warning if record.levelno >= logging.ERROR else log.debugWarning)(text)
+
+
+def _route_library_log():
+	logger = logging.getLogger("TikTokLive")
+	for handler in list(logger.handlers):
+		logger.removeHandler(handler)
+	logger.addHandler(_LibraryLog())
+	logger.propagate = False
 
 
 def _build_message_classes():

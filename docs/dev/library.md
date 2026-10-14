@@ -135,3 +135,26 @@ TikTok changes usually break old versions.
 
 Every connection goes through the Euler Stream sign server, which has free
 community rate limits: keep live test connections few and long.
+
+## What a viewer's connection does not carry
+
+The add-on connects as an anonymous viewer; asked for two features on
+2026-10-13, neither is possible reliably from that connection.
+
+- All current viewers by name: the stream has the viewer count, the top 5 of
+  the room's ranking (`RoomUserSeqEvent.ranks`, always 5 in the recordings)
+  and joins, but no leaves, and TikTok samples joins in big rooms (about 2000
+  joins for 4000 viewers in 20 minutes). Neither 7.0.1 nor EulerApiSdk has a
+  request for a room's viewers.
+- The host's verification puzzle: the protocol has
+  `WebcastAccessControlMessage` (`captcha`: record id, room id, seconds to
+  verify) and `WebcastRoomVerifyMessage`. In 19 public lives watched for 17
+  hours (`tools/record_live.py`, which prints these as they come) neither
+  arrived; besides the usual messages there were only `WebcastControlMessage`
+  pause (`extra.source` "app_pause", the host left the app), unpause and end,
+  and `WebcastStreamStatusMessage` (field 2.3: 2 stream up, 3 down). Most
+  likely TikTok sends the verification to the host's app only; from outside
+  it is not known whether any of those hosts got a puzzle. Only a recording
+  of a live whose host notes when the puzzle came can settle it.
+  Connecting with the host's session cookie might receive it, but the cookie
+  gives full access to the account and goes to the sign server.

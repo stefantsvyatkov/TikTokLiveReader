@@ -104,6 +104,10 @@ async def record(TikTokLiveClient, user, seconds, output):
 				note(user, "not live")
 				ended = "not live"
 				break
+			if type(error).__name__ == "AgeRestrictedError":
+				note(user, "age restricted, only for logged-in viewers")
+				ended = "age restricted"
+				break
 			# The signing server allows a few new connections a minute per key.
 			pause = 65 if "RateLimit" in type(error).__name__ else RECONNECT_PAUSE
 			note(user, f"connection lost ({type(error).__name__}: {error}), again in {pause} s")

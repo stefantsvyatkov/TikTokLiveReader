@@ -51,8 +51,19 @@ does not put the working folder on `sys.path` for `-m unittest tests.x`).
   add-on's real connection thread on recorded time (`feed.VirtualClock`; with
   a pace it waits the recorded pauses scaled by it instead) and compares its
   files with what happened, counted once per message id. Output in
-  `artifacts/checks/`. Guest requests have no independent count yet: the
-  link layer carries applicant queues, not single requests (F28).
+  `artifacts/checks/`. Guest requests have no independent count: the link
+  layer carries applicant queues, not single requests (F28); the report shows
+  the link layer list changes of type 2 (someone applied) beside them. A
+  person who cancels and applies again is a new request each time (one did it
+  five times on a live on 2026-10-14). The decoded file is split on newlines
+  only: `splitlines` also splits on U+2028 inside names (F37).
+
+  On 7.0.1 with the fixes of 2026-10-14, five lives recorded that day
+  (errdhigogoli, fm__102, isus.galin, princearif710, sy.1818; 3800 messages):
+  comments, followers, gifts, likes, shares and visitors all match; 20 guest
+  requests announced for 22 applications (15 for 17 on errdhigogoli: one
+  application named nobody new, one person was not known by name or applied
+  again within the 10 s the add-on waits).
 
 - `tools/snapshot_addon.py <out.json> <recording> [...]` replays recordings
   on recorded time (`feed.VirtualClock`: pauses advance the clock the add-on's

@@ -41,6 +41,7 @@ FIELDS = [
 	("total_user", ["total_user"], {"RoomUserSeqEvent"}),
 	("member_count", ["count", "member_count"], {"JoinEvent"}),
 	("link_type", ["m_type", "message_type"], {"LinkMicMethodEvent", "LinkLayerEvent"}),
+	("list_change_type", ["list_content.list_change_type", "list_change_content.type"], {"LinkLayerEvent"}),
 ]
 
 

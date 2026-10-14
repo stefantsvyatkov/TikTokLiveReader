@@ -48,7 +48,7 @@ def decode(recording, out_dir):
 		],
 		check=True,
 	)
-	rows = [json.loads(line) for line in decoded.read_text(encoding="utf-8").splitlines()]
+	rows = [json.loads(line) for line in decoded.read_text(encoding="utf-8").split("\n") if line]
 	return [row for row in rows if "method" in row and "error" not in row]
 
 
@@ -85,6 +85,8 @@ def expected_from(events):
 			likes[name] += fields.get("like.count", 0)
 		elif kind in ("LinkMicMethodEvent", "LinkLayerEvent"):
 			expected["link messages"].append(f"{kind} type {fields.get('link_type')}")
+			if kind == "LinkLayerEvent" and fields.get("list_change_type") == 2:
+				expected["(applications: link layer list changes of type 2)"].append("applied")
 	expected["followers"] = list(dict.fromkeys(expected["followers"]))
 	expected["visitors"] = list(dict.fromkeys(expected["visitors"]))
 	expected["likes (sum per person)"] = [f"{name}: {count}" for name, count in sorted(likes.items())]

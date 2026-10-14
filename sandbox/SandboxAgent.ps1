@@ -165,6 +165,16 @@ while ($true) {
             "[speech]", "synth = silence")
         $addon = Join-Path $config "addons\TikTokLiveReader"
         Copy-Item (Join-Path $stage "addon") $addon -Recurse
+        # Another add-on with its own copies of packages the add-on bundles too (sandbox\probe).
+        # conflicts-store adds the real add-ons in artifacts\sandbox\extra-addons (not in Git).
+        if ($scenario -like "conflicts*") {
+            Copy-Item (Join-Path $stage "probe") (Join-Path $config "addons\conflictProbe") -Recurse
+        }
+        if ($scenario -eq "conflicts-store") {
+            Get-ChildItem (Join-Path $stage "extra-addons") -Directory | ForEach-Object {
+                Copy-Item $_.FullName (Join-Path $config "addons\$($_.Name)") -Recurse
+            }
+        }
         # Without a byte order mark: the add-on reads the file as plain UTF-8 (finding F29).
         [IO.File]::WriteAllLines((Join-Path $config "tiktokLiveReader.ini"),
             [string[]]@("[main]", "username = host", "text_files_destination = $texts"), (New-Object Text.UTF8Encoding $false))

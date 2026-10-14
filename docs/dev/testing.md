@@ -112,3 +112,39 @@ SendInput, reads speech from NVDA's log and writes `results.txt`.
 Smoke scenario on 2026-10-13: 1.8 passes on 2026.1.1, 2026.2 and
 2026.3beta4; NVDA needs 2.85-2.90 s to answer the next key after switching the
 add-on off (F27).
+
+### Other add-ons
+
+`conflicts` installs `sandbox/probe` next to the add-on: a test add-on that,
+as add-ons usually do, imports its own `pydantic`, `httpx`, `websockets` and
+`anyio` at NVDA's start (its `lib/` on `sys.path` only for that) and keeps
+NVDA's `certifi`, `idna`, `typing_extensions` and `attr`. NVDA+control+alt+
+shift+k says who owns each name in `sys.modules` and whether code holding
+those modules still works, including imports made only when used (a package
+`__getattr__` importing a submodule, `from . import _client` in a function,
+`idna.encode(..., uts46=True)`, `certifi.where()`). The scenario asks before,
+during and after two lives in a row. `conflicts-store` also installs every
+add-on in `artifacts\sandbox\extra-addons` (not in Git): real store add-ons
+that bundle packages the add-on bundles too.
+
+Of the 510 add-ons compatible with NVDA 2026.2 in the store (NVDA's cached
+store list), only Document reader for NVDA 1.0 (Sujan Rai, 159 MB) bundles
+any of them: `attr`/`attrs` 26.1.0, `certifi` 2026.5.20, `dateutil` 2.9.0,
+`idna` 3.16, `six` 1.17.0, `typing_extensions` 4.15.0 and a `secrets.py`, the
+same versions as ours or older. It puts its `libs` first on `sys.path` for
+good and imports them at NVDA's start. Found by searching GitHub code under
+`globalPlugins` for imports of the bundled packages and the store's source
+URLs; the add-ons that use AI services mostly call the services with their
+own small clients (AI-Hub) instead of bundling SDKs.
+
+Runs on 2026-10-14, both scenarios on all three NVDA versions: during a live
+the add-on decodes, NVDA's `certifi` and `idna` stay NVDA's and work, and the
+probe's modules it holds work; its imports made only when used (`pydantic`,
+`httpx` in the probe) get the add-on's modules, the known limit
+(docs/dev/library.md, "Isolation"), which the scenario records but does not
+fail. 0.3 s after switching off every name is back with its owner and works,
+after each of two lives; nothing in NVDA's log. With Document reader
+installed NVDA starts in 9-11 s instead of 5-6.5. The first run found NVDA's
+own `idna` failing during a live, now fixed by sharing it; the sandbox's
+replaying client now returns from `connect()` when disconnected, as the real
+one does, so the add-on gives the modules back at once.

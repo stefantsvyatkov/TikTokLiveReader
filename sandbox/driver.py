@@ -344,7 +344,76 @@ def scenario_settings(run):
 	run.end_stream()
 
 
-SCENARIOS = {"smoke": scenario_smoke, "settings": scenario_settings}
+# The probe's imports made only when used resolve its names through sys.modules,
+# which hold the add-on's copies while a live runs (docs/dev/testing.md).
+LAZY = ("pydantic", "httpx")
+
+
+def probe(run, when, live=False):
+	"""What the conflict probe add-on (sandbox/probe) says: owners of the shared
+	names, then whether its own code and NVDA's still work."""
+	said = run.press_and_hear("nvda+control+alt+shift+k", r"^probe: ", f"probe answers {when}")
+	if said:
+		checks = said.partition("; checks: ")[2].split(", ")
+		failed = [
+			item for item in checks if not item.endswith(" ok") and not (live and item.split()[0] in LAZY)
+		]
+		run.check(f"the other add-on and NVDA work {when}", not failed, said)
+	return said
+
+
+def owners(said):
+	return (said or "").partition(";")[0]
+
+
+def probe_until_restored(run, when, before, timeout=6):
+	"""Ask the probe until the owners are those from before the live: the
+	connection thread gives the modules back when it has closed."""
+	started = time.monotonic()
+	while True:
+		run.mark = len(run.log.speech())
+		press("nvda+control+alt+shift+k")
+		said = run.hear(r"^probe: ", f"probe answers {when}", timeout=5)
+		if not said or owners(said) == owners(before) or time.monotonic() - started > timeout:
+			break
+		run.results.pop()
+		time.sleep(0.5)
+	run.check(
+		f"the same owners as before, {when}",
+		owners(said) == owners(before),
+		f"{time.monotonic() - started:.1f} s; {said!r}",
+	)
+	failed = [
+		item for item in (said or "").partition("; checks: ")[2].split(", ") if not item.endswith(" ok")
+	]
+	run.check(f"the other add-on and NVDA work {when}", bool(said) and not failed, said)
+
+
+def scenario_conflicts(run):
+	"""The add-on next to another add-on with its own pydantic, httpx, websockets
+	and anyio, and NVDA's own certifi, idna, typing_extensions and attr: NVDA and
+	what the other add-on holds keep working during a live, and everything is
+	back after it, twice."""
+	if not run.wait_for_nvda():
+		return
+	before = probe(run, "before the live")
+	for live in ("first", "second"):
+		run.press_and_hear("nvda+control+shift+t", r"^TikTok Live Reader On$", f"switching on, {live} live")
+		run.hear(r"^Connected to user: host$", f"connected, {live} live")
+		time.sleep(4)
+		run.press_and_hear("control+shift+home", r"^Alice: hello  ", f"first comment, {live} live")
+		probe(run, f"during the {live} live", live=True)
+		run.press_and_hear("nvda+control+shift+t", r"^TikTok Live Reader Off$", f"switching off, {live} live")
+		probe_until_restored(run, f"after the {live} live", before)
+	run.end_stream()
+
+
+SCENARIOS = {
+	"smoke": scenario_smoke,
+	"settings": scenario_settings,
+	"conflicts": scenario_conflicts,
+	"conflicts-store": scenario_conflicts,
+}
 
 
 def main():

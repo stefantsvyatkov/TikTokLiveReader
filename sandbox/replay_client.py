@@ -57,7 +57,13 @@ class TikTokLiveClient(_LiveClient):
 	async def connect(self, **kwargs):
 		# TikTokLive 7 parses frames only with a room id.
 		self._room_id = 1
+		self._replay_stopped = False
 		await self._replay()
+
+	async def disconnect(self, *args, **kwargs):
+		# As the real client: connect() returns once disconnected.
+		self._replay_stopped = True
+		await super().disconnect(*args, **kwargs)
 
 	async def _replay(self):
 		frames = _frames(os.environ["TIKTOK_REPLAY"], float(os.environ.get("TIKTOK_REPLAY_PACE", "1")))
@@ -65,6 +71,8 @@ class TikTokLiveClient(_LiveClient):
 			self.emit(ConnectEvent.get_type(), ConnectEvent(unique_id=self._unique_id, room_id=1))
 			await self.wait_for_complete()
 		for item in frames:
+			if self._replay_stopped:
+				return
 			if isinstance(item, float):
 				await asyncio.sleep(item)
 				continue
@@ -72,6 +80,8 @@ class TikTokLiveClient(_LiveClient):
 				self.emit(event.get_type(), event)
 			await self.wait_for_complete()
 		while _control() not in ("end", "drop"):
+			if self._replay_stopped:
+				return
 			await asyncio.sleep(0.1)
 		if _control() == "drop":
 			raise ConnectionError("replay: connection dropped")

@@ -73,6 +73,9 @@ $driver = Join-Path $stage "driver"
 New-Item -ItemType Directory -Force -Path $driver | Out-Null
 Copy-Item (Join-Path $PSScriptRoot "driver.py"), (Join-Path $PSScriptRoot "replay_client.py") $driver -Force
 Copy-Item (Join-Path $PSScriptRoot "SandboxAgent.ps1") $stage -Force
+$probe = Join-Path $stage "probe"
+if (Test-Path $probe) { Remove-Item $probe -Recurse -Force }
+Copy-Item (Join-Path $PSScriptRoot "probe") $probe -Recurse
 if (-not (Test-Path (Join-Path $stage "python313\python.exe"))) {
     Copy-Item (Join-Path $repo "artifacts\tools\python313") (Join-Path $stage "python313") -Recurse
 }

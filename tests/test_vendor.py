@@ -88,7 +88,7 @@ class StandardCopies(unittest.TestCase):
 			sys.modules.pop(name, None)
 
 	def tearDown(self):
-		for name in ("grp", "colorsys"):
+		for name in ("grp", "colorsys", "vt_shared"):
 			sys.modules.pop(name, None)
 
 	@unittest.skipUnless(sys.platform == "win32", "grp is part of Python on Unix")
@@ -102,6 +102,20 @@ class StandardCopies(unittest.TestCase):
 		with vendor.scope(runtime):
 			import colorsys
 		self.assertFalse(hasattr(colorsys, "WHO"))
+
+	def test_a_shared_package_is_the_process_copy(self):
+		(self.lib / "vt_shared.py").write_text("WHO = 'bundled'\n", encoding="utf-8")
+		theirs = sys.modules["vt_shared"] = types.ModuleType("vt_shared")
+		runtime = vendor.load(self.lib, "vt_alpha", shared=("vt_shared",))
+		self.assertNotIn("vt_shared", runtime.names)
+		with vendor.scope(runtime):
+			self.assertIs(sys.modules["vt_shared"], theirs)
+		self.assertIs(sys.modules["vt_shared"], theirs)
+
+	def test_a_shared_package_the_process_lacks_comes_from_lib(self):
+		(self.lib / "vt_shared.py").write_text("WHO = 'bundled'\n", encoding="utf-8")
+		vendor.load(self.lib, "vt_alpha", shared=("vt_shared",))
+		self.assertEqual(sys.modules["vt_shared"].WHO, "bundled")
 
 
 STARTING = """
@@ -189,11 +203,11 @@ class AddOnLibrary(unittest.TestCase):
 	def test_every_bundled_package_is_private(self):
 		adapter = support.load("tiktok_adapter")
 		names = adapter.runtime().names
-		for name in ("TikTokLive", "httpx", "websockets", "idna", "certifi", "h11", "six", "dateutil"):
+		for name in ("TikTokLive", "httpx", "websockets", "h11", "six", "dateutil", "typing_extensions"):
 			self.assertIn(name, names)
 			self.assertNotIn(name, sys.modules)
-		self.assertNotIn("secrets", names)
-		self.assertNotIn("zoneinfo", names)
+		for name in ("secrets", "zoneinfo", "certifi", "idna"):
+			self.assertNotIn(name, names)
 
 
 if __name__ == "__main__":

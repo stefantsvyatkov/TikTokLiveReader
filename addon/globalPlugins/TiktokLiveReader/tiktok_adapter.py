@@ -19,6 +19,8 @@ _runtime = None
 _runtime_lock = threading.Lock()
 
 LINK_EVENTS = ("LinkLayerEvent", "LinkMicMethodEvent", "GuestInviteEvent")
+# NVDA's own copies, used while a live runs; any version serves httpx.
+SHARED = ("certifi", "idna")
 
 
 def runtime():
@@ -27,7 +29,9 @@ def runtime():
 	global _runtime
 	with _runtime_lock:
 		if _runtime is None:
-			loaded = vendor.load(LIB_DIR, "TikTokLive", "httpx", "websockets", optional=("google.protobuf",))
+			loaded = vendor.load(
+				LIB_DIR, "TikTokLive", "httpx", "websockets", optional=("google.protobuf",), shared=SHARED
+			)
 			with vendor.scope(loaded):
 				_build_message_classes()
 			_route_library_log()

@@ -95,13 +95,28 @@ missed anything a library update adds (7.0.1 brings `attrs`, `pydantic`,
 `pydantic_core`, `annotated_types`, `typing_inspection`). Copies of standard
 library modules (`lib/secrets.py`, `lib/zoneinfo`) are not private: `load`
 imports each first, Python's own if it has one, so with lib/ first on
-`sys.path` a copy never hides the real module. Scopes are counted, so
-two overlapping connections (F1/F2) no longer take the modules away from each
-other: 1.8 restored a snapshot per scope, and the first to end removed them
-while the other was still decoding. While a connection runs, the bundled
-modules are what NVDA and other add-ons get if they import one of those names
-for the first time; their already imported copies are untouched and put back
-when the last scope ends.
+`sys.path` a copy never hides the real module. `certifi` and `idna`
+(`tiktok_adapter.SHARED`) are not private either: NVDA 2026 ships both and
+any version serves httpx, so the add-on uses NVDA's and they stay NVDA's
+during a live. Scopes are counted, so two overlapping connections (F1/F2) no
+longer take the modules away from each other: 1.8 restored a snapshot per
+scope, and the first to end removed them while the other was still decoding.
+
+While a connection runs, the bundled modules are what NVDA and other add-ons
+get for those names: modules they already hold keep working, but an import
+they make then by name resolves to the add-on's copy (`sys.modules` is one per
+process). The sandbox's `conflicts` scenario shows it (docs/dev/testing.md):
+during a live a probe add-on's `import_module(".main", "pydantic")` and
+`from . import _client` in its httpx got the add-on's modules, and NVDA's own
+`idna.encode(..., uts46=True)` failed, because idna 3.20's `uts46data` is not
+3.11's (NVDA 2026.1 and 2026.2); hence `SHARED`. NVDA also ships
+`typing_extensions` (one module, no lazy imports; pydantic needs 4.16, newer
+than NVDA's) and from 2026.2 `attr` (imports all of itself at once; EulerApiSdk
+needs our `attrs`, which goes with our `attr`): those stay private. The only
+way around the rest would be renaming the bundled packages, as pip's
+vendoring does, which pydantic's string imports and compiled core make
+risky; the one store add-on bundling the same packages (Document reader)
+has the same or older versions.
 
 ## Loops
 

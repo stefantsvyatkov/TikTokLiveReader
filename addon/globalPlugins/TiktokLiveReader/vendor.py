@@ -6,9 +6,10 @@ connection holds it for the whole live. Outside, NVDA and other add-ons see thei
 own copies of the same packages, which are put back when the last scope ends.
 
 Every top-level package and module in lib/ is private, found by looking at the
-folder, except copies of standard library modules (lib/secrets.py, lib/zoneinfo)
-for Python builds without them: ``load`` imports each before anything else,
-Python's own where there is one, and they stay where Python puts them.
+folder, except shared ones: copies of standard library modules (lib/secrets.py,
+lib/zoneinfo) for Python builds without them, and packages named by the caller
+that any version serves. ``load`` imports each before anything else, the
+process's own where there is one, and they stay where Python puts them.
 """
 
 import contextlib
@@ -57,9 +58,9 @@ def _has_code(folder):
 class Runtime:
 	"""The bundled modules, by full name, and how many scopes are using them."""
 
-	def __init__(self, lib_dir):
+	def __init__(self, lib_dir, shared=()):
 		self.lib_dir = str(Path(lib_dir).resolve())
-		self.names = frozenset(bundled_names(self.lib_dir))
+		self.names = frozenset(bundled_names(self.lib_dir) - set(shared))
 		self.modules = {}
 		self._users = 0
 		self._displaced = {}
@@ -110,8 +111,8 @@ def scope(runtime):
 				runtime._leave()
 
 
-def _import_standard_copies(lib_dir):
-	for name in sorted(standard_copies(lib_dir)):
+def _import_shared(lib_dir, names):
+	for name in sorted(names):
 		if name in sys.modules:
 			continue
 		try:
@@ -129,11 +130,11 @@ def _import_standard_copies(lib_dir):
 				raise
 
 
-def load(lib_dir, *modules, optional=()):
+def load(lib_dir, *modules, optional=(), shared=()):
 	"""A runtime for ``lib_dir`` with ``modules`` imported (and ``optional`` ones
-	when they import)."""
-	runtime = Runtime(lib_dir)
-	_import_standard_copies(runtime.lib_dir)
+	when they import); the packages in ``shared`` are the process's if it has them."""
+	runtime = Runtime(lib_dir, shared)
+	_import_shared(runtime.lib_dir, standard_copies(runtime.lib_dir) | set(shared))
 	with scope(runtime):
 		for name in modules:
 			importlib.import_module(name)

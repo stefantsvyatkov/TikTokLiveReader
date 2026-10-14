@@ -11,7 +11,10 @@ transcript) and exits 1 if a check failed.
 
 import ast
 import ctypes
+import json
+import os
 import re
+import subprocess
 import sys
 import time
 from ctypes import wintypes
@@ -408,11 +411,88 @@ def scenario_conflicts(run):
 	run.end_stream()
 
 
+def answer_delay(run, combo, pattern, timeout=10):
+	"""Seconds until something said after pressing ``combo`` matches, or None."""
+	run.mark = len(run.log.speech())
+	started = time.monotonic()
+	press(combo)
+	while time.monotonic() - started < timeout:
+		if any(re.search(pattern, utterance) for utterance in run.since_mark()):
+			return time.monotonic() - started
+		time.sleep(0.02)
+	return None
+
+
+def nvda_memory_mb():
+	result = subprocess.run(
+		["tasklist", "/FI", "IMAGENAME eq nvda.exe", "/FO", "CSV", "/NH"], capture_output=True, text=True
+	)
+	sizes = [int(re.sub(r"\D", "", row.rsplit(",", 1)[-1]) or 0) for row in result.stdout.splitlines()]
+	return max(sizes, default=0) // 1024
+
+
+def replay_seconds():
+	path = os.environ.get("TIKTOK_REPLAY")
+	pace = float(os.environ.get("TIKTOK_REPLAY_PACE", "1"))
+	rows = [json.loads(line) for line in Path(path).read_text(encoding="utf-8").splitlines()] if path else []
+	times = [row["t"] for row in rows if "method" in row]
+	return (times[-1] - times[0]) * pace if times else 0
+
+
+def scenario_stress(run):
+	"""A busy real live replayed fast with every event written, spoken and
+	sounded: NVDA keeps answering, the add-on navigates and switches off at once,
+	speech stops with it, nothing in the log."""
+	if not run.wait_for_nvda():
+		return
+	memory = nvda_memory_mb()
+	run.press_and_hear("nvda+control+shift+t", r"^TikTok Live Reader On$", "switching on")
+	run.hear(r"^Connected to user: host$", "connected")
+	length = replay_seconds()
+	started = time.monotonic()
+	delays = []
+	while time.monotonic() - started < length:
+		time.sleep(4)
+		delays.append(answer_delay(run, "nvda+t", r"Program Manager"))
+	answered = [delay for delay in delays if delay is not None]
+	run.check(
+		"NVDA answers during the live",
+		bool(delays) and len(answered) == len(delays) and max(answered) < 1,
+		f"{len(answered)} of {len(delays)} in {length:.0f} s, slowest {max(answered, default=0):.2f} s, "
+		f"median {sorted(answered)[len(answered) // 2] if answered else 0:.2f} s",
+	)
+	delay = answer_delay(run, "control+shift+end", r"\((\d+) of \1\)$")
+	run.check("the last comment during the live", delay is not None and delay < 1, f"{delay}")
+	run.mark = len(run.log.speech())
+	switched = time.monotonic()
+	press("nvda+control+shift+t")
+	run.hear(r"^TikTok Live Reader Off$", "switching off", timeout=8)
+	delay = answer_delay(run, "nvda+t", r"Program Manager")
+	run.check("NVDA answers right after switching off", delay is not None and delay < 1, f"{delay}")
+	time.sleep(1)
+	quiet_from = len(run.log.speech())
+	time.sleep(4)
+	late = run.log.speech()[quiet_from:]
+	run.check(
+		"speech stops with the add-on",
+		not late,
+		f"{time.monotonic() - switched:.1f} s after the key: {late[:5]!r}",
+	)
+	files = {
+		path.name: len(path.read_text(encoding="utf-8").splitlines())
+		for path in sorted(run.texts.glob("*.txt"))
+	}
+	run.check("text files", bool(files), repr(files))
+	run.check("NVDA's memory", True, f"{memory} MB before, {nvda_memory_mb()} MB after")
+	run.end_stream()
+
+
 SCENARIOS = {
 	"smoke": scenario_smoke,
 	"settings": scenario_settings,
 	"conflicts": scenario_conflicts,
 	"conflicts-store": scenario_conflicts,
+	"stress": scenario_stress,
 }
 
 

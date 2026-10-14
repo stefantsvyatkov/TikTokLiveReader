@@ -148,3 +148,26 @@ installed NVDA starts in 9-11 s instead of 5-6.5. The first run found NVDA's
 own `idna` failing during a live, now fixed by sharing it; the sandbox's
 replaying client now returns from `connect()` when disconnected, as the real
 one does, so the add-on gives the modules back at once.
+
+### Stress
+
+`stress` replays a busy real live fast with every event written, spoken
+(auto speak on) and sounded (the agent writes those settings): `-Recording
+stress.jsonl -Pace 0.05`. `stress.jsonl` is the first 30 minutes of a live
+recorded on 2026-10-14 (i.freshta1, 2967 messages: 1476 joins, 281 comments,
+197 likes; real names, so only in `artifacts\sandbox\fixtures`), 20 times as
+fast: about 33 messages a second, against 2 at most in the 37 recorded lives.
+Every 4 s the driver presses NVDA+t and times the answer; then it reads the
+last comment, switches off, checks that NVDA answers and that speech stops,
+and notes the files and NVDA's memory (tasklist).
+
+On 2026-10-14, all three NVDA versions: 22 of 22 answers in 0.13-0.14 s
+during the live, the last comment in 0.19-0.20 s, NVDA answers 0.13 s after
+switching off (0.72 s on 2026.1.1), no speech after it, nothing in the log,
+NVDA's memory 152-158 MB before and 234-237 MB after (the library). The
+replay waits the recorded pauses after handling each frame, so handling time
+adds up: when switched off after 91 s it was at 75 s of its 90, about 6.4 ms
+per message for decoding (1.4 ms of it on the host) and everything the add-on
+does with it. `tools/check_addon.py` on the same fixture matches the
+recording but for a comment's trailing space (the add-on trims it), a
+sticker comment (F31) and one anonymous join ("someone").

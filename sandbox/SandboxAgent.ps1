@@ -176,8 +176,13 @@ while ($true) {
             }
         }
         # Without a byte order mark: the add-on reads the file as plain UTF-8 (finding F29).
-        [IO.File]::WriteAllLines((Join-Path $config "tiktokLiveReader.ini"),
-            [string[]]@("[main]", "username = host", "text_files_destination = $texts"), (New-Object Text.UTF8Encoding $false))
+        $ini = @("[main]", "username = host", "text_files_destination = $texts")
+        # stress: every event written, spoken and sounded.
+        if ($scenario -eq "stress") {
+            $every = "comments", "followers", "gifts", "likes", "requests", "shares", "visitors" | ForEach-Object { "$_ = True" }
+            $ini += @("[events]") + $every + @("[auto_speak]", "enabled = True") + $every + @("[sound_events]") + $every + @("[sounds]", "play_sounds = True", "volume = 70")
+        }
+        [IO.File]::WriteAllLines((Join-Path $config "tiktokLiveReader.ini"), [string[]]$ini, (New-Object Text.UTF8Encoding $false))
 
         $control = Join-Path $out "replay-control.txt"
         if ($recording) {

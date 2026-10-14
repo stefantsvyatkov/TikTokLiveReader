@@ -90,4 +90,10 @@ live recording.
      but for one anonymous join ("someone" instead of an empty name)
 4. Stress test in the sandbox on all three NVDA versions, live comparison
    loop.
+   - [x] other add-ons: probe add-on and Document reader (`conflicts`,
+     `conflicts-store`); NVDA's `certifi` and `idna` shared
+   - [x] `stress`: a busy live 20 times as fast, auto speak and sounds on
+   - [ ] smoke with NVDA in Bulgarian
+   - [ ] live comparison loop on 7.0.1 (the 2026-10-14 recordings found the
+     link layer decode error and F36)
 5. Version 2.0, minimum 2026.1, changelog draft for the user.

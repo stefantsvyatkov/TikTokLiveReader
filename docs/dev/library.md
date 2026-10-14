@@ -190,3 +190,16 @@ The add-on connects as an anonymous viewer; asked for two features on
   of a live whose host notes when the puzzle came can settle it.
   Connecting with the host's session cookie might receive it, but the cookie
   gives full access to the account and goes to the sign server.
+
+## Moderation
+
+TikTokLive has no moderation; the bundled EulerApiSdk has Euler Stream's
+(`tik_tok_live_moderation`: mute, kick, unban, moderators, banned and muted
+lists). Asked about on 2026-10-14, not done: every route "Requires Premium
+Routes Addon" (a paid add-on to an Euler Stream plan, price not published)
+and acts as the host through either `x-cookie-header` (the host's TikTok
+`sessionid` and `tt-target-idc` cookies) or `x-oauth-token`, Euler's OAuth,
+where the host scans a QR code with the TikTok app and Euler resolves the
+session "from the stored OAuth session", so Euler holds a full TikTok login.
+Either way a third party could act as the host's account; TikTok offers no
+official API for LIVE moderation.

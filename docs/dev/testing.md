@@ -81,7 +81,9 @@ page at once (autoplay with sound).
 
 `sandbox\Run-Sandbox.ps1 [-Scenario smoke] [-Nvda 2026.2,...] [-Recording smoke.jsonl] [-Pace 1]`
 (`-Stop` closes it). Scenarios: `smoke` (switch on, navigate, viewers,
-switch off) and `settings` (every control of the General page by name, OK
+switch off; `smoke-bg` the same with NVDA in Bulgarian, hearing the add-on's
+Bulgarian translations: the agent sets NVDA's language for scenarios ending in
+`-bg`) and `settings` (every control of the General page by name, OK
 saves, Cancel does not, a bad user name is refused, Learn sounds speaks, a
 new user name while connected archives the old session and reconnects). Text
 is typed as Unicode characters: the sandbox takes the host's keyboard layout

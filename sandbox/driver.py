@@ -189,23 +189,49 @@ class Run:
 		return 0 if all(status == "PASS" for status, _, _ in self.results) else 1
 
 
-def scenario_smoke(run):
+# What the add-on says in the scenarios, from its translations (addon/locale).
+SAYS = {
+	"en": {
+		"on": "TikTok Live Reader On",
+		"off": "TikTok Live Reader Off",
+		"connected": "Connected to user: host",
+		"of": "of",
+		"events": "Events",
+		"comments": "Comments",
+		"viewers": "37 viewers",
+	},
+	"bg": {
+		"on": "TikTok Live Reader е включен",
+		"off": "TikTok Live Reader е изключен",
+		"connected": "Свързан с потребител: host",
+		"of": "от",
+		"events": "Събития",
+		"comments": "Коментари",
+		"viewers": "37 зрители",
+	},
+}
+
+
+def scenario_smoke(run, language="en"):
 	"""The add-on loads, connects to the replay, navigates, reports, switches off."""
+	says = SAYS[language]
 	if not run.wait_for_nvda():
 		return
-	run.press_and_hear("nvda+control+shift+t", r"^TikTok Live Reader On$", "switching on")
-	run.hear(r"^Connected to user: host$", "connected")
+	run.press_and_hear("nvda+control+shift+t", f"^{says['on']}$", "switching on")
+	run.hear(f"^{says['connected']}$", "connected")
 	time.sleep(4)
-	run.press_and_hear("control+shift+down", r"^Alice: hello  \d\d:\d\d:\d\d \(1 of \d+\)$", "first comment")
-	run.press_and_hear("control+shift+end", r"\((\d+) of \1\)$", "last comment")
-	run.press_and_hear("control+shift+right", r"^Events$", "next file")
-	run.press_and_hear("control+shift+left", r"^Comments$", "previous file")
-	run.press_and_hear("nvda+control+shift+v", r"^37 viewers$", "viewer count")
+	run.press_and_hear(
+		"control+shift+down", rf"^Alice: hello  \d\d:\d\d:\d\d \(1 {says['of']} \d+\)$", "first comment"
+	)
+	run.press_and_hear("control+shift+end", rf"\((\d+) {says['of']} \1\)$", "last comment")
+	run.press_and_hear("control+shift+right", f"^{says['events']}$", "next file")
+	run.press_and_hear("control+shift+left", f"^{says['comments']}$", "previous file")
+	run.press_and_hear("nvda+control+shift+v", f"^{says['viewers']}$", "viewer count")
 
 	run.mark = len(run.log.speech())
 	started = time.monotonic()
 	press("nvda+control+shift+t")
-	run.hear(r"^TikTok Live Reader Off$", "switching off", timeout=8)
+	run.hear(f"^{says['off']}$", "switching off", timeout=8)
 	run.press_and_hear("nvda+t", r".", "NVDA answers right after switching off", timeout=10)
 	run.results[-1] = run.results[-1][:2] + (
 		run.results[-1][2] + f"; {time.monotonic() - started:.2f} s after the off key",
@@ -489,6 +515,7 @@ def scenario_stress(run):
 
 SCENARIOS = {
 	"smoke": scenario_smoke,
+	"smoke-bg": lambda run: scenario_smoke(run, "bg"),
 	"settings": scenario_settings,
 	"conflicts": scenario_conflicts,
 	"conflicts-store": scenario_conflicts,

@@ -93,7 +93,9 @@ live recording.
    - [x] other add-ons: probe add-on and Document reader (`conflicts`,
      `conflicts-store`); NVDA's `certifi` and `idna` shared
    - [x] `stress`: a busy live 20 times as fast, auto speak and sounds on
-   - [ ] smoke with NVDA in Bulgarian
+   - [x] smoke with NVDA in Bulgarian (`smoke-bg`, all three versions; the
+     catalogues match their .mo files and have every string the code
+     translates but the script category, the add-on's name, as in 1.8)
    - [ ] live comparison loop on 7.0.1 (the 2026-10-14 recordings found the
      link layer decode error and F36)
 5. Version 2.0, minimum 2026.1, changelog draft for the user.

@@ -159,8 +159,10 @@ while ($true) {
         $config = Join-Path $work "$id\config"
         $texts = Join-Path $work "$id\texts"
         New-Item -ItemType Directory -Force -Path $config, $texts | Out-Null
+        # Scenarios ending in -bg run NVDA in Bulgarian.
+        $language = if ($scenario -like "*-bg") { "bg" } else { "en" }
         Set-Content -Path (Join-Path $config "nvda.ini") -Encoding UTF8 -Value @(
-            "[general]", "language = en", "showWelcomeDialogAtStartup = False", "playStartAndExitSounds = False",
+            "[general]", "language = $language", "showWelcomeDialogAtStartup = False", "playStartAndExitSounds = False",
             "[update]", "autoCheck = False", "startupNotification = False", "allowUsageStats = False", "askedAllowUsageStats = True",
             "[speech]", "synth = silence")
         $addon = Join-Path $config "addons\TikTokLiveReader"

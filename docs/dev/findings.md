@@ -76,6 +76,11 @@ are right.
   second is logged once.
 - F9 Fixed in phase 3: line breaks in a comment become spaces. Before: a new
   line inside a comment split the entry into two lines.
+- F37 Fixed on 2026-10-14, as F9 for names: line breaks (including U+2028 and
+  U+2029) in a name become spaces, cleaned or not (`_sanitize_name`); nothing
+  else in raw names changes. Before: a visitor whose name had a U+2028 in it,
+  on a live recorded that day, was one line for the add-on (it splits on
+  newlines only) but two in Notepad and in `check_addon` (`splitlines`).
 - F10 Fixed in phase 3: with names cleaned, a name cleaning would leave
   without a letter or digit becomes the person's handle (or stays as it is);
   names not cleaned stay exactly as they are. Before: entries such as ": hey"

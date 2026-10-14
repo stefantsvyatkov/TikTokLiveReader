@@ -100,6 +100,8 @@ def _remember_user(uid, name):
 
 
 def _sanitize_name(name):
+	if isinstance(name, str):
+		name = LINE_BREAKS.sub(" ", name)
 	if not _settings.clean_usernames or not isinstance(name, str):
 		return name
 	out = []

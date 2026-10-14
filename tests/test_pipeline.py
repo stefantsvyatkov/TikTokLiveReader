@@ -28,6 +28,14 @@ class Comments(unittest.TestCase):
 		r = f.run_session(f.comment(alice, "line1\nline2\r\nline3"))
 		self.assertEqual(logged(r, "comments.txt"), ["Alice: line1 line2 line3"])
 
+	def test_a_name_on_several_lines_is_one_entry(self):
+		# F37: a name with U+2028 seen on a live, 2026-10-14.
+		anna = f.user("♪\u2028 Anna\nX", "anna")
+		for clean in (True, False):
+			r = f.run_session(f.join(anna), settings={"behavior": {"clean_usernames": clean}})
+			self.assertEqual(len(r.files["visitors.txt"]), 1)
+			self.assertNotRegex(r.files["visitors.txt"][0], "[\u2028\u2029\r\n]")
+
 	def test_a_name_cleaning_would_empty_becomes_the_handle(self):
 		# F10
 		emoji = f.user("✨🌸", "flowers")

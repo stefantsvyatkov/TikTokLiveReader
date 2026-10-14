@@ -131,10 +131,14 @@ def guest_request(who):
 @_in_runtime
 def applicant_queue(*people):
 	"""A link layer list change with these people waiting to join, as user ids."""
-	queue = [linkcore.LinkLayerListUser(user=linkcore.Player(room_id=1, user_id=person.id)) for person in people]
+	queue = [
+		linkcore.LinkLayerListUser(user=linkcore.Player(room_id=1, user_id=person.id)) for person in people
+	]
 	return _message(
 		proto_events.LinkLayerEvent(
-			list_change_content=linkcore.LinkListChangeContent(type=2, list=linkcore.AllListUser(applied_list=queue))
+			list_change_content=linkcore.LinkListChangeContent(
+				type=2, list=linkcore.AllListUser(applied_list=queue)
+			)
 		)
 	)
 

@@ -5,6 +5,7 @@ message once by its id. Reads TikTokLive 6 and 7 (docs/dev/library.md)."""
 
 import asyncio
 import contextlib
+import sys
 import threading
 from pathlib import Path
 
@@ -25,10 +26,33 @@ def runtime():
 	global _runtime
 	with _runtime_lock:
 		if _runtime is None:
-			_runtime = vendor.load(
-				LIB_DIR, "TikTokLive", "httpx", "websockets", optional=("google.protobuf",)
-			)
+			loaded = vendor.load(LIB_DIR, "TikTokLive", "httpx", "websockets", optional=("google.protobuf",))
+			with vendor.scope(loaded):
+				_build_message_classes()
+			_runtime = loaded
 		return _runtime
+
+
+def _build_message_classes():
+	"""Build now the TikTokLiveProto classes pydantic left for their first use,
+	where it would resolve their types with the caller's names too, and some
+	messages could not be decoded (docs/dev/library.md). TikTokLive 6 has none."""
+	try:
+		import betterproto2
+		from pydantic.dataclasses import rebuild_dataclass
+	except ImportError:
+		return
+	for name, module in list(sys.modules.items()):
+		if name.partition(".")[0] != "TikTokLiveProto":
+			continue
+		for value in list(vars(module).values()):
+			if (
+				isinstance(value, type)
+				and issubclass(value, betterproto2.Message)
+				and value.__module__ == name
+				and not getattr(value, "__pydantic_complete__", True)
+			):
+				rebuild_dataclass(value, raise_errors=False, _parent_namespace_depth=0)
 
 
 def library_scope():

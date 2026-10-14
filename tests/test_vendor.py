@@ -135,7 +135,28 @@ print(*(Path(sys.modules[name].__file__).resolve().is_relative_to(lib) for name 
 """
 
 
+FIRST_DECODE = """
+import sys
+sys.path.insert(0, sys.argv[1])
+from tests import support
+adapter = support.load("tiktok_adapter")
+with adapter.library_scope():
+	from TikTokLive.events import proto_events
+	print(proto_events.LinkLayerEvent.parse(b"") is not None)
+"""
+
+
 class AddOnLibrary(unittest.TestCase):
+	def test_a_link_layer_message_decodes_first_in_a_fresh_process(self):
+		# Decoding it built pydantic's schema with betterproto2's local "data" in view.
+		result = subprocess.run(
+			[sys.executable, "-X", "utf8", "-W", "ignore", "-c", FIRST_DECODE, str(support.REPO)],
+			capture_output=True,
+			text=True,
+			timeout=120,
+		)
+		self.assertEqual(result.stdout.split(), ["True"], result.stderr[-2000:])
+
 	def test_the_library_loads_without_standard_modules_nvda_lacks(self):
 		result = subprocess.run(
 			[sys.executable, "-X", "utf8", "-W", "ignore", "-c", WITHOUT_STANDARD_MODULES, str(support.REPO)],

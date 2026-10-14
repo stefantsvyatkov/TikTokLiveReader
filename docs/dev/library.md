@@ -10,8 +10,9 @@ the old `tiktok.eulerstream.com`.
 `protobuf3-to-dict` left out: no wheel, nothing imports it; licence texts the
 wheels lack from `tools/lib-licenses/`; `secrets.py` and `zoneinfo` kept).
 16.4 MB against 18 for 6.6.5. Loading takes 1.4 s with byte code cached (0.7 s for 6.6.5), about
-6 s the first time, when Python compiles it; since F18 that is on the first
-switch-on, in the connection thread.
+6 s the first time, when Python compiles it, then 0.7 s to build the message
+classes (below); since F18 that is on the first switch-on, in the connection
+thread.
 
 TikTokLive 7 differences the add-on meets, besides the renames below:
 `add_listener` takes event classes only (1.8 also listened by name);
@@ -23,6 +24,22 @@ running its loop again (`_clean_tasks`), which fails inside a running loop, so
 `client.web.close()`, all that 6.6.5's `close()` did;
 a missing user is None where 6.6.5 gave an empty one (an anonymous join reads
 "someone" instead of an empty name). The adapter reads both versions.
+
+TikTokLiveProto declares its message classes as pydantic dataclasses whose
+types name modules imported at the end of each file (`"data.HashtagNamespace"`),
+so pydantic leaves 420 of the 670 to be built on first use. It then resolves
+the names with the caller's locals over the module's: the caller is
+betterproto2's `parse(cls, data)`, whose `data` (the bytes) hides the module
+`data`. The client builds the outer event class in a safe frame
+(`event_type().parse(...)`), so it bites when a nested class is built first
+inside `parse`: a `WebcastLinkLayerMessage` of type 18 (group change) failed
+on a live recorded on 2026-10-14 ("'bytes' object has no attribute
+'HashtagNamespace'", logged by TikTokLive and dropped); the type 11 ones (the
+guest queue, F28) decoded, and the three reference lives have no type 18.
+`tiktok_adapter.runtime()` builds all of them right after loading, with only
+their own modules' names; `test_vendor` decodes a link layer message with
+`LinkLayerEvent.parse` in a fresh process, which fails the same way without
+it.
 
 NVDA's Python is a py2exe build with only the standard library modules NVDA
 uses (`library.zip`). pydantic, new in 7.x, imports `zoneinfo`, which no NVDA

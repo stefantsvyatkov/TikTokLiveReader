@@ -38,6 +38,7 @@ with adapter.library_scope():
 	from TikTokLive.events import ConnectEvent, proto_events
 	from TikTokLive.proto.custom_proto import ControlAction
 	from TikTokLiveProto.v3.webcast.model.message import linkcore
+	from TikTokLiveProto.v3.webcast.model.message.linker import listchangemessage
 	from TikTokLiveProto.v3.webcast.model.message.common import Text as DisplayText
 
 _ids = itertools.count(1_000_001)
@@ -126,6 +127,21 @@ def viewers(total):
 @_in_runtime
 def guest_request(who):
 	return _message(proto_events.LinkMicMethodEvent(message_type=1, user_id=who.id))
+
+
+@_in_runtime
+def named_queue(*people):
+	"""A link message naming these people as waiting to join, as TikTokLive 7's
+	LinkEvent (WebcastLinkMessage) does beside the link layer's ids."""
+	return _message(
+		proto_events.LinkEvent(
+			message_type=20,
+			scene=4,
+			list_change_content=listchangemessage.LinkerListChangeContent(
+				applied_users=[listchangemessage.LinkListUser(user=person) for person in people]
+			),
+		)
+	)
 
 
 @_in_runtime

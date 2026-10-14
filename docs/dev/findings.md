@@ -98,6 +98,20 @@ are right.
 - F13 The add-on listens to `SocialEvent` and to the derived
   `FollowEvent`/`ShareEvent`, so each follow and share is handled twice; the
   follower set and the one-second share check hide it.
+- F38 Fixed on 2026-10-14: guest requests from people the add-on had not seen
+  yet (no comment, join or like before) were dropped: the link layer lists
+  the applicant queue by user id only. TikTokLive 7's `LinkEvent`
+  (WebcastLinkMessage) lists the same queue with full users; in the 15 lives
+  with applicants recorded by then its applicants were exactly the link
+  layer's, named before or with the link layer change for 58 of 63 newcomers
+  and at most 0.86 s after it for the other 5. The add-on now learns the
+  names from it (`events.LinkMessage.named`) and waits up to `NAME_WAIT` (5 s)
+  for a newcomer's name; `LinkEvent` is never a request itself and does not
+  touch the queue. Requests against applications (`check_addon`): 33 of 50
+  before, 45 of 50 after (errdhigogoli 15 to 16 of 17, saligullu0740 15 to 22
+  of 25, islam8qurann 3 to 7 of 8, princearif710 5 of 5); the rest applied
+  again within the 10 s `_report_request` waits. The user guide's limitation
+  on requests from people without activity no longer holds.
 - F25 Live. Guest requests carrying only `user_id` (LinkMicMethod) are not
   resolved to a name; real requests may use other message shapes. Needs
   recordings: all 277 LinkMicMethod messages recorded by 2026-10-13 are

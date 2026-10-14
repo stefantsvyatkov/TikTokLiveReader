@@ -92,3 +92,6 @@ class LinkMessage:
 	applied: tuple
 	message_type: str
 	m_type: str
+	# People named with their nicknames: the queue and the guests in
+	# TikTokLive 7's LinkEvent, which the link layer lists by id only.
+	named: tuple = ()

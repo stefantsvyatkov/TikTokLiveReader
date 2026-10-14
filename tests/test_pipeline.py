@@ -227,6 +227,47 @@ class GuestRequests(unittest.TestCase):
 		r = f.run_session(f.comment(alice, "hi"), f.applicant_queue(alice))
 		self.assertEqual(logged(r, "requests.txt"), [])
 
+	def test_an_applicant_never_seen_is_named_by_the_link_message(self):
+		# F38: 1.8 dropped requests from people it had not seen yet.
+		dave = f.user("Dave")
+		r = f.run_session(
+			f.applicant_queue(alice), f.named_queue(alice, dave), f.applicant_queue(alice, dave)
+		)
+		self.assertEqual(logged(r, "requests.txt"), ["Dave"])
+
+	def test_a_name_that_comes_just_after_the_application_is_announced(self):
+		erin = f.user("Erin")
+		r = f.run_session(
+			f.applicant_queue(alice),
+			f.applicant_queue(alice, erin),
+			0.9,
+			f.named_queue(alice, erin),
+			clock=f.VirtualClock(),
+		)
+		self.assertEqual(logged(r, "requests.txt"), ["Erin"])
+
+	def test_a_name_that_comes_much_later_is_not_announced(self):
+		frank = f.user("Frank")
+		r = f.run_session(
+			f.applicant_queue(alice),
+			f.applicant_queue(alice, frank),
+			6,
+			f.named_queue(alice, frank),
+			clock=f.VirtualClock(),
+		)
+		self.assertEqual(logged(r, "requests.txt"), [])
+
+	def test_the_link_message_is_not_a_request_and_keeps_the_queue(self):
+		r = f.run_session(
+			f.comment(alice, "hi"),
+			f.applicant_queue(alice),
+			f.named_queue(alice),
+			f.applicant_queue(alice, bob),
+			f.named_queue(alice, bob),
+			f.applicant_queue(alice, bob),
+		)
+		self.assertEqual(logged(r, "requests.txt"), ["Bob"])
+
 
 class EachMessageOnce(unittest.TestCase):
 	"""Duplicates are recognised by TikTok's message id (findings F4, F5, F6, F8,

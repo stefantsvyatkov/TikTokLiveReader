@@ -18,7 +18,7 @@ LIB_DIR = Path(__file__).resolve().parent / "lib"
 _runtime = None
 _runtime_lock = threading.Lock()
 
-LINK_EVENTS = ("LinkLayerEvent", "LinkMicMethodEvent", "GuestInviteEvent")
+LINK_EVENTS = ("LinkLayerEvent", "LinkMicMethodEvent", "GuestInviteEvent", "LinkEvent")
 # NVDA's own copies, used while a live runs; any version serves httpx.
 SHARED = ("certifi", "idna")
 
@@ -398,6 +398,14 @@ def _link(event):
 		# TikTokLive 6 / 7: list_content / list_change_content, list_change_type /
 		# type, user_list / list, link_user / user.
 		content = _first(event, ("list_content", "list_change_content"))
+		named = []
+		if type(event).__name__ == "LinkEvent":
+			for group in ("applied_users", "linked_users", "connecting_users"):
+				for item in getattr(content, group, None) or ():
+					person = _person(getattr(item, "user", None))
+					if person:
+						named.append(person)
+			content = None
 		has_list_change = bool(content)
 		change_type = None
 		applied = []
@@ -429,6 +437,7 @@ def _link(event):
 			applied=tuple(applied),
 			message_type=message_type,
 			m_type=m_type,
+			named=tuple(named),
 		)
 	except Exception:
 		log.debugWarning(f"TikTok Live Reader: unexpected {type(event).__name__}", exc_info=True)

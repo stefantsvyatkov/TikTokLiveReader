@@ -68,6 +68,9 @@ _requests_log = {}
 _seen_messages = BoundedSet(MAX_MESSAGE_IDS)
 # User ids in the last guest applicant queue seen; None before the first.
 _applicants = None
+# Applicants without a name yet, by user id, with when they applied.
+_unnamed_applicants = {}
+NAME_WAIT = 5.0
 
 _stats_lock = threading.Lock()
 _stats_dirty = False
@@ -159,6 +162,7 @@ def forget_seen():
 	"""Start a connection: nothing has been seen yet."""
 	global connection_time, _applicants
 	_applicants = None
+	_unnamed_applicants.clear()
 	_comments_logged_before.clear()
 	_events_logged_before.clear()
 	_seen_messages.clear()
@@ -449,13 +453,33 @@ def _newcomers(applied):
 	return [person for user_id, person in current.items() if user_id not in previous]
 
 
+def _announce_named_applicants():
+	"""The applicants whose name came after them: the link message naming the
+	queue comes up to a second after the link layer change in the recordings."""
+	now = time.time()
+	for user_id, applied_at in list(_unnamed_applicants.items()):
+		late = now - applied_at > NAME_WAIT
+		name = None if late else _known_users.get(str(user_id))
+		if late or name:
+			del _unnamed_applicants[user_id]
+			if name:
+				_report_request(name)
+
+
 def _on_link(event):
 	try:
+		for person in event.named:
+			_name_of(person)
+		_announce_named_applicants()
+		if event.kind == "LinkEvent":
+			return
 		if event.has_list_change:
 			for person in _newcomers(event.applied):
 				name = _name_of(person)
 				if name:
 					_report_request(name)
+				elif person.user_id:
+					_unnamed_applicants[person.user_id] = time.time()
 			return
 
 		user_name = None

@@ -180,8 +180,9 @@ The add-on connects as an anonymous viewer; asked for two features on
   request for a room's viewers.
 - The host's verification puzzle: the protocol has
   `WebcastAccessControlMessage` (`captcha`: record id, room id, seconds to
-  verify) and `WebcastRoomVerifyMessage`. In 19 public lives watched for 17
-  hours (`tools/record_live.py`, which prints these as they come) neither
+  verify) and `WebcastRoomVerifyMessage`. In 32 public lives watched for 41
+  hours on 2026-10-13 and 14 (`tools/record_live.py`, which prints these as
+  they come; up to 4 hours a live, the busiest with 20 000 messages) neither
   arrived; besides the usual messages there were only `WebcastControlMessage`
   pause (`extra.source` "app_pause", the host left the app), unpause and end,
   and `WebcastStreamStatusMessage` (field 2.3: 2 stream up, 3 down). Most

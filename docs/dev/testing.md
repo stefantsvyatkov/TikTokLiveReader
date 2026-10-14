@@ -59,7 +59,7 @@ does not put the working folder on `sys.path` for `-m unittest tests.x`).
   only: `splitlines` also splits on U+2028 inside names (F37).
 
   On 7.0.1 with the fixes of 2026-10-14, five lives recorded that day
-  (errdhigogoli, fm__102, isus.galin, princearif710, sy.1818; 3800 messages):
+  (errdhigogoli, fm__102, isus.galin, princearif710, sy.1818; 5400 messages):
   comments, followers, gifts, likes, shares and visitors all match; 20 guest
   requests announced for 22 applications (15 for 17 on errdhigogoli: one
   application named nobody new, one person was not known by name or applied

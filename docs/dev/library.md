@@ -190,7 +190,8 @@ The add-on connects as an anonymous viewer; asked for two features on
   it is not known whether any of those hosts got a puzzle. Only a recording
   of a live whose host notes when the puzzle came can settle it.
   Connecting with the host's session cookie might receive it, but the cookie
-  gives full access to the account and goes to the sign server.
+  gives full access to the account and goes to the sign server. The user
+  decided on 2026-10-14 not to make the feature.
 
 ## Moderation
 

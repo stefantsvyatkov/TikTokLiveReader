@@ -109,8 +109,10 @@ are right.
   for a newcomer's name; `LinkEvent` is never a request itself and does not
   touch the queue. Requests against applications (`check_addon`): 33 of 50
   before, 45 of 50 after (errdhigogoli 15 to 16 of 17, saligullu0740 15 to 22
-  of 25, islam8qurann 3 to 7 of 8, princearif710 5 of 5); the rest applied
-  again within the 10 s `_report_request` waits. The user guide's limitation
+  of 25, islam8qurann 3 to 7 of 8, princearif710 5 of 5): now every newcomer
+  in the queue, the rest being the queue found on connecting (people who
+  applied before) and type 2 changes that brought nobody new. The user
+  guide's limitation
   on requests from people without activity no longer holds.
 - F25 Live. Guest requests carrying only `user_id` (LinkMicMethod) are not
   resolved to a name; real requests may use other message shapes. Needs

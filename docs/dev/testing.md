@@ -62,8 +62,8 @@ does not put the working folder on `sys.path` for `-m unittest tests.x`).
   (errdhigogoli, fm__102, isus.galin, princearif710, sy.1818; 5400 messages):
   comments, followers, gifts, likes, shares and visitors all match; 20 guest
   requests announced for 22 applications (15 for 17 on errdhigogoli: one
-  application named nobody new, one person was not known by name or applied
-  again within the 10 s the add-on waits).
+  application brought nobody new, one applicant the add-on did not know by
+  name, announced since F38).
 
 - `tools/snapshot_addon.py <out.json> <recording> [...]` replays recordings
   on recorded time (`feed.VirtualClock`: pauses advance the clock the add-on's

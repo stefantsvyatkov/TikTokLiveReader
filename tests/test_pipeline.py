@@ -208,11 +208,41 @@ class ConnectionLifecycle(unittest.TestCase):
 		self.assertEqual(r.files["top gifters.txt"], ["Alice: 1 diamonds"])
 		self.assertEqual(r.files["top likes.txt"], ["Bob: 5"])
 
-	def test_stats_file_has_five_lines(self):
+	def test_stats_file_lines(self):
 		r = f.run_session()
 		self.assertEqual(
-			r.files["stats.txt"], ["Viewers: 0", "Visitors: 0", "Likes: 0", "Followers: 0", "Diamonds: 0"]
+			r.files["stats.txt"],
+			[
+				"Viewers: 0",
+				"Visitors: 0",
+				"Likes: 0",
+				"Followers: 0",
+				"Diamonds: 0",
+				"Duration: 0:00",
+				"Comments: 0",
+				"Shares: 0",
+				"Gifts: 0",
+			],
 		)
+
+	def test_the_duration_counts_from_the_start_of_the_live(self):
+		clock = f.VirtualClock()
+		r = f.run_session(f.viewers(3), clock=clock, room_info={"create_time": int(clock.time()) - 83 * 60})
+		self.assertIn("Duration: 1:23", r.files["stats.txt"])
+
+	def test_comments_shares_and_gifts_are_counted(self):
+		r = f.run_session(
+			f.comment(alice, "hi"),
+			f.comment(bob, "hello"),
+			f.share(alice),
+			f.repost(bob),
+			f.gift(alice, "Rose", count=5, repeat_end=1),
+			f.gift(bob, "Rose", repeat_end=1),
+		)
+		self.assertEqual(
+			(r.stats["total_comments"], r.stats["total_shares"], r.stats["total_gifts"]), (2, 2, 6)
+		)
+		self.assertIn("Gifts: 6", r.files["stats.txt"])
 
 
 class LiveNotices(unittest.TestCase):

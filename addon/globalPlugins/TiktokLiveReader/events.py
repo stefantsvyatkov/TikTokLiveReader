@@ -58,6 +58,14 @@ class LiveState:
 
 
 @dataclass(frozen=True)
+class LiveStart:
+	"""When the live started (seconds since the epoch), from the room info."""
+
+	message_id: int
+	started: float
+
+
+@dataclass(frozen=True)
 class Gift:
 	"""``streaking``: a streak is under way and this is not its last message."""
 

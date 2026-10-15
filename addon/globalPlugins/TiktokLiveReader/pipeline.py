@@ -55,6 +55,13 @@ top_likers = {}
 total_likes = 0
 total_followers = 0
 total_diamonds = 0
+total_comments = 0
+total_shares = 0
+total_gifts = 0
+# When the live started (room info), else 0 and the duration counts from the
+# session's first connection (kept across reconnections, unlike connection_time).
+live_started = 0
+connected_at = 0
 visitors = set()
 viewer_count = 0
 total_viewers = 0
@@ -188,12 +195,17 @@ def remember_logged():
 
 def reset_accumulators():
 	global top_gifters, top_likers, total_likes, total_followers, total_diamonds, visitors, viewer_count
-	global total_viewers
+	global total_viewers, total_comments, total_shares, total_gifts, live_started, connected_at
 	top_gifters = {}
 	top_likers = {}
 	total_likes = 0
 	total_followers = 0
 	total_diamonds = 0
+	total_comments = 0
+	total_shares = 0
+	total_gifts = 0
+	live_started = 0
+	connected_at = 0
 	visitors = set()
 	viewer_count = 0
 	total_viewers = 0
@@ -205,6 +217,13 @@ def reset_accumulators():
 	_seen_messages.clear()
 
 
+def _duration():
+	"""Hours and minutes since the live started, like 1:23."""
+	start = live_started or connected_at
+	minutes = int(max(0, time.time() - start) // 60) if start else 0
+	return f"{minutes // 60}:{minutes % 60:02d}"
+
+
 def _write_stats_file():
 	try:
 		lines = [
@@ -214,6 +233,14 @@ def _write_stats_file():
 			_("Likes: {count}").format(count=total_likes),
 			_("Followers: {count}").format(count=total_followers),
 			_("Diamonds: {count}").format(count=total_diamonds),
+			# Translators: Stats file line. {time} is hours and minutes since the live started, like 1:23.
+			_("Duration: {time}").format(time=_duration()),
+			# Translators: Stats file line. {count} is the number of comments.
+			_("Comments: {count}").format(count=total_comments),
+			# Translators: Stats file line. {count} is the number of shares and reposts.
+			_("Shares: {count}").format(count=total_shares),
+			# Translators: Stats file line. {count} is the number of gifts.
+			_("Gifts: {count}").format(count=total_gifts),
 		]
 		store.write(store.STATS, "".join(line + "\n" for line in lines))
 	except OSError:
@@ -305,6 +332,8 @@ def _on_comment(event):
 	if user_comment in _comments_logged_before:
 		return
 	log_line = f"{user_comment}  {_now()}"
+	global total_comments
+	total_comments += 1
 	store.append(store.COMMENTS, log_line)
 	if _settings.events.get("comments", True):
 		_log_to_events(log_line)
@@ -346,6 +375,8 @@ def _on_gift(event):
 		total_diamonds += diamonds
 		top_gifters[display_name] = top_gifters.get(display_name, 0) + diamonds
 
+	global total_gifts
+	total_gifts += count
 	speak_msg = f"Gift: {display_name}: {count} {name}"
 	log_msg = f"{speak_msg}  {_now()}"
 	store.append(store.GIFTS, f"{display_name}: {count} {name}  {_now()}")
@@ -386,7 +417,10 @@ def _on_share(event):
 	else:
 		# Translators: Announced when a user shares the live stream. {name} is the user's name.
 		msg = _("{name} shared the live").format(name=display_name)
+	global total_shares
+	total_shares += 1
 	store.append(store.SHARES, f"{msg}  {_now()}")
+	update_stats_file()
 	if _settings.events.get("shares", False):
 		_log_to_events(f"{msg}  {_now()}")
 	_announce("shares", msg)
@@ -551,6 +585,12 @@ def _on_fan_club(event):
 	_log_to_events(f"{msg}  {_now()}")
 
 
+def _on_live_start(event):
+	global live_started
+	live_started = event.started
+	update_stats_file()
+
+
 def _on_live_state(event):
 	if event.paused:
 		# Translators: Announced when the live pauses, for example when the host leaves the TikTok app.
@@ -577,6 +617,7 @@ _HANDLERS = {
 	events.LinkMessage: _on_link,
 	events.FanClubJoin: _on_fan_club,
 	events.LiveState: _on_live_state,
+	events.LiveStart: _on_live_start,
 }
 
 

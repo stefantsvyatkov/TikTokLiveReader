@@ -184,6 +184,9 @@ def new_client(username, classes, deliver, on_connected, on_live_end):
 
 		async def connected(library_event):
 			on_connected()
+			started = await _live_start(client)
+			if started:
+				deliver(events.LiveStart(0, started))
 
 		async def live_ended(library_event):
 			on_live_end()
@@ -192,6 +195,18 @@ def new_client(username, classes, deliver, on_connected, on_live_end):
 		if classes["LiveEndEvent"]:
 			client.add_listener(classes["LiveEndEvent"], live_ended)
 	return Connection(client)
+
+
+async def _live_start(client):
+	"""When the live started, from the room info: a TikTok request, not the sign
+	server, made apart from connecting so that its failing (an age restricted
+	live) does not stop the connection. None when it cannot tell."""
+	try:
+		info = await client.web.fetch_room_info()
+		return int((info or {}).get("create_time") or 0) or None
+	except Exception:
+		log.debugWarning("TikTok Live Reader: no room info", exc_info=True)
+		return None
 
 
 class Connection:

@@ -40,12 +40,15 @@ def apply_settings(new):
 
 
 def _write_files_regularly(run):
-	"""The stats file when it changed, the top lists every 10 s, until the run
-	ends (one such thread per run; 1.8 could leave two running, F23)."""
+	"""The stats file when it changed and every 30 s for the duration, the top
+	lists every 10 s, until the run ends (one such thread per run; 1.8 could
+	leave two running, F23)."""
 	ticks = 0
 	while not run.stopped.is_set():
 		if ticks % 10 == 0:
 			pipeline.write_top_files()
+		if ticks % 30 == 0:
+			pipeline.update_stats_file(force=True)
 		pipeline.flush_stats_file()
 		ticks += 1
 		run.stopped.wait(1)
@@ -81,6 +84,7 @@ def _runner(run, username, on_connect_cb, on_retry_cb, on_fail_cb, max_attempts=
 		attempts = 0
 		connected_once = True
 		pipeline.connection_time = time.time()
+		pipeline.connected_at = pipeline.connected_at or pipeline.connection_time
 		report(on_connect_cb)
 
 	def on_stream_end():
@@ -171,6 +175,7 @@ def disconnect():
 	# the top lists, otherwise written only every 10 s (F11, F12).
 	pipeline.like_manager.flush_pending()
 	pipeline.write_top_files()
-	pipeline.flush_stats_file()
+	# Written again for the final duration, also when nothing else changed.
+	pipeline.update_stats_file(force=True)
 	pipeline.like_manager.stop()
 	announcer.sound_manager.stop()

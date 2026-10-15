@@ -58,6 +58,11 @@ class TikTokLiveClient(_LiveClient):
 		# TikTokLive 7 parses frames only with a room id.
 		self._room_id = 1
 		self._replay_stopped = False
+
+		async def room_info(*args, **kwargs):
+			return {}
+
+		self._web.fetch_room_info = room_info
 		await self._replay()
 
 	async def disconnect(self, *args, **kwargs):

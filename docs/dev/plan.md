@@ -101,51 +101,89 @@ live recording.
      (docs/dev/testing.md)
 5. Version 2.0, minimum 2026.1, changelog draft for the user.
 
-## New features (agreed 2026-10-15, plan only)
+## New features for 2.0 (agreed 2026-10-15, plan only)
 
 Chosen by the user from the list of everything the library can do
-(`artifacts/library-features.txt`, not in Git). Every new text is a new
-msgid for the user to translate; the English below is a proposal.
+(`artifacts/library-features.txt`, not in Git); they go into 2.0, whose
+version and user documentation wait until then (the documentation is the
+user's: the new tab, the command, the stats lines, reposts, the fan club and
+pause lines). Every text below is a new msgid unless marked; the Bulgarian is
+the user's wording for the catalogue, which the user maintains.
 
 1. Reposts (`SocialEvent` action 4, key
    `ttlive_repost_commentsArea_repostedUsername_im`; 50 in 14 of 34 recorded
-   lives, dropped today). Same file and settings as shares; `shares.txt`
-   lines then say what happened: "{name} reposted the live" (new) and
-   "{name} shared the live" (the existing msgid, so share lines gain the
-   verb). Spoken and in `events.txt` as shares are.
+   lives, dropped today). Same file and settings as shares (events, auto
+   speak, sound); `shares.txt` lines say what happened, a share with the
+   existing "{name} shared the live" / "{name} сподели лайфа" (until now the
+   line was the name only).
+   - "{name} reposted the live" / "{name} препостна лайфа"
 2. New fan club member (`RoomEvent`, key `pm_mt_fan_live_joined_comment`,
    pieces: the user and the number; 12 in 5 lives): `events.txt` only, no
-   speech, sound or setting. "{name} became fan number {number} in the fan
-   club".
+   speech, sound or setting.
+   - "{name} became fan number {number} in the fan club" / "{name} стана фен
+     номер {number} във фен клуба"
 3. Pause and resume (`ControlEvent` STREAM_PAUSED with source "app_pause" /
    STREAM_UNPAUSED; TikTokLive's `LivePauseEvent` / `LiveUnpauseEvent`; in 7
-   lives, some several times a minute): always spoken, like "The live has
-   ended", and in `events.txt`. "The live is paused", "The live has resumed".
-4. Stats file, short lines ending in a colon as the five there: "Duration:
-   {time}" (H:MM since the live started, from the room info's `create_time`,
-   fetched once on connecting: a TikTok request, not the sign server),
-   "Comments: {count}", "Shares: {count}" (reposts included), "Gifts:
-   {count}", from the add-on's own counts. The room info's like, comment and
-   share counts are 0 in the web API.
-5. Recording the live: the stream TikTok sends viewers, that is the host's
-   camera and microphone with the app's filters; comments and gift
+   lives, some several times a minute): always spoken, as "The live has
+   ended" is, and in `events.txt`, each one.
+   - "The live is paused" / "Лайфът е на пауза"
+   - "The live has resumed" / "Лайфът продължи"
+4. Stats file, four lines after the five there, in their form. Duration is
+   H:MM since the live started, from the room info's `create_time` fetched
+   once on connecting (a TikTok request, not the sign server); the counts are
+   the add-on's own (the room info's like, comment and share counts are 0 in
+   the web API).
+   - "Duration: {time}" / "Продължителност: {time}"
+   - "Comments: {count}" / "Коментари: {count}"
+   - "Shares: {count}" / "Споделяния: {count}" (reposts included)
+   - "Gifts: {count}" / "Гифтове: {count}"
+5. Recording the live. What is recorded is the stream TikTok sends viewers:
+   the host's camera and microphone with the app's filters; comments and gift
    animations are drawn by each viewer's app and are not in it (to check:
-   lives with guests may be the combined picture). Through FFmpeg: when the
-   option is switched on the add-on asks to download it and installs it with
-   a progress dialog, into NVDA's configuration folder (kept across add-on
-   updates); a pinned build (BtbN's LGPL win64 9.0 is about 73 MB, gyan.dev's
-   9.0.2 essentials about 110 MB), its SHA-256 checked before use. FFmpeg
-   copies the stream into fragmented MP4 (`-c copy`, so a file cut short still
-   plays) in its own process; NVDA only starts and stops it. Default quality
-   Original; others from the stream data (seen: hd 720p at 1.8 Mbit/s, about
-   0.9 GB an hour, and `ao`, audio only). The stream URLs come from the room
-   info. Texts: the setting, the quality choices, the download question and
-   progress, errors.
-   Checks before it counts as done: record a few minutes of public phone lives
-   in each quality and check them with ffprobe and a frame; a live with
-   guests; NVDA's CPU and memory in the sandbox while recording; a recording
-   cut off by switching off and by the live ending; the download, checksum and
-   progress dialog in the sandbox on all three NVDA versions.
+   lives with guests may be the combined picture). Recording works only while
+   the add-on is connected; it stops on switching off and when the live ends;
+   after a reconnection a new file starts.
+   - Settings tab, in this order:
+     - tab "Live recordings" / "Запис на лайфове"
+     - check box "&Start recording when connected" / "&Започване на запис при
+       свързване" (off by default)
+     - list "&Quality" / "&Качество": "Original" / "Оригиналното за лайфа"
+       (default), "1080p", "720p", "540p", "360p" (the same in Bulgarian),
+       "Audio only" / "Само звук"; a quality the live lacks falls back to the
+       nearest it has
+     - last, as the text files destination: "Recordings &folder" /
+       "&Местоположение на записите", with the existing "&Browse..." /
+       "&Преглед..." button and "Select recordings folder" / "Изберете
+       местоположение на записите"; default Videos\TikTok live; files named
+       as archives, "2026-10-15 20-30-05 host.mp4"
+   - Command NVDA+shift+control+e, only while connected:
+     - description "Start or stop recording the live" / "Започва или спира
+       записа на лайфа"
+     - "Recording started" / "Записът е стартиран"
+     - "Recording stopped" / "Записът е спрян"
+     - not connected: "Not connected to a live" / "Няма връзка с лайф"
+     - "Could not start recording" / "Неуспешно започване на запис"
+   - FFmpeg, asked for when the check box is set or the command is used and
+     it is not installed: downloaded with a progress dialog (with Cancel) and
+     installed into NVDA's configuration folder (kept across add-on updates);
+     a pinned build (BtbN's LGPL win64 9.0 is about 73 MB, gyan.dev's 9.0.2
+     essentials about 110 MB), its SHA-256 checked before use. It copies the
+     stream into fragmented MP4 (`-c copy`, so a file cut short still plays)
+     in its own process; NVDA only starts and stops it. Seen in the stream
+     data: hd 720p at 1.8 Mbit/s (about 0.9 GB an hour) and `ao`, audio only.
+     - "Recording needs FFmpeg, a free program of about {size} MB. Install it
+       now?" / "За записа е нужна безплатната програма FFmpeg, около {size}
+       MB. Да се инсталира ли сега?"
+     - "Downloading FFmpeg" / "Изтегляне на FFmpeg"
+     - "Downloaded {done} of {total} MB" / "Изтеглени {done} от {total} MB"
+     - "FFmpeg is installed" / "FFmpeg е инсталиран"
+     - "Could not install FFmpeg: {error}" / "Неуспешно инсталиране на FFmpeg:
+       {error}"
+   - Checks before it counts as done: record a few minutes of public phone
+     lives in each quality and check them with ffprobe and a frame; a live
+     with guests; NVDA's CPU and memory in the sandbox while recording; a
+     recording cut off by switching off and by the live ending; the download,
+     checksum and progress dialog in the sandbox on all three NVDA versions.
 
 Dropped: gift restrictions (`WebcastGiftDynamicRestrictionMessage` is empty in
 all 84 recorded, its field of length 0); the room title.

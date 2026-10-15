@@ -147,10 +147,10 @@ the user's wording for the catalogue, which the user maintains.
      - tab "Live recordings" / "Запис на лайфове"
      - check box "&Start recording when connected" / "&Започване на запис при
        свързване" (off by default)
-     - list "&Quality" / "&Качество": "Original" / "Оригиналното за лайфа"
-       (default), "1080p", "720p", "540p", "360p" (the same in Bulgarian),
-       "Audio only" / "Само звук"; a quality the live lacks falls back to the
-       nearest it has
+     - list "&Quality" / "&Качество": "Video (720p)" / "Видео (720p)"
+       (default) and "Audio only" / "Само звук": all TikTok gives a viewer
+       who is not logged in (see the trial below), so the original,
+       1080p, 540p and 360p first planned do not exist
      - last, as the text files destination: "Recordings &folder" /
        "&Местоположение на записите", with the existing "&Browse..." /
        "&Преглед..." button and "Select recordings folder" / "Изберете
@@ -165,12 +165,25 @@ the user's wording for the catalogue, which the user maintains.
      - "Could not start recording" / "Неуспешно започване на запис"
    - FFmpeg, asked for when the check box is set or the command is used and
      it is not installed: downloaded with a progress dialog (with Cancel) and
-     installed into NVDA's configuration folder (kept across add-on updates);
-     a pinned build (BtbN's LGPL win64 9.0 is about 73 MB, gyan.dev's 9.0.2
-     essentials about 110 MB), its SHA-256 checked before use. It copies the
-     stream into fragmented MP4 (`-c copy`, so a file cut short still plays)
-     in its own process; NVDA only starts and stops it. Seen in the stream
-     data: hd 720p at 1.8 Mbit/s (about 0.9 GB an hour) and `ao`, audio only.
+     installed into NVDA's configuration folder (kept across add-on updates).
+     The build: GyanD/codexffmpeg's release 9.0.2 on GitHub,
+     `ffmpeg-9.0.2-essentials_build.zip`, 114 768 076 bytes, SHA-256
+     60f467265b1e312373dbcd92200c2618a74850f98d3d078e94296bb3fa2047ba (GitHub's
+     digest; versioned releases stay, BtbN's dated builds are pruned); only
+     `bin/ffmpeg.exe` (105 MB) and `LICENSE` are kept. It copies the stream
+     into fragmented MP4 (`-c copy -movflags
+     +frag_keyframe+empty_moov+default_base_moof`, so a file cut short still
+     plays) in its own process; NVDA only starts and stops it.
+     Trial on 2026-10-15 (one minute of a public phone live in each quality,
+     the files deleted after): the room info's stream data offers only `hd`
+     (720x1280, 1000 kbit/s for phone lives, 1800 for lives from a computer)
+     and `ao` (audio only), with FLV, HLS and CMAF URLs; FFmpeg used 0.1 s of
+     CPU in 30 s; the video file had H.264 at about 15 frames a second and 113
+     kbit/s (a still picture), so at most about 0.5 GB an hour; audio only
+     about 30 MB an hour. A frame showed no comments or gift animations; that
+     live had guests and the picture was TikTok's grid of them. The audio is
+     the broadcaster's, the same in both qualities: AAC, 48 kHz, stereo, 64
+     kbit/s from the phone app (3 lives), 128 kbit/s from computers (2 lives).
      - "Recording needs FFmpeg, a free program of about {size} MB. Install it
        now?" / "За записа е нужна безплатната програма FFmpeg, около {size}
        MB. Да се инсталира ли сега?"

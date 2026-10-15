@@ -100,3 +100,52 @@ live recording.
      layer decode error, F36 and F37; five lives then matched
      (docs/dev/testing.md)
 5. Version 2.0, minimum 2026.1, changelog draft for the user.
+
+## New features (agreed 2026-10-15, plan only)
+
+Chosen by the user from the list of everything the library can do
+(`artifacts/library-features.txt`, not in Git). Every new text is a new
+msgid for the user to translate; the English below is a proposal.
+
+1. Reposts (`SocialEvent` action 4, key
+   `ttlive_repost_commentsArea_repostedUsername_im`; 50 in 14 of 34 recorded
+   lives, dropped today). Same file and settings as shares; `shares.txt`
+   lines then say what happened: "{name} reposted the live" (new) and
+   "{name} shared the live" (the existing msgid, so share lines gain the
+   verb). Spoken and in `events.txt` as shares are.
+2. New fan club member (`RoomEvent`, key `pm_mt_fan_live_joined_comment`,
+   pieces: the user and the number; 12 in 5 lives): `events.txt` only, no
+   speech, sound or setting. "{name} became fan number {number} in the fan
+   club".
+3. Pause and resume (`ControlEvent` STREAM_PAUSED with source "app_pause" /
+   STREAM_UNPAUSED; TikTokLive's `LivePauseEvent` / `LiveUnpauseEvent`; in 7
+   lives, some several times a minute): always spoken, like "The live has
+   ended", and in `events.txt`. "The live is paused", "The live has resumed".
+4. Stats file, short lines ending in a colon as the five there: "Duration:
+   {time}" (H:MM since the live started, from the room info's `create_time`,
+   fetched once on connecting: a TikTok request, not the sign server),
+   "Comments: {count}", "Shares: {count}" (reposts included), "Gifts:
+   {count}", from the add-on's own counts. The room info's like, comment and
+   share counts are 0 in the web API.
+5. Recording the live: the stream TikTok sends viewers, that is the host's
+   camera and microphone with the app's filters; comments and gift
+   animations are drawn by each viewer's app and are not in it (to check:
+   lives with guests may be the combined picture). Through FFmpeg: when the
+   option is switched on the add-on asks to download it and installs it with
+   a progress dialog, into NVDA's configuration folder (kept across add-on
+   updates); a pinned build (BtbN's LGPL win64 9.0 is about 73 MB, gyan.dev's
+   9.0.2 essentials about 110 MB), its SHA-256 checked before use. FFmpeg
+   copies the stream into fragmented MP4 (`-c copy`, so a file cut short still
+   plays) in its own process; NVDA only starts and stops it. Default quality
+   Original; others from the stream data (seen: hd 720p at 1.8 Mbit/s, about
+   0.9 GB an hour, and `ao`, audio only). The stream URLs come from the room
+   info. Texts: the setting, the quality choices, the download question and
+   progress, errors.
+   Checks before it counts as done: record a few minutes of public phone lives
+   in each quality and check them with ffprobe and a frame; a live with
+   guests; NVDA's CPU and memory in the sandbox while recording; a recording
+   cut off by switching off and by the live ending; the download, checksum and
+   progress dialog in the sandbox on all three NVDA versions.
+
+Dropped: gift restrictions (`WebcastGiftDynamicRestrictionMessage` is empty in
+all 84 recorded, its field of length 0); the room title.

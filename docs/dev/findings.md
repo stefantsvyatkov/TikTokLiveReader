@@ -114,6 +114,19 @@ are right.
   applied before) and type 2 changes that brought nobody new. The user
   guide's limitation
   on requests from people without activity no longer holds.
+- F39 Fixed on 2026-10-15, before release: after FFmpeg was downloaded behind
+  `wx.ProgressDialog`, NVDA crashed when it exited, on all three versions: an
+  access violation reading address 0 in `wxmsw32u_core_vc140_x64.dll` at
+  +0xd8bcf, after "NVDA exit" (the minidump, read with the `minidump`
+  package). NVDA then restarted and wrote its log anew, so the sandbox's log
+  check passed; the agent now fails a run that leaves `nvda_crash.dmp` and
+  keeps the log written while NVDA closed (`nvda-closing.log`). Not the new
+  settings page (the settings scenario did not crash), not the recording
+  (`recording-installed`, FFmpeg already there, did not crash), not
+  `wx.PD_APP_MODAL` nor closing the dialog as NVDA's update download does
+  (Hide, Destroy, postPopup): still crashed. `wx.GenericProgressDialog`, wx's
+  own, does not, on all three. NVDA reads its title ("Downloading FFmpeg
+  dialog") and Cancel, and beeps the gauge, but not the message under it.
 - F25 Live. Guest requests carrying only `user_id` (LinkMicMethod) are not
   resolved to a name; real requests may use other message shapes. Needs
   recordings: all 277 LinkMicMethod messages recorded by 2026-10-13 are

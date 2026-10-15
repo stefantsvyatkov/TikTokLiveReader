@@ -468,16 +468,17 @@ class GlobalPlugin(NVDA_GlobalPlugin):
 			return _("Downloaded {done} of {total} MB").format(done=done_mb, total=total_mb)
 
 		cancelled = threading.Event()
+		# wx's own progress dialog: the native one crashed NVDA when NVDA exited, on
+		# all three versions (docs/dev/findings.md, F39). prePopup until it is gone.
 		gui.mainFrame.prePopup()
-		progress = wx.ProgressDialog(
+		progress = wx.GenericProgressDialog(
 			# Translators: Title of the window shown while FFmpeg downloads.
 			_("Downloading FFmpeg"),
 			text(0),
 			maximum=100,
 			parent=gui.mainFrame,
-			style=wx.PD_APP_MODAL | wx.PD_CAN_ABORT | wx.PD_AUTO_HIDE,
+			style=wx.PD_CAN_ABORT | wx.PD_AUTO_HIDE,
 		)
-		gui.mainFrame.postPopup()
 		shown = [-1]
 
 		def update(percent, done_mb):
@@ -493,7 +494,9 @@ class GlobalPlugin(NVDA_GlobalPlugin):
 				wx.CallAfter(update, percent, round(done / (1024 * 1024)))
 
 		def finished(error):
+			progress.Hide()
 			progress.Destroy()
+			gui.mainFrame.postPopup()
 			if error is None:
 				# Translators: Announced when FFmpeg has been installed.
 				ui.message(_("FFmpeg is installed"))

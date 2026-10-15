@@ -4,6 +4,7 @@ checked against its SHA-256 before anything is unpacked (docs/dev/plan.md)."""
 
 import hashlib
 import shutil
+import ssl
 import urllib.request
 import zipfile
 
@@ -39,6 +40,17 @@ def size_mb():
 	return round(SIZE / (1024 * 1024))
 
 
+def _tls():
+	"""Certificates checked against certifi's authorities (NVDA's copy): in a fresh
+	Windows, NVDA's Python does not find GitHub's issuer in the Windows store."""
+	try:
+		import certifi
+
+		return ssl.create_default_context(cafile=certifi.where())
+	except Exception:
+		return ssl.create_default_context()
+
+
 def install(progress=None, cancelled=lambda: False):
 	"""Download, check and unpack FFmpeg; returns its path. ``progress(done, total)``
 	gets the bytes downloaded; ``cancelled()`` returning True stops the download
@@ -52,7 +64,10 @@ def install(progress=None, cancelled=lambda: False):
 		digest = hashlib.sha256()
 		done = 0
 		request = urllib.request.Request(URL, headers={"User-Agent": "TikTok Live Reader"})
-		with urllib.request.urlopen(request, timeout=30) as response, open(archive, "wb") as out:
+		with (
+			urllib.request.urlopen(request, timeout=30, context=_tls()) as response,
+			open(archive, "wb") as out,
+		):
 			total = int(response.headers.get("Content-Length") or SIZE)
 			while True:
 				if cancelled():

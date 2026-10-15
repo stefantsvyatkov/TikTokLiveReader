@@ -118,9 +118,23 @@ function Install-Nvda([string]$version) {
     return $folder
 }
 
-function Stop-Nvda([string]$folder) {
+function Stop-Nvda([string]$folder, [string]$log, [string]$keep) {
     if ($folder -and (Test-Path (Join-Path $folder "nvda.exe"))) {
-        Start-Process -FilePath (Join-Path $folder "nvda.exe") -ArgumentList "-q" -Wait
+        $quit = Start-Process -FilePath (Join-Path $folder "nvda.exe") -ArgumentList "-q" -PassThru
+        # Keep the log as it grows while NVDA closes: after a crash the restarted
+        # NVDA starts it again, smaller.
+        $kept = 0
+        $deadline = (Get-Date).AddSeconds(15)
+        while ((Get-Date) -lt $deadline -and ((-not $quit.HasExited) -or (Get-Process -Name "nvda" -ErrorAction SilentlyContinue))) {
+            if ($log -and $keep -and (Test-Path $log)) {
+                $size = (Get-Item $log).Length
+                if ($size -ge $kept) {
+                    Copy-Item $log $keep -Force -ErrorAction SilentlyContinue
+                    $kept = $size
+                }
+            }
+            Start-Sleep -Milliseconds 100
+        }
     }
     Get-Process -Name "nvda", "nvda_slave" -ErrorAction SilentlyContinue | Stop-Process -Force
 }
@@ -184,6 +198,17 @@ while ($true) {
             $every = "comments", "followers", "gifts", "likes", "requests", "shares", "visitors" | ForEach-Object { "$_ = True" }
             $ini += @("[events]") + $every + @("[auto_speak]", "enabled = True") + $every + @("[sound_events]") + $every + @("[sounds]", "play_sounds = True", "volume = 70")
         }
+        # recording: the recordings in the run's folder; the replaying client answers
+        # with the stream the driver serves (sandbox/replay_client.py).
+        if ($scenario -like "recording*") {
+            $ini += @("[recording]", "folder = $(Join-Path $work "$id\recordings")")
+            $env:TIKTOK_REPLAY_STREAM = "http://127.0.0.1:8080/live.flv"
+        }
+        # recording-installed: FFmpeg already there, so no dialog is shown.
+        if ($scenario -eq "recording-installed") {
+            New-Item -ItemType Directory -Force -Path (Join-Path $config "tiktokLiveReader-ffmpeg") | Out-Null
+            Copy-Item (Join-Path $stage "tools\ffmpeg.exe") (Join-Path $config "tiktokLiveReader-ffmpeg\ffmpeg.exe")
+        }
         [IO.File]::WriteAllLines((Join-Path $config "tiktokLiveReader.ini"), [string[]]$ini, (New-Object Text.UTF8Encoding $false))
 
         $control = Join-Path $out "replay-control.txt"
@@ -211,11 +236,19 @@ while ($true) {
         }
 
         Start-Sleep -Seconds 2
-        Stop-Nvda $nvdaHome
+        Stop-Nvda $nvdaHome $nvdaLog (Join-Path $out "nvda-closing.log")
+        $exitCode = $process.ExitCode
+        # A crashed NVDA restarts and writes its log anew, so the driver's log check
+        # cannot see it; the dump it leaves can.
+        if (Test-Path (Join-Path $out "nvda_crash.dmp")) {
+            Add-Content -Path (Join-Path $out "results.txt") -Value "FAIL  NVDA did not crash  - nvda_crash.dmp written; nvda-closing.log has the log until then"
+            $exitCode = 1
+        }
         Copy-Item $texts (Join-Path $out "texts") -Recurse -ErrorAction SilentlyContinue
         Copy-Item (Join-Path $config "tiktokLiveReader.ini") $out -ErrorAction SilentlyContinue
-        Remove-Item Env:\TIKTOK_REPLAY, Env:\TIKTOK_REPLAY_PACE, Env:\TIKTOK_REPLAY_CONTROL -ErrorAction SilentlyContinue
-        Set-Content -Path (Join-Path $out "done.txt") -Value $process.ExitCode
+        Copy-Item (Join-Path $work "$id\recordings") $out -Recurse -ErrorAction SilentlyContinue
+        Remove-Item Env:\TIKTOK_REPLAY, Env:\TIKTOK_REPLAY_PACE, Env:\TIKTOK_REPLAY_CONTROL, Env:\TIKTOK_REPLAY_STREAM -ErrorAction SilentlyContinue
+        Set-Content -Path (Join-Path $out "done.txt") -Value $exitCode
     }
 
     Start-Sleep -Seconds 2

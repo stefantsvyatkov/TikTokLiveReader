@@ -76,6 +76,12 @@ Copy-Item (Join-Path $PSScriptRoot "SandboxAgent.ps1") $stage -Force
 $probe = Join-Path $stage "probe"
 if (Test-Path $probe) { Remove-Item $probe -Recurse -Force }
 Copy-Item (Join-Path $PSScriptRoot "probe") $probe -Recurse
+# FFmpeg serving the recording scenario's stream inside the sandbox (the add-on downloads its own).
+$ffmpeg = Join-Path $repo "artifacts\tools\ffmpeg\ffmpeg.exe"
+if ((Test-Path $ffmpeg) -and -not (Test-Path (Join-Path $stage "tools\ffmpeg.exe"))) {
+    New-Item -ItemType Directory -Force -Path (Join-Path $stage "tools") | Out-Null
+    Copy-Item $ffmpeg (Join-Path $stage "tools\ffmpeg.exe")
+}
 if (-not (Test-Path (Join-Path $stage "python313\python.exe"))) {
     Copy-Item (Join-Path $repo "artifacts\tools\python313") (Join-Path $stage "python313") -Recurse
 }

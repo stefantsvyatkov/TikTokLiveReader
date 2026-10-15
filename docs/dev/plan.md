@@ -198,5 +198,9 @@ the user's wording for the catalogue, which the user maintains.
      recording cut off by switching off and by the live ending; the download,
      checksum and progress dialog in the sandbox on all three NVDA versions.
 
+Done on 2026-10-15: all five, with tests (117) and the sandbox's `recording`
+scenario on all three NVDA versions (F39 found and fixed there). The new texts
+wait for the user's translation; the user guide for the user's update.
+
 Dropped: gift restrictions (`WebcastGiftDynamicRestrictionMessage` is empty in
 all 84 recorded, its field of length 0); the room title.

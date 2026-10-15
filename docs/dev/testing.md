@@ -184,3 +184,30 @@ per message for decoding (1.4 ms of it on the host) and everything the add-on
 does with it. `tools/check_addon.py` on the same fixture matches the
 recording but for a comment's trailing space (the add-on trims it), a
 sticker comment (F31) and one anonymous join ("someone").
+
+### Recording
+
+`recording` (with `-Recording smoke.jsonl`) checks the live recordings page
+of the settings, then that NVDA+shift+control+e says "Not connected to a live"
+before switching on, asks to install FFmpeg, downloads it (the real GitHub
+release, so the sandbox needs its network; certifi's authorities, as a fresh
+Windows lacks GitHub's issuer) behind the progress dialog, says "Recording
+started", and after "Recording stopped" leaves one MP4 in the run's
+`recordings` folder (copied into its results). `recording-installed` puts
+FFmpeg in place first, so no dialog is shown.
+
+Every run fails when NVDA leaves a crash dump: a crashed NVDA restarts and
+writes its log anew, so the driver's log check cannot see it (F39); the agent
+keeps the log written while NVDA closes as `nvda-closing.log`. The stream is served inside
+the sandbox by a second FFmpeg from `artifacts\sandbox\tools` reading
+`fixtures\stream.flv` in real time (`tools/make_fixtures.py` writes ten minutes
+of test picture and tone); `sandbox/replay_client.py` answers the add-on's
+room requests with that address when `TIKTOK_REPLAY_STREAM` is set.
+
+On the host, `tests/test_recorder.py`, `test_ffmpeg_setup.py` and the
+`Recording` tests of `test_plugin.py` use `tests/fake_ffmpeg.py` and a local
+HTTP server. On 2026-10-15 a real live was recorded through
+`recorder.LiveRecording` with the real room request and FFmpeg 9.0.2: 21 s,
+H.264 720x1280 and AAC, 1.1 MB (deleted afterwards). In the sandbox on
+2026-10-15, after F39: `recording`, `settings` and `smoke` pass on all three
+NVDA versions, no crash.

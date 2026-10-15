@@ -87,6 +87,9 @@ def press(combo):
 STRING = re.compile(r"'(?:[^'\\]|\\.)*'|\"(?:[^\"\\]|\\.)*\"")
 # Speech commands in the log, e.g. "LangChangeCommand ('en')", "CancellableSpeech (still valid)".
 COMMAND = re.compile(r"\b[A-Z]\w*\s?\((?:[^()'\"]|'(?:[^'\\]|\\.)*'|\"(?:[^\"\\]|\\.)*\")*\)")
+# A string or a command, whichever starts first: a spoken "Video (720p)" is a
+# string with brackets, not a command.
+TOKEN = re.compile(f"(?P<string>{STRING.pattern})|{COMMAND.pattern}")
 
 
 class NvdaLog:
@@ -104,7 +107,11 @@ class NvdaLog:
 		spoken = []
 		for line in self.text().splitlines():
 			if line.startswith("Speaking ["):
-				parts = [ast.literal_eval(match) for match in STRING.findall(COMMAND.sub("", line))]
+				parts = [
+					ast.literal_eval(match.group("string"))
+					for match in TOKEN.finditer(line[len("Speaking [") :])
+					if match.group("string")
+				]
 				parts = [part for part in parts if part.strip()]
 				if parts:
 					spoken.append(" ".join(parts))
@@ -513,6 +520,88 @@ def scenario_stress(run):
 	run.end_stream()
 
 
+def scenario_recording(run):
+	"""Recording in real NVDA: the command says when the add-on is not connected,
+	asks to install FFmpeg, which downloads behind a progress dialog, records the
+	stream served here (the replaying client gives its address) and stops."""
+	if not run.wait_for_nvda():
+		return
+	stage = Path(__file__).resolve().parents[1]
+	server = subprocess.Popen(
+		[
+			str(stage / "tools" / "ffmpeg.exe"),
+			*("-v", "error", "-re", "-stream_loop", "-1"),
+			*("-i", str(stage / "fixtures" / "stream.flv")),
+			*("-c", "copy", "-f", "flv", "-listen", "1", "http://127.0.0.1:8080/live.flv"),
+		],
+		creationflags=0x08000000,
+	)
+	try:
+		if open_dialog(run, "dialog opens"):
+			for _page in range(3):
+				press("control+tab")
+				time.sleep(0.3)
+			run.press_and_hear(
+				"control+tab",
+				r"^Start recording when connected check box\s+not checked",
+				"live recordings page",
+			)
+			tab_to(run, r"^Quality combo box\s+Video \(720p\)", "quality", limit=1)
+			tab_to(run, r"^Recordings folder edit .*recordings", "recordings folder", limit=1)
+			tab_to(run, r"^Browse\.\.\. button", "browse button", limit=1)
+			press("escape")
+			time.sleep(1)
+		run.press_and_hear(
+			"nvda+shift+control+e", r"^Not connected to a live$", "the command needs a connection"
+		)
+		run.press_and_hear("nvda+control+shift+t", r"^TikTok Live Reader On$", "switching on")
+		run.hear(r"^Connected to user: host$", "connected")
+		run.press_and_hear("nvda+shift+control+e", r"Recording needs FFmpeg", "asks to install FFmpeg")
+		run.mark = len(run.log.speech())
+		press("enter")
+		run.hear(r"^Downloading FFmpeg dialog", "the progress dialog", timeout=30)
+		run.hear(r"^FFmpeg is installed$", "FFmpeg installed", timeout=240)
+		run.hear(r"^Recording started$", "recording started", timeout=30)
+		time.sleep(6)
+		run.press_and_hear("nvda+shift+control+e", r"^Recording stopped$", "recording stopped")
+		recordings = sorted((run.texts.parent / "recordings").glob("*.mp4"))
+		sizes = [(path.name, path.stat().st_size) for path in recordings]
+		run.check("one recording", len(recordings) == 1 and sizes[0][1] > 10000, repr(sizes))
+		run.press_and_hear("nvda+control+shift+t", r"^TikTok Live Reader Off$", "switching off")
+	finally:
+		server.kill()
+	run.end_stream()
+
+
+def scenario_recording_installed(run):
+	"""Recording with FFmpeg already installed (no dialog): starts, stops, a file."""
+	if not run.wait_for_nvda():
+		return
+	stage = Path(__file__).resolve().parents[1]
+	server = subprocess.Popen(
+		[
+			str(stage / "tools" / "ffmpeg.exe"),
+			*("-v", "error", "-re", "-stream_loop", "-1"),
+			*("-i", str(stage / "fixtures" / "stream.flv")),
+			*("-c", "copy", "-f", "flv", "-listen", "1", "http://127.0.0.1:8080/live.flv"),
+		],
+		creationflags=0x08000000,
+	)
+	try:
+		run.press_and_hear("nvda+control+shift+t", r"^TikTok Live Reader On$", "switching on")
+		run.hear(r"^Connected to user: host$", "connected")
+		run.press_and_hear("nvda+shift+control+e", r"^Recording started$", "recording started", timeout=30)
+		time.sleep(6)
+		run.press_and_hear("nvda+shift+control+e", r"^Recording stopped$", "recording stopped")
+		recordings = sorted((run.texts.parent / "recordings").glob("*.mp4"))
+		sizes = [(path.name, path.stat().st_size) for path in recordings]
+		run.check("one recording", len(recordings) == 1 and sizes[0][1] > 10000, repr(sizes))
+		run.press_and_hear("nvda+control+shift+t", r"^TikTok Live Reader Off$", "switching off")
+	finally:
+		server.kill()
+	run.end_stream()
+
+
 SCENARIOS = {
 	"smoke": scenario_smoke,
 	"smoke-bg": lambda run: scenario_smoke(run, "bg"),
@@ -520,6 +609,8 @@ SCENARIOS = {
 	"conflicts": scenario_conflicts,
 	"conflicts-store": scenario_conflicts,
 	"stress": scenario_stress,
+	"recording": scenario_recording,
+	"recording-installed": scenario_recording_installed,
 }
 
 

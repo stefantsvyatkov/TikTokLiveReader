@@ -53,16 +53,33 @@ def _control():
 		return ""
 
 
+def _stream_room_info():
+	"""Room info whose streams are TIKTOK_REPLAY_STREAM, which the driver serves."""
+	url = os.environ.get("TIKTOK_REPLAY_STREAM")
+	if not url:
+		return {}
+	data = {"hd": {"main": {"flv": url}}, "ao": {"main": {"flv": url}}}
+	return {"stream_url": {"live_core_sdk_data": {"pull_data": {"stream_data": json.dumps({"data": data})}}}}
+
+
 class TikTokLiveClient(_LiveClient):
+	def __init__(self, *args, **kwargs):
+		super().__init__(*args, **kwargs)
+
+		async def room_id(*args, **kwargs):
+			return 1
+
+		async def room_info(*args, **kwargs):
+			return _stream_room_info()
+
+		# The recording asks a client of its own for the room (tiktok_adapter.room_info).
+		self._web.fetch_room_id_from_api = room_id
+		self._web.fetch_room_info = room_info
+
 	async def connect(self, **kwargs):
 		# TikTokLive 7 parses frames only with a room id.
 		self._room_id = 1
 		self._replay_stopped = False
-
-		async def room_info(*args, **kwargs):
-			return {}
-
-		self._web.fetch_room_info = room_info
 		await self._replay()
 
 	async def disconnect(self, *args, **kwargs):

@@ -33,7 +33,7 @@ SETTINGS = {
 
 
 def decode(recording, out_dir):
-	decoded = out_dir / "decoded-6.6.5.jsonl"
+	decoded = out_dir / "decoded.jsonl"
 	subprocess.run(
 		[
 			sys.executable,
@@ -78,7 +78,9 @@ def expected_from(events):
 		elif kind == "FollowEvent":
 			expected["followers"].append(name)
 		elif kind == "ShareEvent":
-			expected["shares"].append(name)
+			expected["shares"].append(f"{name} shared the live")
+		elif kind == "SocialEvent" and str(fields.get("action")) == "4":
+			expected["shares"].append(f"{name} reposted the live")
 		elif kind == "JoinEvent":
 			expected["visitors"].append(name)
 		elif kind == "LikeEvent":

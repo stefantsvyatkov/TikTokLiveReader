@@ -148,6 +148,12 @@ def main():
 	sys.path.insert(0, str(lib.resolve()))
 	from TikTokLive.__version__ import PACKAGE_VERSION
 
+	# Decode as the add-on does: TikTokLive 7's message classes built first.
+	sys.path.append(str(Path(__file__).resolve().parents[1]))
+	from tests import support
+
+	support.load("tiktok_adapter")._build_message_classes()
+
 	rows = [json.loads(line) for line in recording.read_text(encoding="utf-8").splitlines()]
 	rows = [row for row in rows if "method" in row]
 	output.parent.mkdir(parents=True, exist_ok=True)

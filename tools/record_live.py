@@ -17,7 +17,6 @@ import asyncio
 import base64
 import contextlib
 import datetime
-import importlib.util
 import json
 import sys
 import time
@@ -28,10 +27,13 @@ ADDON = REPO / "addon" / "globalPlugins" / "TiktokLiveReader"
 
 
 def vendor_scope():
-	spec = importlib.util.spec_from_file_location("vendor", ADDON / "vendor.py")
-	vendor = importlib.util.module_from_spec(spec)
-	spec.loader.exec_module(vendor)
-	return vendor.scope(vendor.load(ADDON / "lib", "TikTokLive"))
+	"""The bundled library loaded as the add-on loads it (tiktok_adapter.runtime),
+	with tests/support.py standing in for NVDA."""
+	if str(REPO) not in sys.path:
+		sys.path.insert(0, str(REPO))
+	from tests import support
+
+	return support.load("tiktok_adapter").library_scope()
 
 
 # Printed as they arrive, with every method's first message: what a host's

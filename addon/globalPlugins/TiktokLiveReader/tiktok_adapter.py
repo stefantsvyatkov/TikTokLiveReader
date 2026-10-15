@@ -197,6 +197,26 @@ def new_client(username, classes, deliver, on_connected, on_live_end):
 	return Connection(client)
 
 
+def room_info(username):
+	"""The room info of ``username``'s live (stream addresses, start time): TikTok
+	requests, not the sign server. Runs a loop of its own, so call it from a worker
+	thread; raises when it cannot be fetched."""
+
+	async def fetch(client_class):
+		client = client_class(unique_id=username)
+		try:
+			room_id = int(await client.web.fetch_room_id_from_api(client.unique_id))
+			client.web.params["room_id"] = str(room_id)
+			return await client.web.fetch_room_info()
+		finally:
+			await client.web.close()
+
+	with library_scope():
+		from TikTokLive import TikTokLiveClient
+
+		return asyncio.run(fetch(TikTokLiveClient))
+
+
 async def _live_start(client):
 	"""When the live started, from the room info: a TikTok request, not the sign
 	server, made apart from connecting so that its failing (an age restricted

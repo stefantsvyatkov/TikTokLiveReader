@@ -1,4 +1,6 @@
-from . import announcer, dialogs, pipeline, positions, session, settings, store
+import threading
+
+from . import announcer, dialogs, ffmpeg_setup, pipeline, positions, recorder, session, settings, store
 from .i18n import _
 from globalPluginHandler import GlobalPlugin as NVDA_GlobalPlugin
 from scriptHandler import script
@@ -58,6 +60,7 @@ class GlobalPlugin(NVDA_GlobalPlugin):
 	__gestures = {
 		"kb:NVDA+control+shift+t": "toggleActive",
 		"kb:NVDA+control+shift+l": "openSettingsDialog",
+		"kb:NVDA+shift+control+e": "toggleRecording",
 	}
 
 	def __init__(self):
@@ -73,6 +76,11 @@ class GlobalPlugin(NVDA_GlobalPlugin):
 		settings.migrate_user_files()
 		self.settings = settings.load_and_complete()
 		self._sessionConnected = False
+		self.recording = recorder.LiveRecording()
+		# Connected to the live now (not while retrying), and whether the session
+		# should be recording, which a reconnection then starts again.
+		self._connected = False
+		self._recordingWanted = False
 
 		store.set_folder(self.settings.text_files_destination)
 		session.apply_settings(self.settings)
@@ -160,13 +168,21 @@ class GlobalPlugin(NVDA_GlobalPlugin):
 			self._sessionConnected = True
 			# Translators: Announced when successfully connected to a TikTok live. {username} is the streamer's name.
 			ui.message(_("Connected to user: {username}").format(username=self.settings.username))
+			self._connected = True
+			if self._recordingWanted or self.settings.record_on_connect:
+				self._recordingWanted = True
+				self._start_recording()
 
 		def on_retry():
+			self._connected = False
+			self.recording.stop()
 			ui.message(_("Attempting to connect..."))
 
 		def stop_session():
 			self._connectionToken = None
 			self.active = False
+			self._connected = False
+			self._stop_recording()
 			self._unbind_nav()
 			session.disconnect()
 			self.speech_manager.stop()
@@ -235,6 +251,8 @@ class GlobalPlugin(NVDA_GlobalPlugin):
 			self._connectionToken = None
 			self._unbind_nav()
 			ui.message(_("TikTok Live Reader Off"))
+			self._connected = False
+			self._stop_recording()
 			session.disconnect()
 			self.speech_manager.stop()
 			self._archive_session(self.settings.username)
@@ -323,13 +341,18 @@ class GlobalPlugin(NVDA_GlobalPlugin):
 			announcer.set_settings_open(False)
 
 		if res == wx.ID_OK:
+			auto_recording_before = self.settings.record_on_connect
 			self._apply_settings(dlg.chosen_settings())
 			new_username = self.settings.username
+			if self.settings.record_on_connect and not auto_recording_before:
+				self._with_ffmpeg(lambda: None, otherwise=self._turn_off_auto_recording)
 
 			if was_active:
 				if new_username != old_username:
 					self.active = False
 					self._unbind_nav()
+					self._connected = False
+					self._stop_recording()
 					session.disconnect()
 					self._archive_session(old_username)
 					self._cleanup_temp_files(hard_reset=True)
@@ -362,6 +385,137 @@ class GlobalPlugin(NVDA_GlobalPlugin):
 
 		dlg.Destroy()
 		self._settingsDialog = None
+
+	@script(description=_("Start or stop recording the live"))
+	def script_toggleRecording(self, gesture):
+		if not (self.active and self._connected):
+			# Translators: Announced when recording is asked for while the add-on is not connected to a live.
+			ui.message(_("Not connected to a live"))
+			return
+		if self._recordingWanted or self.recording.active:
+			self._stop_recording()
+			return
+		self._with_ffmpeg(self._begin_recording)
+
+	def _begin_recording(self):
+		if self.active and self._connected and not self.recording.active:
+			self._recordingWanted = True
+			self._start_recording()
+
+	def _start_recording(self):
+		token = self._connectionToken
+
+		def done(started):
+			def report():
+				if self._connectionToken is not token or not self._recordingWanted:
+					return
+				if started:
+					# Translators: Announced when the recording of the live starts.
+					ui.message(_("Recording started"))
+				else:
+					self._recordingWanted = False
+					# Translators: Announced when the recording of the live cannot start.
+					ui.message(_("Could not start recording"))
+
+			wx.CallAfter(report)
+
+		self.recording.start(
+			self.settings.username, self.settings.record_quality, self.settings.recordings_folder, done
+		)
+
+	def _stop_recording(self):
+		self._recordingWanted = False
+		if self.recording.stop():
+			# Translators: Announced when the recording of the live stops.
+			ui.message(_("Recording stopped"))
+
+	def _turn_off_auto_recording(self):
+		self.settings.record_on_connect = False
+		self._apply_settings(self.settings)
+
+	def _with_ffmpeg(self, then, otherwise=None):
+		"""Run ``then`` with FFmpeg installed, asking to download it first;
+		``otherwise`` when that is declined or fails."""
+		if ffmpeg_setup.executable():
+			then()
+			return
+		yes_button = message.DefaultButton.YES.value._replace(
+			callback=lambda payload=None: self._install_ffmpeg(then, otherwise),
+			defaultFocus=True,
+		)
+		no_button = message.DefaultButton.NO.value._replace(
+			callback=lambda payload=None: otherwise and otherwise(),
+			fallbackAction=True,
+		)
+		dialog = message.MessageDialog(
+			gui.mainFrame,
+			# Translators: Asked before downloading FFmpeg, which recording needs. {size} is the download's size in megabytes.
+			_("Recording needs FFmpeg, a free program of about {size} MB. Install it now?").format(
+				size=ffmpeg_setup.size_mb()
+			),
+			_("TikTok Live Reader"),
+			message.DialogType.STANDARD,
+			buttons=(yes_button, no_button),
+		)
+		dialog.Show()
+
+	def _install_ffmpeg(self, then, otherwise=None):
+		"""Download FFmpeg in a worker thread behind a progress dialog with Cancel."""
+		total_mb = ffmpeg_setup.size_mb()
+
+		def text(done_mb):
+			# Translators: Progress while FFmpeg downloads. {done} and {total} are megabytes.
+			return _("Downloaded {done} of {total} MB").format(done=done_mb, total=total_mb)
+
+		cancelled = threading.Event()
+		gui.mainFrame.prePopup()
+		progress = wx.ProgressDialog(
+			# Translators: Title of the window shown while FFmpeg downloads.
+			_("Downloading FFmpeg"),
+			text(0),
+			maximum=100,
+			parent=gui.mainFrame,
+			style=wx.PD_APP_MODAL | wx.PD_CAN_ABORT | wx.PD_AUTO_HIDE,
+		)
+		gui.mainFrame.postPopup()
+		shown = [-1]
+
+		def update(percent, done_mb):
+			if not cancelled.is_set():
+				going, _skip = progress.Update(min(percent, 99), text(done_mb))
+				if not going:
+					cancelled.set()
+
+		def on_progress(done, total):
+			percent = done * 100 // max(total, 1)
+			if percent != shown[0]:
+				shown[0] = percent
+				wx.CallAfter(update, percent, round(done / (1024 * 1024)))
+
+		def finished(error):
+			progress.Destroy()
+			if error is None:
+				# Translators: Announced when FFmpeg has been installed.
+				ui.message(_("FFmpeg is installed"))
+				then()
+				return
+			if not isinstance(error, ffmpeg_setup.Cancelled):
+				# Translators: Announced when FFmpeg could not be installed. {error} says why.
+				ui.message(_("Could not install FFmpeg: {error}").format(error=error))
+			if otherwise:
+				otherwise()
+
+		def work():
+			error = None
+			try:
+				ffmpeg_setup.install(on_progress, cancelled.is_set)
+			except Exception as failure:
+				if not isinstance(failure, ffmpeg_setup.Cancelled):
+					log.warning("TikTok Live Reader: installing FFmpeg", exc_info=True)
+				error = failure
+			wx.CallAfter(finished, error)
+
+		threading.Thread(target=work, daemon=True).start()
 
 	def _persist_index(self):
 		if not self.settings.clear_on_start:
@@ -489,6 +643,7 @@ class GlobalPlugin(NVDA_GlobalPlugin):
 
 	def terminate(self):
 		try:
+			self.recording.stop()
 			session.disconnect()
 			if hasattr(self, "speech_manager"):
 				self.speech_manager.stop()

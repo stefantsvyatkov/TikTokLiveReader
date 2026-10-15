@@ -10,6 +10,14 @@ from logHandler import log
 
 ADDON_DIR = Path(__file__).resolve().parent
 DEFAULT_LOG_DIR = Path.home() / "Documents" / "TikTok live"
+DEFAULT_RECORDINGS_DIR = Path.home() / "Videos" / "TikTok live"
+# Stored names of the recording qualities (recorder.py maps them to TikTok's).
+RECORDING_QUALITIES = ("video", "audio")
+DEFAULT_RECORDING = {
+	"auto_start": False,
+	"quality": RECORDING_QUALITIES[0],
+	"folder": str(DEFAULT_RECORDINGS_DIR),
+}
 
 DEFAULT_EVENT_PREFS = {
 	"comments": True,
@@ -75,15 +83,16 @@ def migrate_user_files():
 			log.debugWarning(f"TikTok Live Reader: moving {old_path}", exc_info=True)
 
 
-def resolve_destination(raw):
-	"""An absolute folder for the text files; the default one for anything else."""
+def resolve_destination(raw, default=DEFAULT_LOG_DIR):
+	"""An absolute folder (for the text files, or ``default``'s); the default one
+	for anything else."""
 	try:
 		path = Path(str(raw).strip()).expanduser()
 		if not path.is_absolute():
-			raise ValueError("text_files_destination must be an absolute path")
+			raise ValueError("the folder must be an absolute path")
 		return str(path)
 	except Exception:
-		return str(DEFAULT_LOG_DIR)
+		return str(default)
 
 
 @dataclass
@@ -100,6 +109,9 @@ class Settings:
 	backup_sessions: bool = DEFAULT_BEHAVIOR["backup_sessions"]
 	play_sounds: bool = DEFAULT_SOUNDS["play_sounds"]
 	volume: int = DEFAULT_SOUNDS["volume"]
+	record_on_connect: bool = DEFAULT_RECORDING["auto_start"]
+	record_quality: str = DEFAULT_RECORDING["quality"]
+	recordings_folder: str = DEFAULT_RECORDING["folder"]
 
 
 def _as_ini(value):
@@ -131,7 +143,11 @@ def apply_config_defaults(config):
 		for key, value in DEFAULT_EVENT_PREFS.items():
 			if key not in config[section]:
 				config[section][key] = _as_ini(value)
-	for section, defaults in (("behavior", DEFAULT_BEHAVIOR), ("sounds", DEFAULT_SOUNDS)):
+	for section, defaults in (
+		("behavior", DEFAULT_BEHAVIOR),
+		("sounds", DEFAULT_SOUNDS),
+		("recording", DEFAULT_RECORDING),
+	):
 		if section not in config:
 			config[section] = {}
 		for key, value in defaults.items():
@@ -166,7 +182,16 @@ def from_config(config):
 		),
 		play_sounds=config.getboolean("sounds", "play_sounds", fallback=DEFAULT_SOUNDS["play_sounds"]),
 		volume=config.getint("sounds", "volume", fallback=DEFAULT_SOUNDS["volume"]),
+		record_on_connect=config.getboolean(
+			"recording", "auto_start", fallback=DEFAULT_RECORDING["auto_start"]
+		),
+		record_quality=_quality(config.get("recording", "quality", fallback=DEFAULT_RECORDING["quality"])),
+		recordings_folder=config.get("recording", "folder", fallback=DEFAULT_RECORDING["folder"]),
 	)
+
+
+def _quality(name):
+	return name if name in RECORDING_QUALITIES else DEFAULT_RECORDING["quality"]
 
 
 def load():
@@ -187,12 +212,14 @@ def load_and_complete():
 		log.warning("TikTok Live Reader: the settings file cannot be read; using the defaults", exc_info=True)
 		return Settings()
 	loaded.text_files_destination = resolve_destination(loaded.text_files_destination)
+	loaded.recordings_folder = resolve_destination(loaded.recordings_folder, DEFAULT_RECORDINGS_DIR)
 	return loaded
 
 
 def save(settings):
-	"""Write the settings; the text files folder is made absolute first."""
+	"""Write the settings; the folders are made absolute first."""
 	settings.text_files_destination = resolve_destination(settings.text_files_destination)
+	settings.recordings_folder = resolve_destination(settings.recordings_folder, DEFAULT_RECORDINGS_DIR)
 	config = configparser.ConfigParser()
 	config["main"] = {
 		"username": settings.username,
@@ -211,6 +238,11 @@ def save(settings):
 	config["sounds"] = {
 		"play_sounds": _as_ini(settings.play_sounds),
 		"volume": str(settings.volume),
+	}
+	config["recording"] = {
+		"auto_start": _as_ini(settings.record_on_connect),
+		"quality": _quality(settings.record_quality),
+		"folder": settings.recordings_folder,
 	}
 	with open(CONFIG_PATH, "w", encoding="utf-8") as handle:
 		config.write(handle)

@@ -117,7 +117,7 @@ def read_entries(name):
 		return []
 
 
-def _safe_folder_name(name):
+def safe_name(name):
 	cleaned = "".join(ch for ch in str(name) if ch not in _INVALID_NAME_CHARS and ord(ch) >= 32)
 	return cleaned.strip().rstrip(".")
 
@@ -129,7 +129,7 @@ def archive_session(username):
 		if not sources or not any(file.stat().st_size > 0 for file in sources):
 			return None
 
-		host = _safe_folder_name(username) or "unknown"
+		host = safe_name(username) or "unknown"
 		stamp = datetime.datetime.now().strftime("%Y-%m-%d %H-%M-%S")
 		base = folder / BACKUPS_DIR_NAME / f"{stamp} {host}"
 

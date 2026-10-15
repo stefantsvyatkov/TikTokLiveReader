@@ -48,6 +48,7 @@ class SettingsDialog(wx.Dialog):
 		events = wx.Panel(notebook)
 		auto_speak = wx.Panel(notebook)
 		sounds = wx.Panel(notebook)
+		recording = wx.Panel(notebook)
 
 		self._build_general(general, current)
 		sizer = wx.BoxSizer(wx.VERTICAL)
@@ -55,11 +56,14 @@ class SettingsDialog(wx.Dialog):
 		events.SetSizer(sizer)
 		self._build_sounds(sounds, current)
 		self._build_auto_speak(auto_speak, current)
+		self._build_recording(recording, current)
 
 		notebook.AddPage(general, _("General"))
 		notebook.AddPage(events, _("Events"))
 		notebook.AddPage(auto_speak, _("Auto speak"))
 		notebook.AddPage(sounds, _("Sounds"))
+		# Translators: Name of the settings page about recording lives.
+		notebook.AddPage(recording, _("Live recordings"))
 
 		top = wx.BoxSizer(wx.VERTICAL)
 		top.Add(notebook, 1, wx.EXPAND | wx.ALL, 5)
@@ -174,20 +178,70 @@ class SettingsDialog(wx.Dialog):
 		self._on_toggle_auto_speak(None)
 		panel.SetSizer(sizer)
 
-	def _on_browse(self, evt):
-		folder = self.destination.GetValue()
+	def _build_recording(self, panel, current):
+		sizer = wx.BoxSizer(wx.VERTICAL)
+		# Translators: Check box on the live recordings page of the settings.
+		self.record_on_connect = wx.CheckBox(panel, label=_("&Start recording when connected"))
+		self.record_on_connect.SetValue(current.record_on_connect)
+		# Translators: Label of the recording quality list.
+		quality_label = wx.StaticText(panel, label=_("&Quality"))
+		qualities = {
+			# Translators: Recording quality: the video, in the 720p TikTok gives, and the sound.
+			"video": _("Video (720p)"),
+			# Translators: Recording quality: the sound only.
+			"audio": _("Audio only"),
+		}
+		self.record_quality = wx.Choice(
+			panel, choices=[qualities[name] for name in settings.RECORDING_QUALITIES]
+		)
+		self.record_quality.SetSelection(settings.RECORDING_QUALITIES.index(current.record_quality))
+		# Translators: Label of the folder the recordings go to.
+		folder_label = wx.StaticText(panel, label=_("Recordings &folder"))
+		folder_row = wx.FlexGridSizer(rows=1, cols=2, vgap=0, hgap=5)
+		folder_row.AddGrowableCol(0, 1)
+		# Read-only by swallowing typing and pasting, as the text files destination.
+		self.recordings_folder = wx.TextCtrl(panel, value=current.recordings_folder, size=(400, -1))
+		self.recordings_folder.Bind(wx.EVT_CHAR, lambda evt: None)
+		self.recordings_folder.Bind(wx.EVT_TEXT_PASTE, lambda evt: None)
+		browse = wx.Button(panel, label=_("&Browse..."))
+		folder_row.Add(self.recordings_folder, flag=wx.EXPAND)
+		folder_row.Add(browse, flag=wx.ALIGN_CENTER_VERTICAL)
+		browse.Bind(wx.EVT_BUTTON, self._on_browse_recordings)
+
+		sizer.Add(self.record_on_connect, flag=wx.ALL, border=5)
+		sizer.Add(quality_label, flag=wx.LEFT | wx.RIGHT | wx.TOP, border=5)
+		sizer.Add(self.record_quality, flag=wx.ALL, border=5)
+		sizer.Add(folder_label, flag=wx.LEFT | wx.RIGHT | wx.TOP, border=5)
+		sizer.Add(folder_row, flag=wx.EXPAND | wx.ALL, border=5)
+		panel.SetSizer(sizer)
+
+	def _choose_folder(self, field, default, title):
+		folder = field.GetValue()
 		if not Path(folder).is_dir():
-			folder = str(settings.DEFAULT_LOG_DIR)
-		folder = settings.resolve_destination(folder)
+			folder = str(default)
+		folder = settings.resolve_destination(folder, default)
 		with wx.DirDialog(
 			self,
-			_("Select text files destination"),
+			title,
 			defaultPath=folder,
 			style=wx.DD_DEFAULT_STYLE | wx.DD_DIR_MUST_EXIST,
 		) as chooser:
 			if chooser.ShowModal() == wx.ID_OK:
-				self.destination.SetValue(chooser.GetPath())
-				self.destination.SetFocus()
+				field.SetValue(chooser.GetPath())
+				field.SetFocus()
+
+	def _on_browse(self, evt):
+		self._choose_folder(self.destination, settings.DEFAULT_LOG_DIR, _("Select text files destination"))
+
+	def _on_browse_recordings(self, evt):
+		# The default folder may not exist yet: the first recording makes it.
+		Path(settings.DEFAULT_RECORDINGS_DIR).mkdir(parents=True, exist_ok=True)
+		self._choose_folder(
+			self.recordings_folder,
+			settings.DEFAULT_RECORDINGS_DIR,
+			# Translators: Title of the dialog choosing the folder for recordings.
+			_("Select recordings folder"),
+		)
 
 	def _on_toggle_sounds(self, evt):
 		shown = self.play_sounds.IsChecked()
@@ -289,4 +343,7 @@ class SettingsDialog(wx.Dialog):
 			backup_sessions=self.backup_sessions.IsChecked(),
 			play_sounds=self.play_sounds.IsChecked(),
 			volume=self.volume.GetValue(),
+			record_on_connect=self.record_on_connect.IsChecked(),
+			record_quality=settings.RECORDING_QUALITIES[self.record_quality.GetSelection()],
+			recordings_folder=self.recordings_folder.GetValue(),
 		)

@@ -2,17 +2,20 @@
 
 import json
 import re
+import tempfile
 import time
 import unittest
+from pathlib import Path
 
 from . import feed as f
 from . import support
+from .test_recorder import FAKE_FFMPEG, room_info
 
 G = support.load("globalPlugin")
 settings = f.addon_settings
 store = f.store
 alice, bob = f.user("Alice"), f.user("Bob")
-BASE_GESTURES = {"kb:NVDA+control+shift+t", "kb:NVDA+control+shift+l"}
+BASE_GESTURES = {"kb:NVDA+control+shift+t", "kb:NVDA+control+shift+l", "kb:NVDA+shift+control+e"}
 
 
 class Gesture:
@@ -308,6 +311,78 @@ class Archiving(PluginTest):
 		self.assertEqual(len(self.archives(log_dir)), 1)
 
 
+class Recording(PluginTest):
+	def setUp(self):
+		self.ffmpeg = support.load("ffmpeg_setup")
+		self.addCleanup(setattr, self.ffmpeg, "executable", self.ffmpeg.executable)
+		self.ffmpeg.executable = lambda: FAKE_FFMPEG
+		self.addCleanup(setattr, G.recorder, "SETTLE", G.recorder.SETTLE)
+		G.recorder.SETTLE = 0.3
+		self.folder = Path(tempfile.mkdtemp(dir=support.ROOT))
+
+	def plugin(self, **recording):
+		plugin, _log_dir = make_plugin(recording=dict({"folder": str(self.folder)}, **recording))
+		stream = room_info({"hd": "https://cdn/hd.flv", "ao": "https://cdn/ao.flv"})
+		plugin.recording = G.recorder.LiveRecording(room_info=lambda username: stream)
+		return plugin
+
+	def test_the_command_needs_a_connection(self):
+		plugin = self.plugin()
+		plugin.script_toggleRecording(None)
+		self.assertEqual(support.spoken, ["Not connected to a live"])
+
+	def test_started_and_stopped_by_the_command(self):
+		plugin = self.plugin()
+		self.start(plugin)
+		plugin.script_toggleRecording(None)
+		self.assertTrue(f.wait_until(said("Recording started")), support.spoken)
+		plugin.script_toggleRecording(None)
+		self.assertIn("Recording stopped", support.spoken)
+		(recording,) = self.folder.iterdir()
+		self.assertRegex(recording.name, r"^\d{4}-\d\d-\d\d \d\d-\d\d-\d\d host\.mp4$")
+		self.assertIn("https://cdn/hd.flv", recording.read_text(encoding="utf-8"))
+		self.assertEqual(recording.read_text(encoding="utf-8").splitlines()[-1], "done")
+
+	def test_started_on_connecting_and_stopped_by_switching_off(self):
+		plugin = self.plugin(auto_start=True, quality="audio")
+		self.start(plugin)
+		self.assertTrue(f.wait_until(said("Recording started")), support.spoken)
+		plugin.script_toggleActive(None)
+		self.assertIn("Recording stopped", support.spoken)
+		(recording,) = self.folder.iterdir()
+		self.assertEqual(recording.suffix, ".m4a")
+		self.assertIn("https://cdn/ao.flv", recording.read_text(encoding="utf-8"))
+
+	def test_a_stream_ffmpeg_cannot_open_is_said(self):
+		plugin = self.plugin()
+		stream = room_info({"hd": "https://cdn/fail.flv"})
+		plugin.recording = G.recorder.LiveRecording(room_info=lambda username: stream)
+		self.start(plugin)
+		plugin.script_toggleRecording(None)
+		self.assertTrue(f.wait_until(said("Could not start recording")), support.spoken)
+		self.assertFalse(plugin.recording.active)
+
+	def test_without_ffmpeg_the_command_asks_to_install_it(self):
+		self.ffmpeg.executable = lambda: None
+		plugin = self.plugin()
+		self.start(plugin)
+		plugin.script_toggleRecording(None)
+		self.assertIn("Recording needs FFmpeg", support.dialogs[-1].message)
+		self.assertIn("Install it now?", support.dialogs[-1].message)
+		support.dialogs[-1].press("no")
+		self.assertFalse(plugin.recording.active)
+
+	def test_declining_ffmpeg_turns_recording_on_connecting_off(self):
+		self.ffmpeg.executable = lambda: None
+		plugin = self.plugin()
+		plugin.settings.record_on_connect = True
+		plugin._apply_settings(plugin.settings)
+		plugin._with_ffmpeg(lambda: None, otherwise=plugin._turn_off_auto_recording)
+		support.dialogs[-1].press("no")
+		self.assertFalse(plugin.settings.record_on_connect)
+		self.assertFalse(G.GlobalPlugin().settings.record_on_connect)
+
+
 class SettingsFile(unittest.TestCase):
 	def test_a_byte_order_mark_is_not_part_of_the_settings(self):
 		# F29: old Notepad and PowerShell 5 save UTF-8 with a byte order mark.
@@ -334,6 +409,9 @@ class SettingsFile(unittest.TestCase):
 				backup_sessions=True,
 				play_sounds=True,
 				volume=40,
+				record_on_connect=True,
+				record_quality="audio",
+				recordings_folder=str(log_dir / "videos"),
 			)
 		)
 		again = G.GlobalPlugin().settings
@@ -345,6 +423,10 @@ class SettingsFile(unittest.TestCase):
 		)
 		self.assertEqual(again.text_files_destination, str(log_dir))
 		self.assertTrue(again.backup_sessions)
+		self.assertEqual(
+			(again.record_on_connect, again.record_quality, again.recordings_folder),
+			(True, "audio", str(log_dir / "videos")),
+		)
 
 	def test_missing_file_gives_the_defaults(self):
 		for path in (settings.CONFIG_PATH, settings.POSITIONS_PATH):
@@ -355,6 +437,13 @@ class SettingsFile(unittest.TestCase):
 		self.assertEqual(loaded.events, settings.DEFAULT_EVENT_PREFS)
 		self.assertEqual(loaded.volume, 70)
 		self.assertTrue(re.search(r"Documents[\\/]TikTok live$", loaded.text_files_destination))
+		self.assertFalse(loaded.record_on_connect)
+		self.assertEqual(loaded.record_quality, "video")
+		self.assertTrue(re.search(r"Videos[\\/]TikTok live$", loaded.recordings_folder))
+
+	def test_an_unknown_recording_quality_gives_the_default(self):
+		make_plugin(recording={"quality": "4k"})
+		self.assertEqual(G.GlobalPlugin().settings.record_quality, "video")
 
 
 if __name__ == "__main__":

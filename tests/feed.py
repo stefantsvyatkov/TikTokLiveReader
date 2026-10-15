@@ -40,6 +40,7 @@ with adapter.library_scope():
 	from TikTokLiveProto.v3.webcast.model.message import linkcore
 	from TikTokLiveProto.v3.webcast.model.message.linker import listchangemessage
 	from TikTokLiveProto.v3.webcast.model.message.common import Text as DisplayText
+	from TikTokLiveProto.v3.webcast.model.message.common import TextPiece, TextPieceUser
 
 _ids = itertools.count(1_000_001)
 
@@ -69,11 +70,11 @@ def user(nickname, unique_id=None, user_id=None):
 
 
 @_in_runtime
-def _message(event, display_key=""):
+def _message(event, display_key="", pieces=()):
 	event.common = proto.CommonMessageData(
 		msg_id=next(_ids),
 		create_time=int(time.time() * 1000),
-		display_text=DisplayText(key=display_key),
+		display_text=DisplayText(key=display_key, pieces=list(pieces)),
 	)
 	return proto.ProtoMessageFetchResultBaseProtoMessage(
 		method=METHODS[type(event)],
@@ -112,6 +113,23 @@ def follow(who):
 @_in_runtime
 def share(who):
 	return _message(proto_events.SocialEvent(user=who, action=3), "pm_mt_guidance_share")
+
+
+@_in_runtime
+def fan_club_join(who, number):
+	"""TikTok's notice that ``who`` became the ``number``th fan in the fan club."""
+	pieces = (TextPiece(user_value=TextPieceUser(user=who)), TextPiece(string_value=str(number)))
+	return _message(proto_events.RoomEvent(), "pm_mt_fan_live_joined_comment", pieces)
+
+
+@_in_runtime
+def paused():
+	return _message(proto_events.ControlEvent(action=ControlAction.STREAM_PAUSED))
+
+
+@_in_runtime
+def resumed():
+	return _message(proto_events.ControlEvent(action=ControlAction.STREAM_UNPAUSED))
 
 
 @_in_runtime

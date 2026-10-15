@@ -3,6 +3,7 @@
 import unittest
 
 from . import feed as f
+from . import support
 
 alice, bob = f.user("Alice"), f.user("Bob")
 
@@ -212,6 +213,28 @@ class ConnectionLifecycle(unittest.TestCase):
 		self.assertEqual(
 			r.files["stats.txt"], ["Viewers: 0", "Visitors: 0", "Likes: 0", "Followers: 0", "Diamonds: 0"]
 		)
+
+
+class LiveNotices(unittest.TestCase):
+	def test_a_new_fan_club_member_is_only_in_the_events_file(self):
+		r = f.run_session(f.fan_club_join(alice, 4))
+		self.assertEqual(logged(r, "events.txt"), ["Alice became fan number 4 in the fan club"])
+		self.assertEqual(r.speech, [])
+		self.assertEqual(r.sounds, [])
+
+	def test_every_pause_and_resume_is_written_and_spoken(self):
+		del support.spoken[:]
+		r = f.run_session(
+			f.paused(), f.resumed(), f.paused(), f.resumed(), settings={"auto_speak": {"enabled": False}}
+		)
+		notices = ["The live is paused", "The live has resumed"] * 2
+		self.assertEqual(logged(r, "events.txt"), notices)
+		self.assertEqual([text for text in support.spoken if text in notices], notices)
+
+	def test_a_pause_delivered_twice_counts_once(self):
+		message = f.paused()
+		r = f.run_session(message, message)
+		self.assertEqual(logged(r, "events.txt"), ["The live is paused"])
 
 
 class GuestRequests(unittest.TestCase):

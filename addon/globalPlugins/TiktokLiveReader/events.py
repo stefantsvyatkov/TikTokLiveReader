@@ -41,6 +41,23 @@ class Share:
 
 
 @dataclass(frozen=True)
+class FanClubJoin:
+	"""Someone joined the host's fan club; ``number`` is their place in it."""
+
+	message_id: int
+	user: Person | None
+	number: str
+
+
+@dataclass(frozen=True)
+class LiveState:
+	"""The live paused (the host left the app) or went on."""
+
+	message_id: int
+	paused: bool
+
+
+@dataclass(frozen=True)
 class Gift:
 	"""``streaking``: a streak is under way and this is not its last message."""
 

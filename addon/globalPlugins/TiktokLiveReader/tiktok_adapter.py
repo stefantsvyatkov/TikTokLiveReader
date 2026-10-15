@@ -126,7 +126,14 @@ def event_classes():
 		classes.update(_optional(module, "ViewerUpdateEvent", "RoomUserSeqEvent"))
 		if classes["ViewerUpdateEvent"] is None:
 			classes.update(_optional(module, "RoomUserSeqEvent"))
-		for name in ("ShareEvent", "SocialEvent", "LiveEndEvent") + LINK_EVENTS:
+		for name in (
+			"ShareEvent",
+			"SocialEvent",
+			"LiveEndEvent",
+			"LivePauseEvent",
+			"LiveUnpauseEvent",
+			"RoomEvent",
+		) + LINK_EVENTS:
 			classes.update(_optional(module, name))
 	return classes
 
@@ -167,6 +174,13 @@ def new_client(username, classes, deliver, on_connected, on_live_end):
 		for name in LINK_EVENTS:
 			if classes[name]:
 				listen(classes[name], _link)
+		for name, convert in (
+			("RoomEvent", _room),
+			("LivePauseEvent", _paused),
+			("LiveUnpauseEvent", _resumed),
+		):
+			if classes[name]:
+				listen(classes[name], convert)
 
 		async def connected(library_event):
 			on_connected()
@@ -324,6 +338,33 @@ def _social(event):
 	if action == 1 or "follow" in key or "follow" in pattern:
 		return _follow(event)
 	return None
+
+
+FAN_CLUB_JOINED = "pm_mt_fan_live_joined_comment"
+
+
+def _room(event):
+	"""A new fan club member, from TikTok's notices in the live; other notices
+	are left out."""
+	display_text = getattr(_common(event), "display_text", None)
+	if getattr(display_text, "key", "") != FAN_CLUB_JOINED:
+		return None
+	user, number = None, ""
+	for piece in getattr(display_text, "pieces", None) or ():
+		value = getattr(piece, "user_value", None)
+		if user is None and getattr(value, "user", None) is not None:
+			user = _person(value.user)
+		elif getattr(piece, "string_value", ""):
+			number = piece.string_value
+	return events.FanClubJoin(message_id(event), user, number)
+
+
+def _paused(event):
+	return events.LiveState(message_id(event), paused=True)
+
+
+def _resumed(event):
+	return events.LiveState(message_id(event), paused=False)
 
 
 def _streaking(event, gift):

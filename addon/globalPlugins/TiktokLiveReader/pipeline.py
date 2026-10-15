@@ -542,6 +542,30 @@ def _report_request(user_name):
 	_announce("requests", speak_msg)
 
 
+def _on_fan_club(event):
+	if event.user is None:
+		return
+	name = _clean_name(_display_name(event.user), event.user)
+	# Translators: Written to the events file when someone joins the host's fan club. {name} is their name, {number} their place in the fan club.
+	msg = _("{name} became fan number {number} in the fan club").format(name=name, number=event.number)
+	_log_to_events(f"{msg}  {_now()}")
+
+
+def _on_live_state(event):
+	if event.paused:
+		# Translators: Announced when the live pauses, for example when the host leaves the TikTok app.
+		msg = _("The live is paused")
+	else:
+		# Translators: Announced when a paused live goes on.
+		msg = _("The live has resumed")
+	# Each pause is written, also when the events file kept an earlier one.
+	try:
+		store.append(store.EVENTS, f"{msg}  {_now()}")
+	except OSError:
+		log.debugWarning("TikTok Live Reader: writing the events file", exc_info=True)
+	announcer.say(msg)
+
+
 _HANDLERS = {
 	events.Comment: _on_comment,
 	events.Follow: _on_follow,
@@ -551,6 +575,8 @@ _HANDLERS = {
 	events.Join: _on_join,
 	events.ViewerCount: _on_viewer_count,
 	events.LinkMessage: _on_link,
+	events.FanClubJoin: _on_fan_club,
+	events.LiveState: _on_live_state,
 }
 
 

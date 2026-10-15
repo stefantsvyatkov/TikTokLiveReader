@@ -158,6 +158,12 @@ def announce(event_key, text, settings):
 		sound_manager.play(event_key, play_file=sound_enabled, on_complete=then_speak)
 
 
+def say(text):
+	"""Speak ``text`` now, whatever the auto speak setting, as "The live has
+	ended" is."""
+	wx.CallAfter(ui.message, text)
+
+
 # Texts waiting for the speech reader. 1.8 used a file polled every 0.5 s,
 # written from several threads (F19, F30).
 _speech = queue.Queue()

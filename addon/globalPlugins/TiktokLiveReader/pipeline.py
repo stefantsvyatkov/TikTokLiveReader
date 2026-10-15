@@ -380,12 +380,15 @@ def _on_share(event):
 	_track_user(event.user)
 
 	display_name = _clean_name(event.user.nickname, event.user)
-	store.append(store.SHARES, f"{display_name}  {_now()}")
-	if _settings.events.get("shares", False):
+	if event.repost:
+		# Translators: Announced when a user reposts the live, showing it to their followers. {name} is the user's name.
+		msg = _("{name} reposted the live").format(name=display_name)
+	else:
 		# Translators: Announced when a user shares the live stream. {name} is the user's name.
 		msg = _("{name} shared the live").format(name=display_name)
+	store.append(store.SHARES, f"{msg}  {_now()}")
+	if _settings.events.get("shares", False):
 		_log_to_events(f"{msg}  {_now()}")
-	msg = _("{name} shared the live").format(name=display_name)
 	_announce("shares", msg)
 
 

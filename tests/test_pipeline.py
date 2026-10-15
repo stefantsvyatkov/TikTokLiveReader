@@ -106,8 +106,14 @@ class FollowsSharesVisitors(unittest.TestCase):
 
 	def test_share_is_logged_once(self):
 		r = f.run_session(f.share(alice))
-		self.assertEqual(logged(r, "shares.txt"), ["Alice"])
+		self.assertEqual(logged(r, "shares.txt"), ["Alice shared the live"])
 		self.assertEqual(r.speech, ["Alice shared the live"])
+
+	def test_a_repost_is_logged_with_the_shares(self):
+		r = f.run_session(f.share(alice), f.repost(bob), settings={"events": {"shares": True}})
+		self.assertEqual(logged(r, "shares.txt"), ["Alice shared the live", "Bob reposted the live"])
+		self.assertEqual(logged(r, "events.txt"), ["Alice shared the live", "Bob reposted the live"])
+		self.assertEqual(r.speech, ["Alice shared the live", "Bob reposted the live"])
 
 	def test_visitors_are_counted_once_each(self):
 		r = f.run_session(f.join(alice), f.join(alice), f.join(bob))
@@ -298,7 +304,7 @@ class EachMessageOnce(unittest.TestCase):
 
 	def test_every_share_is_logged(self):
 		r = f.run_session(f.share(alice), f.share(alice), f.share(alice))
-		self.assertEqual(logged(r, "shares.txt"), ["Alice", "Alice", "Alice"])
+		self.assertEqual(logged(r, "shares.txt"), ["Alice shared the live"] * 3)
 		self.assertEqual(logged(r, "events.txt"), ["Alice shared the live"] * 3)
 
 	def test_a_follow_counts_once_although_the_library_reports_it_twice(self):

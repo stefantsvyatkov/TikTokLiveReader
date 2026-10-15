@@ -115,6 +115,13 @@ def share(who):
 
 
 @_in_runtime
+def repost(who):
+	return _message(
+		proto_events.SocialEvent(user=who, action=4), "ttlive_repost_commentsArea_repostedUsername_im"
+	)
+
+
+@_in_runtime
 def join(who):
 	return _message(proto_events.JoinEvent(user=who, action=1), "live_room_enter_toast")
 

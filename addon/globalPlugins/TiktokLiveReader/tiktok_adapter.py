@@ -308,8 +308,8 @@ def _follow(event):
 	return events.Follow(message_id(event), _user(event))
 
 
-def _share(event):
-	return events.Share(message_id(event), _user(event))
+def _share(event, repost=False):
+	return events.Share(message_id(event), _user(event), repost)
 
 
 def _social(event):
@@ -317,6 +317,8 @@ def _social(event):
 	display_text = getattr(event, "display_text", None) or getattr(_common(event), "display_text", None)
 	key = getattr(display_text, "key", "").lower()
 	pattern = getattr(display_text, "default_pattern", "").lower()
+	if action == 4 or "repost" in key or "repost" in pattern:
+		return _share(event, repost=True)
 	if action == 3 or "share" in key or "share" in pattern:
 		return _share(event)
 	if action == 1 or "follow" in key or "follow" in pattern:

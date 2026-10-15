@@ -33,8 +33,11 @@ class Follow:
 
 @dataclass(frozen=True)
 class Share:
+	"""``repost``: shown to the person's followers rather than sent to someone."""
+
 	message_id: int
 	user: Person | None
+	repost: bool = False
 
 
 @dataclass(frozen=True)

@@ -161,6 +161,8 @@ public static extern bool IsIconic(System.IntPtr window);
 
 # ---- Run, one NVDA version after the other ----------------------------------------------
 
+# Only the latest call's results are kept.
+Get-ChildItem $runs -Directory | Remove-Item -Recurse -Force
 $failed = 0
 foreach ($version in $Nvda) {
     $id = (Get-Date -Format "yyyyMMdd-HHmmss") + "-$version"

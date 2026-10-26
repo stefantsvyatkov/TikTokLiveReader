@@ -82,8 +82,10 @@ does not put the working folder on `sys.path` for `-m unittest tests.x`).
   recorded) and re-encodes the payloads, so real message shapes can become
   committed fixtures.
 
-7.0.1 for the comparison lives in `artifacts/lib-7.0.1` (wheels for cp313
-win_amd64 from PyPI; `protobuf_to_dict.py` copied from the vendored lib).
+7.0.1 for the comparison lived in `artifacts/lib-7.0.1` (wheels for cp313
+win_amd64 from PyPI; `protobuf_to_dict.py` copied from the vendored lib),
+removed on 2026-10-26 with the comparison done; `tools/build_lib.py` builds
+one again.
 
 Finding lives: the TikTok LIVE gaming feed works without signing in. Mute the
 page at once (autoplay with sound).
@@ -104,7 +106,8 @@ error for every character typed that way (its language is None; fixed in
 2026.2); the driver leaves that error out of "no errors in NVDA's log". Adapted from BST Radio's sandbox: one persistent sandbox,
 started minimised without taking the focus; `artifacts\sandbox` is mapped
 read-only as `C:\Stage`, `artifacts\sandbox-runs` writable as `C:\Runs`; the
-agent writes a heartbeat and takes requests from `request.txt`. Changing
+agent writes a heartbeat and takes requests from `request.txt`. Each call
+removes the earlier calls' run folders, so only the latest results stay. Changing
 `SandboxAgent.ps1` needs `-Stop` first (the running agent keeps its old copy).
 
 Per run the agent mutes every playback device of the sandbox (no run without

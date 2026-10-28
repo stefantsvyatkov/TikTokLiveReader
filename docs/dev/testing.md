@@ -129,6 +129,15 @@ Smoke scenario on 2026-10-13: 1.8 passes on 2026.1.1, 2026.2 and
 2026.3beta4; NVDA needs 2.85-2.90 s to answer the next key after switching the
 add-on off (F27).
 
+Since 2026-10-28 the versions are 2026.1.1, 2026.2 and 2026.3, the latest of
+each line (2026.3 is NV Access's signed 2026.3.0.58174, SHA-256
+A8A87CB823DA0C62CFBAE4A444AE5AE238D54DC82AD6D46D3FDB3FEF082799B2); the runs
+before that date used 2026.3beta4. On 2026-10-28 every scenario passed on
+2026.3 (`smoke`, `smoke-bg`, `settings`, `conflicts`, `conflicts-store`,
+`stress`, `recording`, `recording-installed`): the same answers and times as
+on the beta, NVDA's memory 158 MB before and 240 MB after the stress run, and
+NVDA answering 0.61 s after the off key there.
+
 ### Other add-ons
 
 `conflicts` installs `sandbox/probe` next to the add-on: a test add-on that,

@@ -32,7 +32,7 @@
 [CmdletBinding()]
 param(
     [string]$Scenario = "smoke",
-    [string[]]$Nvda = @("2026.1.1", "2026.2", "2026.3beta4"),
+    [string[]]$Nvda = @("2026.1.1", "2026.2", "2026.3"),
     [string]$Recording = "smoke.jsonl",
     [string]$Pace = "1",
     [switch]$Stop,

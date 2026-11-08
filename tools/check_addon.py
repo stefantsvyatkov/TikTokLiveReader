@@ -70,8 +70,9 @@ def expected_from(events):
 		if kind == "CommentEvent":
 			expected["comments"].append(f"{name}: {fields.get('comment', '')}")
 		elif kind == "GiftEvent":
-			streakable = fields.get("gift.streakable")
-			if not streakable or not fields.get("streaking"):
+			# Only a streak's last message is a gift; 7.x's Gift has no ``streakable``,
+			# its ``streaking`` applies the library's rule itself.
+			if not fields.get("streaking"):
 				expected["gifts"].append(
 					f"{name}: {fields.get('repeat_count', 1) or 1} {fields.get('gift.name', '')}"
 				)

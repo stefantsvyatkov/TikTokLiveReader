@@ -65,6 +65,16 @@ does not put the working folder on `sys.path` for `-m unittest tests.x`).
   application brought nobody new, one applicant the add-on did not know by
   name, announced since F38).
 
+  On 2026-11-08, before 2.0, three lives (angels_venus, krisipisi03,
+  wahanfx; 1916 messages in 15 minutes each) matched in everything but one
+  anonymous join ("someone") and the one guest request with no independent
+  count. The comparison had counted a gift streak's intermediate messages
+  as gifts: 7.x's `Gift` has no `streakable`, so only `streaking` decides now.
+  The same day the plugin itself ran against two real lives on the host
+  (tests/support for NVDA, every event written, spoken and sounded): connected
+  in 3.5 s, switched off in 0.11 s, and on krisipisi03 the live ended during
+  the run and was announced and closed by itself.
+
 - `tools/snapshot_addon.py <out.json> <recording> [...]` replays recordings
   on recorded time (`feed.VirtualClock`: pauses advance the clock the add-on's
   modules read, and its like timers, at once) and saves files, speech, sounds
@@ -137,6 +147,11 @@ before that date used 2026.3beta4. On 2026-10-28 every scenario passed on
 `stress`, `recording`, `recording-installed`): the same answers and times as
 on the beta, NVDA's memory 158 MB before and 240 MB after the stress run, and
 NVDA answering 0.61 s after the off key there.
+
+On 2026-11-08, before 2.0, every scenario passed on all three versions (411
+steps, `artifacts\scripts\Run-All.ps1`): stress 22 of 22 answers, median 0.13
+s, NVDA's memory 150-161 MB before and 229-233 MB after, 0.50-0.64 s after
+the off key.
 
 ### Other add-ons
 
@@ -220,6 +235,9 @@ On the host, `tests/test_recorder.py`, `test_ffmpeg_setup.py` and the
 `Recording` tests of `test_plugin.py` use `tests/fake_ffmpeg.py` and a local
 HTTP server. On 2026-10-15 a real live was recorded through
 `recorder.LiveRecording` with the real room request and FFmpeg 9.0.2: 21 s,
-H.264 720x1280 and AAC, 1.1 MB (deleted afterwards). In the sandbox on
+H.264 720x1280 and AAC, 1.1 MB (deleted afterwards). Again on 2026-11-08,
+in both qualities: 33 s of H.264 640x1280 and AAC 48 kHz stereo, 4.4 MB, and
+29 s of AAC alone, 0.3 MB (deleted afterwards); GyanD's 9.0.2 was still the
+latest release, with the same size and SHA-256. In the sandbox on
 2026-10-15, after F39: `recording`, `settings` and `smoke` pass on all three
 NVDA versions, no crash.

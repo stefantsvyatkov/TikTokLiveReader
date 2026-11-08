@@ -171,9 +171,8 @@ the user's wording for the catalogue, which the user maintains.
      60f467265b1e312373dbcd92200c2618a74850f98d3d078e94296bb3fa2047ba (GitHub's
      digest; versioned releases stay, BtbN's dated builds are pruned); only
      `bin/ffmpeg.exe` (105 MB) and `LICENSE` are kept. It copies the stream
-     into fragmented MP4 (`-c copy -movflags
-     +frag_keyframe+empty_moov+default_base_moof`, so a file cut short still
-     plays) in its own process; NVDA only starts and stops it.
+     into MP4, or makes MP3 of the audio (see "MP4 and MP3" below), in its own
+     process; NVDA only starts and stops it.
      Trial on 2026-10-15 (one minute of a public phone live in each quality,
      the files deleted after): the room info's stream data offers only `hd`
      (720x1280, 1000 kbit/s for phone lives, 1800 for lives from a computer)
@@ -201,6 +200,36 @@ the user's wording for the catalogue, which the user maintains.
 Done on 2026-10-15: all five, with tests (117) and the sandbox's `recording`
 scenario on all three NVDA versions (F39 found and fixed there). The new texts
 wait for the user's translation; the user guide for the user's update.
+
+MP4 and MP3, from 2026-11-08 at the user's wish ("MP4 за видеото и MP3 за
+аудиото"; MP3 at 192 kbit/s, the user's choice). It was fragmented MP4
+(`-movflags +frag_keyframe+empty_moov+default_base_moof`) for both, and FFmpeg
+9.0.2 showed on the host:
+- Windows gave no length for those files (the shell's System.Media.Duration
+  empty, for .mp4 and .m4a alike).
+- The audio-only file was never cut into fragments (`frag_keyframe` cuts only
+  at video keyframes), so all of it waited in FFmpeg's memory until the end:
+  a recording cut short lost everything.
+- FFmpeg wrote to disk in pieces of 256 KB; a video killed after 10 s was 28
+  bytes.
+
+Now `-flush_packets 1` writes each packet (MP4: each fragment) as it comes, and
+- video: `-c copy -movflags +hybrid_fragmented`, fragmented while recording
+  and turned into a standard MP4 (ftyp, free, mdat, moov) when FFmpeg
+  finishes ("q", or the stream ending). Killed after 15 s it kept 14 s that
+  FFmpeg reads without errors (Windows then sees only the first fragment's
+  2 s). Three hours of the test stream: the stop took 0.37 s (the plugin
+  waits 5 s), FFmpeg 103 MB of memory (21 MB fragmented), 27 s of CPU (1.2 s
+  fragmented), 0.25 % over the three hours.
+- audio: `-c:a libmp3lame -b:a 192k -write_xing 0`, constant rate and no Xing
+  header, so a file killed early still shows its length in Windows (with the
+  header it showed none); LAME ran at 143x real time (0.47 s of CPU a minute);
+  about 86 MB an hour.
+A real live from a computer (wahanfx, 20 s each through the add-on's
+recorder): MP4 with H.264 720x1280 and AAC 48 kHz, MP3 48 kHz stereo at 192
+kbit/s, both decoded without errors and with their length in Windows (the files
+deleted after). No phone live was on at the time; its audio is the same AAC at
+64 kbit/s.
 
 Dropped: gift restrictions (`WebcastGiftDynamicRestrictionMessage` is empty in
 all 84 recorded, its field of length 0); the room title.

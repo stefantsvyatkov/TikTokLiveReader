@@ -350,8 +350,11 @@ class Recording(PluginTest):
 		plugin.script_toggleActive(None)
 		self.assertIn("Recording stopped", support.spoken)
 		(recording,) = self.folder.iterdir()
-		self.assertEqual(recording.suffix, ".m4a")
+		self.assertEqual(recording.suffix, ".mp3")
 		self.assertIn("https://cdn/ao.flv", recording.read_text(encoding="utf-8"))
+		self.assertIn(
+			"-c:a libmp3lame -b:a 192k -write_xing 0 -flush_packets 1", recording.read_text(encoding="utf-8")
+		)
 
 	def test_a_stream_ffmpeg_cannot_open_is_said(self):
 		plugin = self.plugin()

@@ -14,9 +14,14 @@ from . import ffmpeg_setup, settings, store
 
 # The settings' quality names, TikTok's for them in the stream data, and the file type.
 TIKTOK_QUALITIES = {"video": "hd", "audio": "ao"}
-EXTENSIONS = {"video": ".mp4", "audio": ".m4a"}
-# Fragmented MP4, so that a file cut short (NVDA closing, a crash) still plays.
-COPY = ["-c", "copy", "-movflags", "+frag_keyframe+empty_moov+default_base_moof"]
+EXTENSIONS = {"video": ".mp4", "audio": ".mp3"}
+# What FFmpeg makes of the stream for each file type, written to disk as it comes, so that a file cut short
+# (a crash) still plays: MP4 in fragments until FFmpeg finishes it as a standard one, MP3 at a constant rate.
+OUTPUT = {
+	".mp4": ["-c", "copy", "-movflags", "+hybrid_fragmented"],
+	".mp3": ["-c:a", "libmp3lame", "-b:a", "192k", "-write_xing", "0"],
+}
+FLUSH = ["-flush_packets", "1"]
 CREATE_NO_WINDOW = 0x08000000
 # How long FFmpeg is watched after starting: a wrong address ends it at once.
 SETTLE = 2.0
@@ -47,7 +52,7 @@ def stream_url(room_info, quality):
 
 
 def file_path(folder, username, quality, now=None):
-	"""``folder``/<date time host>.mp4 (.m4a for audio), named as archives are."""
+	"""``folder``/<date time host>.mp4 (.mp3 for audio), named as archives are."""
 	stamp = (now or datetime.datetime.now()).strftime("%Y-%m-%d %H-%M-%S")
 	host = store.safe_name(username) or "unknown"
 	return Path(folder) / f"{stamp} {host}{EXTENSIONS.get(quality, EXTENSIONS['video'])}"
@@ -88,7 +93,8 @@ class Recorder:
 							"-y",
 							"-i",
 							url,
-							*COPY,
+							*OUTPUT.get(path.suffix, OUTPUT[".mp4"]),
+							*FLUSH,
 							str(path),
 						],
 						stdin=subprocess.PIPE,

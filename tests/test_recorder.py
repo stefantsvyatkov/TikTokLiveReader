@@ -50,7 +50,7 @@ class FileName(unittest.TestCase):
 			recorder.file_path(folder, "host", "video", now).name, "2026-10-15 20-30-05 host.mp4"
 		)
 		self.assertEqual(
-			recorder.file_path(folder, "ho:st?", "audio", now).name, "2026-10-15 20-30-05 host.m4a"
+			recorder.file_path(folder, "ho:st?", "audio", now).name, "2026-10-15 20-30-05 host.mp3"
 		)
 
 
@@ -67,7 +67,7 @@ class Process(unittest.TestCase):
 		self.assertFalse(rec.recording)
 		lines = self.path.read_text(encoding="utf-8").splitlines()
 		self.assertEqual((lines[0], lines[-1]), ("recording", "done"))
-		self.assertIn("-c copy -movflags +frag_keyframe+empty_moov+default_base_moof", lines[1])
+		self.assertIn("-c copy -movflags +hybrid_fragmented -flush_packets 1", lines[1])
 
 	def test_an_ffmpeg_that_ends_at_once_is_a_failure_with_its_error_logged(self):
 		del support.logged[:]

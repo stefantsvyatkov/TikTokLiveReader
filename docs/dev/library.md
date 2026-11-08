@@ -205,3 +205,28 @@ where the host scans a QR code with the TikTok app and Euler resolves the
 session "from the stored OAuth session", so Euler holds a full TikTok login.
 Either way a third party could act as the host's account; TikTok offers no
 official API for LIVE moderation.
+
+## Age-restricted lives
+
+Checked on 2026-11-09 at the user's wish, on lives that were on at the time.
+TikTok's web feed for a viewer who is not signed in carries no age-restricted
+lives (344 rooms, every `age_restricted` empty), so the hosts linked into
+those lives (battles, guests: `link_mic.linked_user_list`, 272 more) were
+checked from a tiktok.com page: five live rooms answered `/webcast/room/info/`
+with `status_code` 4003110 and `{"prompts": ""}`, every other live room with
+its full info and `age_restricted: {"restricted": false, ...}`.
+
+- Following works without signing in: the add-on connected to two of them
+  (angelow7.7.7, david_georgiev2) in about 4 s and wrote comments, followers,
+  gifts, likes and visitors for 2 minutes. Connecting never needs the room
+  info; only `_live_start` asks for it, so Duration in stats.txt counts from
+  connecting there. `/api-live/user/room/` (the room id request) still gives
+  such a live's `startTime`.
+- Recording does not: the stream address is only in the room info (and in
+  `/api-live/user/room/`'s `streamData`, which TikTok leaves out for these
+  lives), so `LiveRecording` gets AgeRestrictedError and the plugin says it
+  could not start (two lives, both qualities).
+- The library's AgeRestrictedError is not proof: it is raised for any room
+  info of at most one key, which TikTok also sends for offline users and when
+  many requests come at once (31 offline users and one ordinary live in a
+  scan of the 272 through the library). 1.8 never asked for the room info.

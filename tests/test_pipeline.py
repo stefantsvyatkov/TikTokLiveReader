@@ -230,6 +230,17 @@ class ConnectionLifecycle(unittest.TestCase):
 		r = f.run_session(f.viewers(3), clock=clock, room_info={"create_time": int(clock.time()) - 83 * 60})
 		self.assertIn("Duration: 1:23", r.files["stats.txt"])
 
+	def test_without_room_info_the_start_comes_from_the_room_id_request(self):
+		# An age restricted live: TikTok gives its room info only to signed-in viewers.
+		clock = f.VirtualClock()
+		r = f.run_session(
+			f.viewers(3),
+			clock=clock,
+			room_info=RuntimeError("Age restricted stream"),
+			room_data={"data": {"liveRoom": {"startTime": int(clock.time()) - 83 * 60}}},
+		)
+		self.assertIn("Duration: 1:23", r.files["stats.txt"])
+
 	def test_comments_shares_and_gifts_are_counted(self):
 		r = f.run_session(
 			f.comment(alice, "hi"),

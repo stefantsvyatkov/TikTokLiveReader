@@ -218,14 +218,25 @@ def room_info(username):
 
 
 async def _live_start(client):
-	"""When the live started, from the room info: a TikTok request, not the sign
-	server, made apart from connecting so that its failing (an age restricted
-	live) does not stop the connection. None when it cannot tell."""
+	"""When the live started, from the room info, or else from the room id request
+	(an age restricted live has no room info without signing in): TikTok requests,
+	not the sign server, made apart from connecting so that their failing does not
+	stop the connection. None when neither tells."""
 	try:
 		info = await client.web.fetch_room_info()
-		return int((info or {}).get("create_time") or 0) or None
+		started = int((info or {}).get("create_time") or 0)
 	except Exception:
 		log.debugWarning("TikTok Live Reader: no room info", exc_info=True)
+		started = 0
+	if started:
+		return started
+	try:
+		data = await client.web.fetch_room_id_from_api.fetch_user_room_data(
+			web=client.web, unique_id=client.unique_id
+		)
+		return int(((data or {}).get("data") or {}).get("liveRoom", {}).get("startTime") or 0) or None
+	except Exception:
+		log.debugWarning("TikTok Live Reader: no start time", exc_info=True)
 		return None
 
 

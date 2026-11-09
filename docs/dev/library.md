@@ -219,9 +219,10 @@ its full info and `age_restricted: {"restricted": false, ...}`.
 - Following works without signing in: the add-on connected to two of them
   (angelow7.7.7, david_georgiev2) in about 4 s and wrote comments, followers,
   gifts, likes and visitors for 2 minutes. Connecting never needs the room
-  info; only `_live_start` asks for it, so Duration in stats.txt counts from
+  info; only `_live_start` asks for it, so Duration in stats.txt counted from
   connecting there. `/api-live/user/room/` (the room id request) still gives
-  such a live's `startTime`.
+  such a live's `startTime` (seconds, the room info's `create_time` on two
+  ordinary lives), so `_live_start` now takes it when the room info fails.
 - Recording does not: the stream address is only in the room info (and in
   `/api-live/user/room/`'s `streamData`, which TikTok leaves out for these
   lives), so `LiveRecording` gets AgeRestrictedError and the plugin says it

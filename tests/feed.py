@@ -264,9 +264,15 @@ class _ReplayClient(TikTokLive.TikTokLiveClient):
 		self._room_id = 1
 
 		async def room_info(*args, **kwargs):
+			if isinstance(session.room_info, Exception):
+				raise session.room_info
 			return session.room_info
 
+		async def room_data(*args, **kwargs):
+			return session.room_data
+
 		self._web.fetch_room_info = room_info
+		self._web.fetch_room_id_from_api.fetch_user_room_data = room_data
 		await self._replay(session)
 
 	async def _replay(self, session):
@@ -332,6 +338,7 @@ class Session:
 	clock: object = None
 	speech: list = field(default_factory=list)
 	room_info: dict = field(default_factory=dict)
+	room_data: dict = field(default_factory=dict)
 
 
 class VirtualClock:
@@ -445,7 +452,7 @@ def wait_until(condition, timeout=10):
 
 
 @contextlib.contextmanager
-def replaying(*frames, end="clean", past_grace_period=True, clock=None, room_info=None):
+def replaying(*frames, end="clean", past_grace_period=True, clock=None, room_info=None, room_data=None):
 	"""While active, the add-on's connections replay ``frames`` instead of connecting.
 
 	A number among the frames is a pause in seconds; with a ``VirtualClock`` the
@@ -455,7 +462,9 @@ def replaying(*frames, end="clean", past_grace_period=True, clock=None, room_inf
 		item if isinstance(item, (int, float, proto.ProtoMessageFetchResult)) else frame(item)
 		for item in frames
 	]
-	session = Session(frames, end, past_grace_period, clock=clock, room_info=room_info or {})
+	session = Session(
+		frames, end, past_grace_period, clock=clock, room_info=room_info or {}, room_data=room_data or {}
+	)
 	real_sounds = announcer.sound_manager
 	session.sounds = announcer.sound_manager = _RecordingSounds()
 	real_queue_speech = announcer.queue_speech
@@ -491,9 +500,11 @@ def run_session(
 	timeout=60,
 	clock=None,
 	room_info=None,
+	room_data=None,
 ):
 	"""Run one connection through the add-on's real thread, replaying ``frames``;
-	``room_info`` is what TikTok answers for the room (no request is made).
+	``room_info`` is what TikTok answers for the room, or the error it raises, and
+	``room_data`` its answer to the room id request (no request is made).
 
 	``settle_likes`` lets the like aggregator's 10 second timers fire before
 	the session closes, as they would in a session that stays open.
@@ -517,7 +528,12 @@ def run_session(
 		return callback
 
 	with replaying(
-		*frames, end=end, past_grace_period=past_grace_period, clock=clock, room_info=room_info
+		*frames,
+		end=end,
+		past_grace_period=past_grace_period,
+		clock=clock,
+		room_info=room_info,
+		room_data=room_data,
 	) as session:
 		addon_session.connect(
 			username="host",

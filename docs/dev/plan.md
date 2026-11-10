@@ -255,3 +255,31 @@ deleted after). No phone live was on at the time; its audio is the same AAC at
 
 Dropped: gift restrictions (`WebcastGiftDynamicRestrictionMessage` is empty in
 all 84 recorded, its field of length 0); the room title.
+
+## Ignored users (contributed, 2026-11-04)
+
+TikTok's own moderation (mute, block, pin) acts as the host's account, which
+the add-on cannot do safely (library.md, Moderation). Ignoring someone is the
+add-on's own: nothing changes on TikTok, the host only stops hearing them.
+
+- What is dropped: comments, likes (also those being summed when they are
+  ignored), shares and visits, from the files, the speech, the sounds and the
+  top likes; announcements still queued for them when they are ignored. What
+  is kept: gifts and follows, for the host to thank them, and guest requests;
+  the live's totals (likes, viewers) are TikTok's and still count them.
+- People are kept by handle (TikTok's unique id, lower case), which stays when
+  the name changes, with the name last seen for the list:
+  `[ignored_users]` in the settings file, written only when someone is.
+- The command takes the person from the current item: each line written while
+  NVDA runs remembers who it is about (`store.author_of`), as the line alone
+  cannot tell (a name may contain ": "). Lines from before NVDA started,
+  stats, top lists and guest requests are about nobody.
+- Texts (new msgids; the translations are the user's):
+  - command NVDA+control+shift+i, only while switched on: "Ignore the person
+    the current item is about, or stop ignoring them"
+  - "{name} is now ignored", "{name} is no longer ignored", "Nobody to ignore
+    in this item"
+  - settings tab "Ignored users", list "&Ignored users" with items "{name}
+    (@{handle})", button "&Stop ignoring"
+- The tab is not tested outside NVDA (wx is a stand-in); the sandbox's
+  settings scenario does not cover it yet.

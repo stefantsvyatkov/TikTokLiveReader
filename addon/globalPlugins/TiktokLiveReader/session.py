@@ -14,6 +14,8 @@ from logHandler import log
 from . import announcer, pipeline, settings, store, tiktok_adapter
 
 RETRY_PAUSE = 3
+# The text files get the lines waiting in memory this often (store.flush).
+WRITE_INTERVAL = 0.5
 _current = None
 _lock = threading.Lock()
 
@@ -40,18 +42,21 @@ def apply_settings(new):
 
 
 def _write_files_regularly(run):
-	"""The stats file when it changed and every 30 s for the duration, the top
-	lists every 10 s, until the run ends (one such thread per run; 1.8 could
-	leave two running, F23)."""
+	"""The lines waiting in memory every half second, the stats file when it
+	changed and every 30 s for the duration, the top lists every 10 s when they
+	changed, until the run ends (one such thread per run; 1.8 could leave two
+	running, F23)."""
 	ticks = 0
+	per_second = round(1 / WRITE_INTERVAL)
 	while not run.stopped.is_set():
-		if ticks % 10 == 0:
+		if ticks % (10 * per_second) == 0:
 			pipeline.write_top_files()
-		if ticks % 30 == 0:
+		if ticks % (30 * per_second) == 0:
 			pipeline.update_stats_file(force=True)
 		pipeline.flush_stats_file()
+		store.flush()
 		ticks += 1
-		run.stopped.wait(1)
+		run.stopped.wait(WRITE_INTERVAL)
 
 
 def _runner(run, username, on_connect_cb, on_retry_cb, on_fail_cb, max_attempts=3, on_live_end_cb=None):
@@ -178,4 +183,5 @@ def disconnect():
 	# Written again for the final duration, also when nothing else changed.
 	pipeline.update_stats_file(force=True)
 	pipeline.like_manager.stop()
+	store.flush()
 	announcer.sound_manager.stop()

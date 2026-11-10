@@ -59,6 +59,8 @@ class PluginTest(unittest.TestCase):
 		self.replay.__exit__(None, None, None)
 
 	def read(self, plugin, name):
+		# Without waiting for the session's next write of the lines kept in memory.
+		store.flush()
 		path = store.path(name)
 		return path.read_text(encoding="utf-8").splitlines() if path.exists() else []
 
@@ -223,6 +225,16 @@ class Positions(PluginTest):
 		support.spoken.clear()
 		again.script_nextItem(None)
 		self.assertRegex(support.spoken[-1], r"\(3 of 3\)$")
+
+	def test_kept_when_nvda_exits_during_a_session(self):
+		off = {"behavior": {"clear_on_start": False}}
+		plugin, _log_dir = make_plugin(**off)
+		self.start(plugin, f.comment(alice, "one"), f.comment(bob, "two"), lines=2)
+		plugin.script_nextItem(None)
+		plugin.script_nextItem(None)
+		plugin.terminate()
+		saved = json.loads(settings.POSITIONS_PATH.read_text(encoding="utf-8"))
+		self.assertEqual(saved["files"]["comments"], {"line": 1})
 
 
 class Clearing(PluginTest):

@@ -51,6 +51,7 @@ class SettingsDialog(wx.Dialog):
 		auto_speak = wx.Panel(notebook)
 		sounds = wx.Panel(notebook)
 		recording = wx.Panel(notebook)
+		ignored = wx.Panel(notebook)
 
 		self._build_general(general, current)
 		sizer = wx.BoxSizer(wx.VERTICAL)
@@ -59,6 +60,7 @@ class SettingsDialog(wx.Dialog):
 		self._build_sounds(sounds, current)
 		self._build_auto_speak(auto_speak, current)
 		self._build_recording(recording, current)
+		self._build_ignored(ignored, current)
 
 		notebook.AddPage(general, _("General"))
 		notebook.AddPage(events, _("Events"))
@@ -66,6 +68,8 @@ class SettingsDialog(wx.Dialog):
 		notebook.AddPage(sounds, _("Sounds"))
 		# Translators: Name of the settings page about recording lives.
 		notebook.AddPage(recording, _("Live recordings"))
+		# Translators: Name of the settings page listing the people the add-on ignores.
+		notebook.AddPage(ignored, _("Ignored users"))
 
 		top = wx.BoxSizer(wx.VERTICAL)
 		top.Add(notebook, 1, wx.EXPAND | wx.ALL, 5)
@@ -217,6 +221,50 @@ class SettingsDialog(wx.Dialog):
 		sizer.Add(folder_row, flag=wx.EXPAND | wx.ALL, border=5)
 		panel.SetSizer(sizer)
 
+	def _build_ignored(self, panel, current):
+		sizer = wx.BoxSizer(wx.VERTICAL)
+		self.ignored_users = dict(current.ignored_users)
+		# Alphabetical by name, as they are listed.
+		self._ignored_handles = sorted(
+			self.ignored_users, key=lambda handle: self.ignored_users[handle].lower()
+		)
+		# Translators: Label of the list of people the add-on ignores.
+		label = wx.StaticText(panel, label=_("&Ignored users"))
+		self.ignored_list = wx.ListBox(
+			panel,
+			choices=[
+				# Translators: An ignored person in the settings. {name} is their name, {handle} their TikTok user name.
+				_("{name} (@{handle})").format(name=self.ignored_users[handle], handle=handle)
+				for handle in self._ignored_handles
+			],
+			size=(400, 200),
+		)
+		# Translators: Button that removes the selected person from the ignored users.
+		self.unignore = wx.Button(panel, label=_("&Stop ignoring"))
+		if self._ignored_handles:
+			self.ignored_list.SetSelection(0)
+		self._update_unignore()
+		self.ignored_list.Bind(wx.EVT_LISTBOX, lambda evt: self._update_unignore())
+		self.unignore.Bind(wx.EVT_BUTTON, self._on_unignore)
+		sizer.Add(label, flag=wx.LEFT | wx.RIGHT | wx.TOP, border=5)
+		sizer.Add(self.ignored_list, 1, flag=wx.EXPAND | wx.ALL, border=5)
+		sizer.Add(self.unignore, flag=wx.ALL, border=5)
+		panel.SetSizer(sizer)
+
+	def _update_unignore(self):
+		self.unignore.Enable(self.ignored_list.GetSelection() != wx.NOT_FOUND)
+
+	def _on_unignore(self, evt):
+		selection = self.ignored_list.GetSelection()
+		if selection == wx.NOT_FOUND:
+			return
+		del self.ignored_users[self._ignored_handles.pop(selection)]
+		self.ignored_list.Delete(selection)
+		if self._ignored_handles:
+			self.ignored_list.SetSelection(min(selection, len(self._ignored_handles) - 1))
+			self.ignored_list.SetFocus()
+		self._update_unignore()
+
 	def _choose_folder(self, field, default, title):
 		folder = field.GetValue()
 		if not Path(folder).is_dir():
@@ -350,4 +398,5 @@ class SettingsDialog(wx.Dialog):
 			record_on_connect=self.record_on_connect.IsChecked(),
 			record_quality=settings.RECORDING_QUALITIES[self.record_quality.GetSelection()],
 			recordings_folder=self.recordings_folder.GetValue(),
+			ignored_users=dict(self.ignored_users),
 		)

@@ -36,6 +36,7 @@ NAV_GESTURES = {
 	"kb:NVDA+control+shift+r": "clearTextFiles",
 	"kb:NVDA+control+shift+v": "reportViewers",
 	"kb:NVDA+shift+control+p": "togglePlaySounds",
+	"kb:NVDA+control+shift+i": "toggleIgnoreUser",
 }
 
 
@@ -520,10 +521,11 @@ class GlobalPlugin(NVDA_GlobalPlugin):
 
 		threading.Thread(target=work, daemon=True).start()
 
-	def _persist_index(self):
+	def _remember_index(self):
+		"""Kept for the next session; written when the session ends or NVDA exits,
+		not on every key."""
 		if not self.settings.clear_on_start:
 			self.filePositions[self.currentFileIndex] = self.index
-			self._save_positions_json()
 
 	@script(description=_("Next item"))
 	def script_nextItem(self, gesture):
@@ -537,7 +539,7 @@ class GlobalPlugin(NVDA_GlobalPlugin):
 			self.index = 0
 		elif self.index < len(items) - 1:
 			self.index += 1
-		self._persist_index()
+		self._remember_index()
 		self._speak_current(items)
 
 	@script(description=_("Previous item"))
@@ -552,7 +554,7 @@ class GlobalPlugin(NVDA_GlobalPlugin):
 			self.index = 0
 		elif self.index > 0:
 			self.index -= 1
-		self._persist_index()
+		self._remember_index()
 		self._speak_current(items)
 
 	@script(description=_("First item"))
@@ -564,7 +566,7 @@ class GlobalPlugin(NVDA_GlobalPlugin):
 			self._report_no_items()
 			return
 		self.index = 0
-		self._persist_index()
+		self._remember_index()
 		self._speak_current(items)
 
 	@script(description=_("Last item"))
@@ -576,7 +578,7 @@ class GlobalPlugin(NVDA_GlobalPlugin):
 			self._report_no_items()
 			return
 		self.index = len(items) - 1
-		self._persist_index()
+		self._remember_index()
 		self._speak_current(items)
 
 	@script(description=_("Previous file"))
@@ -586,7 +588,7 @@ class GlobalPlugin(NVDA_GlobalPlugin):
 		self.filePositions[self.currentFileIndex] = self.index
 		self.currentFileIndex = (self.currentFileIndex - 1) % len(FILES)
 		self.index = self.filePositions.get(self.currentFileIndex, -1)
-		self._persist_index()
+		self._remember_index()
 		name, _path = self._get_current_file()
 		ui.message(name)
 
@@ -597,7 +599,7 @@ class GlobalPlugin(NVDA_GlobalPlugin):
 		self.filePositions[self.currentFileIndex] = self.index
 		self.currentFileIndex = (self.currentFileIndex + 1) % len(FILES)
 		self.index = self.filePositions.get(self.currentFileIndex, -1)
-		self._persist_index()
+		self._remember_index()
 		name, _path = self._get_current_file()
 		ui.message(name)
 
@@ -644,12 +646,49 @@ class GlobalPlugin(NVDA_GlobalPlugin):
 		# Translators: Announced when reporting live viewer count. {count} is the number of viewers.
 		ui.message(_("{count} viewers").format(count=count))
 
+	@script(
+		# Translators: Describes the command that ignores the person the current item is about, in Input gestures.
+		description=_("Ignore the person the current item is about, or stop ignoring them")
+	)
+	def script_toggleIgnoreUser(self, gesture):
+		if not self.active:
+			return
+		items = self._load_items()
+		if not items:
+			self._report_no_items()
+			return
+		if not 0 <= self.index < len(items):
+			ui.message(_("No entries"))
+			return
+		author = store.author_of(items[self.index])
+		if author is None:
+			# Translators: Announced when the current item is not about one person (stats, top lists,
+			# guest requests) or was written before NVDA was started.
+			ui.message(_("Nobody to ignore in this item"))
+			return
+		handle, name = author
+		ignored = dict(self.settings.ignored_users)
+		if handle in ignored:
+			del ignored[handle]
+			# Translators: Announced when a person is no longer ignored. {name} is their name.
+			msg = _("{name} is no longer ignored").format(name=name)
+		else:
+			ignored[handle] = name
+			# Translators: Announced when a person is ignored: their comments, likes, shares and visits
+			# are no longer written or announced. {name} is their name.
+			msg = _("{name} is now ignored").format(name=name)
+		self.settings.ignored_users = ignored
+		self._apply_settings(self.settings)
+		ui.message(msg)
+
 	def terminate(self):
 		try:
 			self.recording.stop()
 			session.disconnect()
 			if hasattr(self, "speech_manager"):
 				self.speech_manager.stop()
+			if self.active:
+				self._cleanup_temp_files()
 			self._archive_session(self.settings.username)
 		except Exception:
 			log.exception("TikTok Live Reader: closing")

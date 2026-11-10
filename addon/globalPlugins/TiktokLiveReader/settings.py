@@ -40,6 +40,9 @@ DEFAULT_SOUNDS = {
 	"volume": 70,
 }
 EVENT_SECTIONS = ("events", "auto_speak", "sound_events")
+# Handle (TikTok's unique id, lower case) = the name last seen; written only
+# when someone is ignored.
+IGNORED_USERS_SECTION = "ignored_users"
 
 
 def user_config_dir():
@@ -113,6 +116,9 @@ class Settings:
 	record_on_connect: bool = DEFAULT_RECORDING["auto_start"]
 	record_quality: str = DEFAULT_RECORDING["quality"]
 	recordings_folder: str = DEFAULT_RECORDING["folder"]
+	# People whose comments, likes, shares and visits are neither written nor
+	# announced: their handle, the name last seen.
+	ignored_users: dict = field(default_factory=dict)
 
 
 def _as_ini(value):
@@ -188,6 +194,7 @@ def from_config(config):
 		),
 		record_quality=_quality(config.get("recording", "quality", fallback=DEFAULT_RECORDING["quality"])),
 		recordings_folder=config.get("recording", "folder", fallback=DEFAULT_RECORDING["folder"]),
+		ignored_users=dict(config.items(IGNORED_USERS_SECTION)) if IGNORED_USERS_SECTION in config else {},
 	)
 
 
@@ -245,5 +252,10 @@ def save(settings):
 		"quality": _quality(settings.record_quality),
 		"folder": settings.recordings_folder,
 	}
+	if settings.ignored_users:
+		# Doubled: configparser reads a single % as the start of an interpolation.
+		config[IGNORED_USERS_SECTION] = {
+			user: name.replace("%", "%%") for user, name in settings.ignored_users.items()
+		}
 	with open(CONFIG_PATH, "w", encoding="utf-8") as handle:
 		config.write(handle)

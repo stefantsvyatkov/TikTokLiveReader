@@ -306,7 +306,9 @@ class _RecordingSounds:
 		self.played = []
 		self._queue = queue.Queue()
 
-	def play(self, event_name, play_file=True, on_complete=None, post_delay=1.0):
+	def play(self, event_name, play_file=True, on_complete=None, post_delay=1.0, wanted=None):
+		if wanted is not None and not wanted():
+			return
 		self.played.append((event_name, play_file))
 		if on_complete:
 			on_complete()
@@ -429,6 +431,8 @@ def write_settings(**sections):
 	"""
 	config = addon_settings.apply_config_defaults(addon_settings.read_config_file())
 	for section, values in sections.items():
+		if section not in config:
+			config[section] = {}
 		for key, value in values.items():
 			config[section][key] = addon_settings._as_ini(value)
 	with open(addon_settings.CONFIG_PATH, "w", encoding="utf-8") as handle:
@@ -467,13 +471,13 @@ def replaying(*frames, end="clean", past_grace_period=True, clock=None, room_inf
 	)
 	real_sounds = announcer.sound_manager
 	session.sounds = announcer.sound_manager = _RecordingSounds()
-	real_queue_speech = announcer.queue_speech
+	real_speak_and_wait = announcer.speak_and_wait
 
-	def queue_speech(text):
+	def speak_and_wait(text):
 		session.speech.append(text)
-		real_queue_speech(text)
+		real_speak_and_wait(text)
 
-	announcer.queue_speech = queue_speech
+	announcer.speak_and_wait = speak_and_wait
 	runtime = adapter.runtime().modules["TikTokLive"]
 	real_client_class = runtime.TikTokLiveClient
 	runtime.TikTokLiveClient = _ReplayClient
@@ -487,7 +491,7 @@ def replaying(*frames, end="clean", past_grace_period=True, clock=None, room_inf
 				thread.join(10)
 			runtime.TikTokLiveClient = real_client_class
 			announcer.sound_manager = real_sounds
-			announcer.queue_speech = real_queue_speech
+			announcer.speak_and_wait = real_speak_and_wait
 
 
 def run_session(

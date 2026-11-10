@@ -229,6 +229,67 @@ are right.
   `_build_message_classes`). In 19 + 18 recorded lives no other library wrote
   to stderr.
 
+## Load
+
+Fixed on 2026-11-03; measured with 20 000 lines on a fast computer (a slow
+one with an antivirus pays more for each file opened), before -> after.
+
+- F40 Every like message started a `threading.Timer` (a thread) and cancelled
+  the person's previous one: 3000 like messages from 300 people took 8.4 s
+  of the connection thread and left 300 threads waiting. Now one timer for
+  the earliest pause: 2 ms, one thread (`likes.py`).
+- F41 Each navigation key read and split the whole text file under the store
+  lock, on NVDA's main thread, and wrote the positions file: 19.5 ms a key
+  at 20 000 lines, growing with the file and holding up the connection's
+  writes meanwhile. Now the entries are kept, with the lines the add-on
+  writes added to them; a file is read again only from where something else
+  appended to it (0.02 ms a key, 0.25 ms when a line was just written). The
+  positions are written when the session ends or NVDA exits.
+- F42 Each line opened, appended to and closed its file on the connection
+  thread (138 us a line; a comment is two lines, comments and events). Now
+  the lines wait in memory and the session writes them every 0.5 s, and before
+  anything reads, archives or clears the files (0.5 us a line). The stats file
+  is written by the session's thread, not by the event that changed it, and the
+  top lists only when they changed.
+- F43 Announcements are spoken at least a second apart, so a busy live left
+  them minutes behind. One that waited 30 s (`announcer.STALE_AFTER`) is now
+  dropped; it is in the text files. The sounds are read once and their player
+  kept instead of opening the audio device for each.
+- F44 (2026-11-05) Announcements waited in one queue in the order they came.
+  In a busy live likes come from many people at once (each person's summed
+  until a 10 s pause, F40) and visitors keep coming, so comments waited behind
+  them and, with F43, were dropped after 30 s: a tester on a busy live did not
+  hear the comments at all. Now `announcer.AnnouncementQueue` hands them out by
+  `PRIORITY` (comments, gifts, followers, requests, shares, likes, visitors),
+  each kind in the order it came, for the sounds and for the speech. Only the
+  newest 3 likes and 3 visitors wait (`WAITING_AT_MOST`), and they are dropped
+  after 10 s (`STALE_AFTER_BY_KIND`); everything else after 60 s
+  (`STALE_AFTER`). The order is fixed: choosing it would need a settings page
+  and new strings.
+- F45 (2026-11-05) Every announcement was followed by a fixed second in the
+  sound worker, and every text by another in the speech reader. A short text
+  ("Alice joined") left most of it silent; a long comment was still being
+  spoken when the next ones went to NVDA, which queued them in its own speech
+  queue, out of reach of F44's order and of dropping what waited too long.
+  Now the sound worker speaks each text itself (`announcer.speak_and_wait`,
+  the speech reader thread is gone) with a `CallbackCommand` after it, waits
+  for it, and leaves `GAP` (0.3 s), also between sounds. NVDA does not always
+  say a text was spoken, so the wait ends too:
+  - when NVDA cancels speech (`speech.speechCanceled`, registered while auto
+    speak is on: a key, a focus change), then with `UNCONFIRMED_PAUSE` (1 s)
+    so that what the key brings is heard first;
+  - with speech off, beeps or on demand (`speech.getState().speechMode` not
+    talk): `ui.message` as before, then 1 s;
+  - after a time that fits the text (2 s and 1 s per 8 characters, at most
+    30 s) when the synthesizer does not report where it is (the silence
+    synthesizer never does); after `UNCONFIRMED_LIMIT` (2) such texts in a row
+    only 1 s is waited, until a callback comes again;
+  - not while speech is paused (shift): the text is still to come.
+  The text still goes to braille, as `ui.message` showed it. The same in NVDA
+  2025.1 (the add-on's minimum) and 2026.3 (`speech/extensions.py`,
+  `speech/commands.py`, `speech/manager.py`). Not checked in real NVDA: the
+  sandbox's silent synthesizer only exercises the time limit.
+
 ## Not issues
 
 - F26 (likes counted twice through `LikeEvent` and `DiggEvent`): 1088 like

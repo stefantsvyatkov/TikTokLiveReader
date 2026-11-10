@@ -520,10 +520,11 @@ class GlobalPlugin(NVDA_GlobalPlugin):
 
 		threading.Thread(target=work, daemon=True).start()
 
-	def _persist_index(self):
+	def _remember_index(self):
+		"""Kept for the next session; written when the session ends or NVDA exits,
+		not on every key."""
 		if not self.settings.clear_on_start:
 			self.filePositions[self.currentFileIndex] = self.index
-			self._save_positions_json()
 
 	@script(description=_("Next item"))
 	def script_nextItem(self, gesture):
@@ -537,7 +538,7 @@ class GlobalPlugin(NVDA_GlobalPlugin):
 			self.index = 0
 		elif self.index < len(items) - 1:
 			self.index += 1
-		self._persist_index()
+		self._remember_index()
 		self._speak_current(items)
 
 	@script(description=_("Previous item"))
@@ -552,7 +553,7 @@ class GlobalPlugin(NVDA_GlobalPlugin):
 			self.index = 0
 		elif self.index > 0:
 			self.index -= 1
-		self._persist_index()
+		self._remember_index()
 		self._speak_current(items)
 
 	@script(description=_("First item"))
@@ -564,7 +565,7 @@ class GlobalPlugin(NVDA_GlobalPlugin):
 			self._report_no_items()
 			return
 		self.index = 0
-		self._persist_index()
+		self._remember_index()
 		self._speak_current(items)
 
 	@script(description=_("Last item"))
@@ -576,7 +577,7 @@ class GlobalPlugin(NVDA_GlobalPlugin):
 			self._report_no_items()
 			return
 		self.index = len(items) - 1
-		self._persist_index()
+		self._remember_index()
 		self._speak_current(items)
 
 	@script(description=_("Previous file"))
@@ -586,7 +587,7 @@ class GlobalPlugin(NVDA_GlobalPlugin):
 		self.filePositions[self.currentFileIndex] = self.index
 		self.currentFileIndex = (self.currentFileIndex - 1) % len(FILES)
 		self.index = self.filePositions.get(self.currentFileIndex, -1)
-		self._persist_index()
+		self._remember_index()
 		name, _path = self._get_current_file()
 		ui.message(name)
 
@@ -597,7 +598,7 @@ class GlobalPlugin(NVDA_GlobalPlugin):
 		self.filePositions[self.currentFileIndex] = self.index
 		self.currentFileIndex = (self.currentFileIndex + 1) % len(FILES)
 		self.index = self.filePositions.get(self.currentFileIndex, -1)
-		self._persist_index()
+		self._remember_index()
 		name, _path = self._get_current_file()
 		ui.message(name)
 
@@ -650,6 +651,8 @@ class GlobalPlugin(NVDA_GlobalPlugin):
 			session.disconnect()
 			if hasattr(self, "speech_manager"):
 				self.speech_manager.stop()
+			if self.active:
+				self._cleanup_temp_files()
 			self._archive_session(self.settings.username)
 		except Exception:
 			log.exception("TikTok Live Reader: closing")

@@ -2,7 +2,9 @@
 lines in the text files, the counters, the stats and top files, and what is
 announced. Runs on the connection thread; holds the state of the session."""
 
+import collections
 import datetime
+import functools
 import re
 import threading
 import time
@@ -30,12 +32,13 @@ class BoundedSet:
 
 	def __init__(self, limit):
 		self._limit = limit
-		self._items = {}
+		# Forgetting the oldest of a plain dict walks past every entry removed before.
+		self._items = collections.OrderedDict()
 
 	def add(self, item):
 		self._items[item] = None
 		while len(self._items) > self._limit:
-			del self._items[next(iter(self._items))]
+			self._items.popitem(last=False)
 
 	def clear(self):
 		self._items.clear()
@@ -70,7 +73,7 @@ total_viewers = 0
 _comments_logged_before = BoundedSet(MAX_TRACKED_ITEMS)
 _events_logged_before = BoundedSet(MAX_TRACKED_ITEMS)
 _known_followers = BoundedSet(MAX_TRACKED_ITEMS)
-_known_users = {}
+_known_users = collections.OrderedDict()
 _requests_log = {}
 _seen_messages = BoundedSet(MAX_MESSAGE_IDS)
 # User ids in the last guest applicant queue seen; None before the first.
@@ -82,6 +85,7 @@ NAME_WAIT = 5.0
 _stats_lock = threading.Lock()
 _stats_dirty = False
 _stats_last_write = 0.0
+_top_dirty = False
 
 
 def use_settings(new):
@@ -106,7 +110,7 @@ def _remember_user(uid, name):
 		return
 	_known_users[str(uid)] = name
 	while len(_known_users) > MAX_TRACKED_ITEMS:
-		del _known_users[next(iter(_known_users))]
+		_known_users.popitem(last=False)
 
 
 def _sanitize_name(name):
@@ -114,6 +118,12 @@ def _sanitize_name(name):
 		name = LINE_BREAKS.sub(" ", name)
 	if not _settings.clean_usernames or not isinstance(name, str):
 		return name
+	return _letters_kept(name)
+
+
+# The same people come back with every comment, like and gift.
+@functools.lru_cache(maxsize=4096)
+def _letters_kept(name):
 	out = []
 	for ch in name:
 		cat = unicodedata.category(ch)
@@ -195,9 +205,10 @@ def remember_logged():
 
 def reset_accumulators():
 	global top_gifters, top_likers, total_likes, total_followers, total_diamonds, visitors, viewer_count
-	global total_viewers, total_comments, total_shares, total_gifts, live_started, connected_at
+	global total_viewers, total_comments, total_shares, total_gifts, live_started, connected_at, _top_dirty
 	top_gifters = {}
 	top_likers = {}
+	_top_dirty = False
 	total_likes = 0
 	total_followers = 0
 	total_diamonds = 0
@@ -248,25 +259,31 @@ def _write_stats_file():
 
 
 def update_stats_file(force=False):
+	"""Write the stats file now with ``force``; otherwise the session's regular
+	writes do, at most once a second, off the connection thread."""
 	global _stats_dirty, _stats_last_write
 	with _stats_lock:
-		now = time.time()
-		if not force and (now - _stats_last_write) < STATS_MIN_INTERVAL:
+		if not force:
 			_stats_dirty = True
 			return
 		_stats_dirty = False
-		_stats_last_write = now
+		_stats_last_write = time.time()
 		_write_stats_file()
 
 
 def flush_stats_file():
 	with _stats_lock:
-		if not _stats_dirty:
+		if not _stats_dirty or time.time() - _stats_last_write < STATS_MIN_INTERVAL:
 			return
 	update_stats_file(force=True)
 
 
 def write_top_files():
+	"""Write the top lists when they changed since they were last written."""
+	global _top_dirty
+	if not _top_dirty:
+		return
+	_top_dirty = False
 	try:
 		if top_gifters:
 			sorted_gifters = sorted(top_gifters.items(), key=lambda x: x[1], reverse=True)
@@ -372,8 +389,10 @@ def _on_gift(event):
 	display_name = _clean_name(_nickname(event.user, "someone"), event.user)
 
 	if diamonds > 0:
+		global _top_dirty
 		total_diamonds += diamonds
 		top_gifters[display_name] = top_gifters.get(display_name, 0) + diamonds
+		_top_dirty = True
 
 	global total_gifts
 	total_gifts += count
@@ -403,7 +422,9 @@ def _on_like(event):
 	if not user_name:
 		return
 
+	global _top_dirty
 	top_likers[user_name] = top_likers.get(user_name, 0) + event.count
+	_top_dirty = True
 	like_manager.add(user_name, top_likers[user_name])
 
 

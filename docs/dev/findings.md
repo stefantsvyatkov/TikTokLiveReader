@@ -229,6 +229,33 @@ are right.
   `_build_message_classes`). In 19 + 18 recorded lives no other library wrote
   to stderr.
 
+## Load
+
+Fixed on 2026-11-03; measured with 20 000 lines on a fast computer (a slow
+one with an antivirus pays more for each file opened), before -> after.
+
+- F40 Every like message started a `threading.Timer` (a thread) and cancelled
+  the person's previous one: 3000 like messages from 300 people took 8.4 s
+  of the connection thread and left 300 threads waiting. Now one timer for
+  the earliest pause: 2 ms, one thread (`likes.py`).
+- F41 Each navigation key read and split the whole text file under the store
+  lock, on NVDA's main thread, and wrote the positions file: 19.5 ms a key
+  at 20 000 lines, growing with the file and holding up the connection's
+  writes meanwhile. Now the entries are kept, with the lines the add-on
+  writes added to them; a file is read again only from where something else
+  appended to it (0.02 ms a key, 0.25 ms when a line was just written). The
+  positions are written when the session ends or NVDA exits.
+- F42 Each line opened, appended to and closed its file on the connection
+  thread (138 us a line; a comment is two lines, comments and events). Now
+  the lines wait in memory and the session writes them every 0.5 s, and before
+  anything reads, archives or clears the files (0.5 us a line). The stats file
+  is written by the session's thread, not by the event that changed it, and the
+  top lists only when they changed.
+- F43 Announcements are spoken at least a second apart, so a busy live left
+  them minutes behind. One that waited 30 s (`announcer.STALE_AFTER`) is now
+  dropped; it is in the text files. The sounds are read once and their player
+  kept instead of opening the audio device for each.
+
 ## Not issues
 
 - F26 (likes counted twice through `LikeEvent` and `DiggEvent`): 1088 like

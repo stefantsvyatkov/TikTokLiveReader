@@ -1,6 +1,7 @@
 """What the add-on plays and says for an event: the event's sound first, then its
 text, which the speech reader passes to NVDA's speech while auto speak is on."""
 
+import contextlib
 import functools
 import queue
 import threading
@@ -24,6 +25,10 @@ SOUND_FILES = {
 	"visitors": "visitor.wav",
 	"requests": "request.wav",
 }
+# An event announced at least a second apart falls behind in a busy live;
+# what waited longer than this is dropped (it is in the text files), so that
+# what is heard is what happens now.
+STALE_AFTER = 30.0
 
 
 class SoundManager:
@@ -35,6 +40,8 @@ class SoundManager:
 		self.sounds_dir = base_dir.parent.parent / "sounds"
 		self.volume = 100
 		self._player = None
+		# File name: (wave parameters, frames), None when it cannot be read.
+		self._sounds = {}
 		self._queue = queue.Queue()
 		# The worker starts with the first session or the settings dialog (F18).
 		self._running = False
@@ -66,57 +73,82 @@ class SoundManager:
 
 	def play(self, event_name, play_file=True, on_complete=None, post_delay=1.0):
 		fname = SOUND_FILES.get(event_name, f"{event_name}.wav")
-		self._queue.put((fname, play_file, on_complete, post_delay))
+		self._queue.put((fname, play_file, on_complete, post_delay, time.monotonic()))
 
 	def _worker(self):
 		me = threading.current_thread()
-		while self._running and self._thread is me:
-			try:
-				fname, play_file, callback, post_delay = self._queue.get(timeout=1.0)
-			except queue.Empty:
-				continue
-
-			if fname and play_file:
-				self._play_actual(fname)
-
-			if callback:
+		# This thread's players by format and device: opening the audio device
+		# for every sound is slow on a slow computer.
+		players = {}
+		try:
+			while self._running and self._thread is me:
 				try:
-					callback()
-				except Exception:
-					log.exception("TikTok Live Reader: after a sound")
+					fname, play_file, callback, post_delay, queued = self._queue.get(timeout=1.0)
+				except queue.Empty:
+					continue
 
-			if post_delay > 0:
-				time.sleep(post_delay)
+				if time.monotonic() - queued > STALE_AFTER:
+					self._queue.task_done()
+					continue
 
-			self._queue.task_done()
+				if fname and play_file:
+					self._play_actual(fname, players)
 
-	def _play_actual(self, fname):
+				if callback:
+					try:
+						callback()
+					except Exception:
+						log.exception("TikTok Live Reader: after a sound")
+
+				if post_delay > 0:
+					time.sleep(post_delay)
+
+				self._queue.task_done()
+		finally:
+			for player in players.values():
+				with contextlib.suppress(Exception):
+					player.close()
+
+	def _sound(self, fname):
+		"""The file's wave parameters and frames, read once; None when it cannot be read."""
+		if fname not in self._sounds:
+			try:
+				with wave.open(str(self.sounds_dir / fname), "rb") as wav:
+					params = wav.getparams()
+					self._sounds[fname] = (params, wav.readframes(params.nframes))
+			except (OSError, EOFError, wave.Error):
+				self._sounds[fname] = None
+		return self._sounds[fname]
+
+	def _play_actual(self, fname, players):
 		"""Play on the output device chosen in NVDA's settings at the add-on's own
 		volume (1.8 used winsound: the Windows default device, the volume applied
 		sample by sample in Python, F17)."""
-		fpath = self.sounds_dir / fname
-		if not fpath.exists():
+		sound = self._sound(fname)
+		if sound is None:
 			return
 		try:
 			import config
 			import nvwave
 		except ImportError:
 			return
-		try:
-			with wave.open(str(fpath), "rb") as wav:
-				params = wav.getparams()
-				frames = wav.readframes(params.nframes)
-			# A speech player: NVDA applies its sound volume only to sounds players.
-			player = nvwave.WavePlayer(
-				channels=params.nchannels,
-				samplesPerSec=params.framerate,
-				bitsPerSample=params.sampwidth * 8,
-				outputDevice=config.conf["audio"]["outputDevice"],
-				wantDucking=False,
-			)
-		except Exception:
-			log.debugWarning(f"TikTok Live Reader: cannot play {fname}", exc_info=True)
-			return
+		params, frames = sound
+		device = config.conf["audio"]["outputDevice"]
+		key = (params.nchannels, params.framerate, params.sampwidth, device)
+		player = players.get(key)
+		if player is None:
+			try:
+				# A speech player: NVDA applies its sound volume only to sounds players.
+				player = players[key] = nvwave.WavePlayer(
+					channels=params.nchannels,
+					samplesPerSec=params.framerate,
+					bitsPerSample=params.sampwidth * 8,
+					outputDevice=device,
+					wantDucking=False,
+				)
+			except Exception:
+				log.debugWarning(f"TikTok Live Reader: cannot play {fname}", exc_info=True)
+				return
 		self._player = player
 		try:
 			player.setVolume(all=self.volume / 100)
@@ -124,9 +156,11 @@ class SoundManager:
 			player.sync()
 		except Exception:
 			log.debugWarning(f"TikTok Live Reader: playing {fname} failed", exc_info=True)
+			del players[key]
+			with contextlib.suppress(Exception):
+				player.close()
 		finally:
 			self._player = None
-			player.close()
 
 
 sound_manager = SoundManager(ADDON_DIR)

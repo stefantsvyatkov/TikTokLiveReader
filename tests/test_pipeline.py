@@ -257,11 +257,25 @@ class ConnectionLifecycle(unittest.TestCase):
 
 
 class LiveNotices(unittest.TestCase):
-	def test_a_new_fan_club_member_is_only_in_the_events_file(self):
+	def test_a_new_fan_club_member_is_in_the_events_file_and_spoken(self):
 		r = f.run_session(f.fan_club_join(alice, 4))
-		self.assertEqual(logged(r, "events.txt"), ["Alice became fan number 4 in the fan club"])
+		self.assertEqual(logged(r, "events.txt"), ["Alice became fan number 4"])
+		self.assertEqual(r.speech, ["Alice became fan number 4"])
+		self.assertEqual(r.sounds, [("fan_club", False)])
+
+	def test_fan_club_members_follow_their_check_boxes(self):
+		r = f.run_session(
+			f.fan_club_join(alice, 4),
+			settings={
+				"events": {"fan_club": False},
+				"auto_speak": {"fan_club": False},
+				"sounds": {"play_sounds": True},
+				"sound_events": {"fan_club": True},
+			},
+		)
+		self.assertEqual(logged(r, "events.txt"), [])
 		self.assertEqual(r.speech, [])
-		self.assertEqual(r.sounds, [])
+		self.assertEqual(r.sounds, [("fan_club", True)])
 
 	def test_every_pause_and_resume_is_written_and_spoken(self):
 		del support.spoken[:]

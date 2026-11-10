@@ -22,6 +22,8 @@ def clean_user_name(text):
 def _add_event_checkboxes(parent, sizer, values):
 	labels = (
 		("comments", _("&Comments")),
+		# Translators: Check box for new members of the host's fan club.
+		("fan_club", _("Fan club &members")),
 		("followers", _("&Followers")),
 		("gifts", _("&Gifts")),
 		("likes", _("&Likes")),
@@ -183,16 +185,16 @@ class SettingsDialog(wx.Dialog):
 		# Translators: Check box on the live recordings page of the settings.
 		self.record_on_connect = wx.CheckBox(panel, label=_("&Start recording when connected"))
 		self.record_on_connect.SetValue(current.record_on_connect)
-		# Translators: Label of the recording quality list.
-		quality_label = wx.StaticText(panel, label=_("&Quality"))
-		qualities = {
-			# Translators: Recording quality: the video, in the 720p TikTok gives, and the sound.
-			"video": _("Video (720p)"),
-			# Translators: Recording quality: the sound only.
-			"audio": _("Audio only"),
+		# Translators: Label of the recording format list.
+		format_label = wx.StaticText(panel, label=_("F&ormat"))
+		formats = {
+			# Translators: Recording format: the video with its sound, in the 720p TikTok gives, as an MP4 file.
+			"video": _("MP4 (720p)"),
+			# Translators: Recording format: the sound only, as an MP3 file of 192 kilobits per second.
+			"audio": _("MP3 (192 kbps)"),
 		}
 		self.record_quality = wx.Choice(
-			panel, choices=[qualities[name] for name in settings.RECORDING_QUALITIES]
+			panel, choices=[formats[name] for name in settings.RECORDING_QUALITIES]
 		)
 		self.record_quality.SetSelection(settings.RECORDING_QUALITIES.index(current.record_quality))
 		# Translators: Label of the folder the recordings go to.
@@ -209,7 +211,7 @@ class SettingsDialog(wx.Dialog):
 		browse.Bind(wx.EVT_BUTTON, self._on_browse_recordings)
 
 		sizer.Add(self.record_on_connect, flag=wx.ALL, border=5)
-		sizer.Add(quality_label, flag=wx.LEFT | wx.RIGHT | wx.TOP, border=5)
+		sizer.Add(format_label, flag=wx.LEFT | wx.RIGHT | wx.TOP, border=5)
 		sizer.Add(self.record_quality, flag=wx.ALL, border=5)
 		sizer.Add(folder_label, flag=wx.LEFT | wx.RIGHT | wx.TOP, border=5)
 		sizer.Add(folder_row, flag=wx.EXPAND | wx.ALL, border=5)
@@ -287,6 +289,8 @@ class SettingsDialog(wx.Dialog):
 				return
 			sequence = (
 				(_("Comment"), "comments"),
+				# Translators: Said before the sound for a new member of the host's fan club.
+				(_("Fan club member"), "fan_club"),
 				(_("Follower"), "followers"),
 				(_("Gift"), "gifts"),
 				(_("Like"), "likes"),

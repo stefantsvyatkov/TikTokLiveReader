@@ -16,6 +16,7 @@ ADDON_DIR = Path(__file__).resolve().parent
 
 SOUND_FILES = {
 	"comments": "comment.wav",
+	"fan_club": "fan_club.wav",
 	"followers": "follower.wav",
 	"gifts": "gift.wav",
 	"likes": "like.wav",

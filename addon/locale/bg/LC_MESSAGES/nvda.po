@@ -21,6 +21,10 @@ msgstr ""
 msgid "&Comments"
 msgstr "&Коментари"
 
+#. Translators: Check box for new members of the host's fan club.
+msgid "Fan club &members"
+msgstr "&Членове на фен клуба"
+
 #. Translators: File name shown when navigating files.
 msgid "Comments"
 msgstr "Коментари"
@@ -76,7 +80,7 @@ msgstr "{item} ({num} от {total})"
 #. Translators: Announced when the folder holding the text files cannot be reached,
 #. for example when it is on a removable drive that has been unplugged.
 msgid "The text files folder is not available"
-msgstr "Папката с текстовите файлове не е достъпна"
+msgstr "Папката с текстови файлове не е достъпна"
 
 #. Translators: Announced when the streamer has ended the live.
 msgid "The live has ended"
@@ -160,7 +164,7 @@ msgstr "&Изчистване на файловете при стартиран�
 
 #. Translators: General settings checkbox. Keeps a copy of each finished session in a Backups folder.
 msgid "&Archive each live session"
-msgstr "&Архивиране на всяка лайв сесия"
+msgstr "&Архивиране на всяка лайф сесия"
 
 #. Translators: Checkbox label in settings.
 msgid "Cl&ean user names"
@@ -294,6 +298,10 @@ msgstr "С&ила на звука"
 msgid "Comment"
 msgstr "Коментар"
 
+#. Translators: Said before the sound for a new member of the host's fan club.
+msgid "Fan club member"
+msgstr "Член на фен клуба"
+
 #. Translators: Sound label.
 msgid "Follower"
 msgstr "Последовател"
@@ -351,8 +359,8 @@ msgid "Requests"
 msgstr "Заявки"
 
 #. Translators: Long description to be shown for this add-on on add-on information from add-on store
-msgid "TikTok Live Reader allows NVDA users to monitor TikTok Live streams in real time. The add-on extracts comments, gifts, followers, likes, shares, guest requests, and viewer statistics, saving them to text files. They can be read with keyboard shortcuts during the live session. Audio notifications and auto speak functionality are also supported."
-msgstr "TikTok Live Reader позволява проследяването на лайфове в реално време. Добавката извлича коментари, гифтове, последователи, харесвания, заявки за присъединяване, споделяния и статистика за зрителите, като ги запазва в текстови файлове. Те могат да бъдат четени с клавишни комбинации по време на сесията. Поддържат се също звукови известия и автоматично изговаряне на избрани събития."
+msgid "TikTok Live Reader allows NVDA users to monitor TikTok Live streams in real time. The add-on extracts comments, gifts, followers, likes, shares, guest requests, and viewer statistics, saving them to text files. They can be read with keyboard shortcuts during the live session. Audio notifications and auto speak functionality are also supported. Lives can also be recorded as video or audio files."
+msgstr "TikTok Live Reader позволява проследяването на лайфове в реално време. Добавката извлича коментари, гифтове, последователи, харесвания, заявки за присъединяване, споделяния и статистика за зрителите, като ги запазва в текстови файлове. Те могат да бъдат четени с клавишни комбинации по време на сесията. Поддържат се също звукови известия и автоматично изговаряне на избрани събития. Лайфовете могат да се записват като видео или аудио файлове."
 
 #. Translators: Announced when trying to turn on the add-on or save settings with an invalid username.
 msgid "Please enter a valid username"
@@ -362,3 +370,101 @@ msgstr "Въведете валидно потребителско име"
 msgid "Sounds"
 msgstr "Звуци"
 
+#. Translators: Name of the settings page about recording lives.
+msgid "Live recordings"
+msgstr "Запис на лайфове"
+
+#. Translators: Check box on the live recordings page of the settings.
+msgid "&Start recording when connected"
+msgstr "&Започване на запис при свързване"
+
+#. Translators: Label of the recording format list.
+msgid "F&ormat"
+msgstr "&Формат"
+
+#. Translators: Recording format: the video with its sound, in the 720p TikTok gives, as an MP4 file.
+msgid "MP4 (720p)"
+msgstr "MP4 (720p)"
+
+#. Translators: Recording format: the sound only, as an MP3 file of 192 kilobits per second.
+msgid "MP3 (192 kbps)"
+msgstr "MP3 (192 kbps)"
+
+#. Translators: Label of the folder the recordings go to.
+msgid "Recordings &folder"
+msgstr "&Местоположение на записите"
+
+#. Translators: Title of the dialog choosing the folder for recordings.
+msgid "Select recordings folder"
+msgstr "Изберете местоположение на записите"
+
+msgid "Start or stop recording the live"
+msgstr "Започва или спира записа на лайфа"
+
+#. Translators: Announced when recording is asked for while the add-on is not connected to a live.
+msgid "Not connected to a live"
+msgstr "Няма връзка с лайф"
+
+#. Translators: Announced when the recording of the live starts.
+msgid "Recording started"
+msgstr "Записът е стартиран"
+
+#. Translators: Announced when the recording of the live stops.
+msgid "Recording stopped"
+msgstr "Записът е спрян"
+
+#. Translators: Announced when the recording of the live cannot start.
+msgid "Could not start recording"
+msgstr "Неуспешно започване на запис"
+
+#. Translators: Asked before downloading FFmpeg, which recording needs. {size} is the download's size in megabytes.
+msgid "Recording needs FFmpeg, a free program of about {size} MB. Install it now?"
+msgstr "За записа е нужна безплатната програма FFmpeg, около {size} MB. Да се инсталира ли сега?"
+
+#. Translators: Title of the window shown while FFmpeg downloads.
+msgid "Downloading FFmpeg"
+msgstr "Изтегляне на FFmpeg"
+
+#. Translators: Progress while FFmpeg downloads. {done} and {total} are megabytes.
+msgid "Downloaded {done} of {total} MB"
+msgstr "Изтеглени {done} от {total} MB"
+
+#. Translators: Announced when FFmpeg has been installed.
+msgid "FFmpeg is installed"
+msgstr "FFmpeg е инсталиран"
+
+#. Translators: Announced when FFmpeg could not be installed. {error} says why.
+msgid "Could not install FFmpeg: {error}"
+msgstr "Неуспешно инсталиране на FFmpeg: {error}"
+
+#. Translators: Announced when a user reposts the live, showing it to their followers. {name} is the user's name.
+msgid "{name} reposted the live"
+msgstr "{name} препубликува лайфа"
+
+#. Translators: Written to the events file and announced when someone joins the host's fan club. {name} is their name, {number} their place in the fan club.
+msgid "{name} became fan number {number}"
+msgstr "{name} стана фен номер {number}"
+
+#. Translators: Announced when the live pauses, for example when the host leaves the TikTok app.
+msgid "The live is paused"
+msgstr "Лайфът е на пауза"
+
+#. Translators: Announced when a paused live goes on.
+msgid "The live has resumed"
+msgstr "Лайфът продължава"
+
+#. Translators: Stats file line. {time} is hours and minutes since the live started, like 1:23.
+msgid "Duration: {time}"
+msgstr "Продължителност: {time}"
+
+#. Translators: Stats file line. {count} is the number of comments.
+msgid "Comments: {count}"
+msgstr "Коментари: {count}"
+
+#. Translators: Stats file line. {count} is the number of shares and reposts.
+msgid "Shares: {count}"
+msgstr "Споделяния: {count}"
+
+#. Translators: Stats file line. {count} is the number of gifts.
+msgid "Gifts: {count}"
+msgstr "Гифтове: {count}"

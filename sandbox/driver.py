@@ -87,7 +87,7 @@ def press(combo):
 STRING = re.compile(r"'(?:[^'\\]|\\.)*'|\"(?:[^\"\\]|\\.)*\"")
 # Speech commands in the log, e.g. "LangChangeCommand ('en')", "CancellableSpeech (still valid)".
 COMMAND = re.compile(r"\b[A-Z]\w*\s?\((?:[^()'\"]|'(?:[^'\\]|\\.)*'|\"(?:[^\"\\]|\\.)*\")*\)")
-# A string or a command, whichever starts first: a spoken "Video (720p)" is a
+# A string or a command, whichever starts first: a spoken "MP4 (720p)" is a
 # string with brackets, not a command.
 TOKEN = re.compile(f"(?P<string>{STRING.pattern})|{COMMAND.pattern}")
 
@@ -323,6 +323,7 @@ def scenario_settings(run):
 	saved = settings_file(run)
 	open_dialog(run, "dialog opens again")
 	run.press_and_hear("control+tab", r"^Comments check box", "events page")
+	tab_to(run, r"^Fan club members check box\s+checked", "fan club members on the events page", limit=1)
 	tab_to(run, r"Followers.*\bchecked", "followers on the events page", limit=1)
 	run.press_and_hear("space", r"not checked", "followers unchecked")
 	press("escape")
@@ -350,7 +351,7 @@ def scenario_settings(run):
 	press("space")
 	run.hear(r"^Comment$", "learning speaks the first sound's name", timeout=8)
 	started = time.monotonic()
-	run.hear(r"^Follower$", "learning goes on to the next", timeout=8)
+	run.hear(r"^Fan club member$", "learning goes on to the next", timeout=8)
 	# The next name follows when the sound has played (about 2.5 s); the add-on
 	# gives up on a sound after 5 s.
 	gap = time.monotonic() - started
@@ -546,7 +547,7 @@ def scenario_recording(run):
 				r"^Start recording when connected check box\s+not checked",
 				"live recordings page",
 			)
-			tab_to(run, r"^Quality combo box\s+Video \(720p\)", "quality", limit=1)
+			tab_to(run, r"^Format combo box\s+MP4 \(720p\)", "format", limit=1)
 			tab_to(run, r"^Recordings folder edit .*recordings", "recordings folder", limit=1)
 			tab_to(run, r"^Browse\.\.\. button", "browse button", limit=1)
 			press("escape")

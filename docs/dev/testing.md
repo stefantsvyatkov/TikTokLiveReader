@@ -151,7 +151,10 @@ NVDA answering 0.61 s after the off key there.
 On 2026-11-08, before 2.0, every scenario passed on all three versions (411
 steps, `artifacts\scripts\Run-All.ps1`): stress 22 of 22 answers, median 0.13
 s, NVDA's memory 150-161 MB before and 229-233 MB after, 0.50-0.64 s after
-the off key.
+the off key. Again on 2026-11-10 with the fan club check box, the Format list
+and the new fan club and share sounds: 414 steps, stress the same (22 of 22,
+median 0.13 s, 150-160 MB before and 230-239 MB after, 0.13-0.60 s after the
+off key).
 
 ### Other add-ons
 
@@ -241,3 +244,10 @@ in both qualities: 33 s of H.264 640x1280 and AAC 48 kHz stereo, 4.4 MB, and
 latest release, with the same size and SHA-256. In the sandbox on
 2026-10-15, after F39: `recording`, `settings` and `smoke` pass on all three
 NVDA versions, no crash.
+
+## Building
+
+`scons` with `artifacts/tools/build-venv/Scripts` first in PATH. It rebuilds
+the package only when code or catalogues change: a new sound or guide alone
+leaves the old package "up to date" (2026-11-10), so delete
+`TikTokLiveReader-2.0.nvda-addon` first and check the package's contents.

@@ -580,9 +580,11 @@ def _on_fan_club(event):
 	if event.user is None:
 		return
 	name = _clean_name(_display_name(event.user), event.user)
-	# Translators: Written to the events file when someone joins the host's fan club. {name} is their name, {number} their place in the fan club.
-	msg = _("{name} became fan number {number} in the fan club").format(name=name, number=event.number)
-	_log_to_events(f"{msg}  {_now()}")
+	# Translators: Written to the events file and announced when someone joins the host's fan club. {name} is their name, {number} their place in the fan club.
+	msg = _("{name} became fan number {number}").format(name=name, number=event.number)
+	if _settings.events.get("fan_club", True):
+		_log_to_events(f"{msg}  {_now()}")
+	_announce("fan_club", msg)
 
 
 def _on_live_start(event):

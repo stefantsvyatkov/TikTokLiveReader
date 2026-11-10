@@ -21,6 +21,10 @@ msgstr ""
 msgid "&Comments"
 msgstr "&Komentar"
 
+#. Translators: Check box for new members of the host's fan club.
+msgid "Fan club &members"
+msgstr "&Anggota klub penggemar"
+
 #. Translators: File name shown when navigating files.
 msgid "Comments"
 msgstr "Komentar"
@@ -294,6 +298,10 @@ msgstr "&Volume audio"
 msgid "Comment"
 msgstr "Komentar"
 
+#. Translators: Said before the sound for a new member of the host's fan club.
+msgid "Fan club member"
+msgstr "Anggota klub penggemar"
+
 #. Translators: Sound label.
 msgid "Follower"
 msgstr "Pengikut"
@@ -355,8 +363,8 @@ msgid "Requests"
 msgstr "Permintaan"
 
 #. Translators: Long description to be shown for this add-on on add-on information from add-on store
-msgid "TikTok Live Reader allows NVDA users to monitor TikTok Live streams in real time. The add-on extracts comments, gifts, followers, likes, shares, guest requests, and viewer statistics, saving them to text files. They can be read with keyboard shortcuts during the live session. Audio notifications and auto speak functionality are also supported."
-msgstr "TikTok Live Reader memungkinkan pengguna NVDA memantau siaran TikTok Live secara waktu nyata. Add-on ini mengekstraksi komentar, hadiah, pengikut, suka, pembagian live, permintaan bergabung, dan statistik penonton, lalu menyimpannya dalam file teks. Data dapat dibaca dengan pintasan keyboard selama sesi live. Notifikasi audio dan pembacaan otomatis juga didukung."
+msgid "TikTok Live Reader allows NVDA users to monitor TikTok Live streams in real time. The add-on extracts comments, gifts, followers, likes, shares, guest requests, and viewer statistics, saving them to text files. They can be read with keyboard shortcuts during the live session. Audio notifications and auto speak functionality are also supported. Lives can also be recorded as video or audio files."
+msgstr "TikTok Live Reader memungkinkan pengguna NVDA memantau siaran TikTok Live secara waktu nyata. Add-on ini mengekstraksi komentar, hadiah, pengikut, suka, pembagian live, permintaan bergabung, dan statistik penonton, lalu menyimpannya dalam file teks. Data dapat dibaca dengan pintasan keyboard selama sesi live. Notifikasi audio dan pembacaan otomatis juga didukung. Live juga dapat direkam sebagai file video atau audio."
 
 #. Translators: Announced when trying to turn on the add-on or save settings with an invalid username.
 msgid "Please enter a valid username"
@@ -366,3 +374,101 @@ msgstr "Silakan masukkan nama pengguna yang valid"
 msgid "Sounds"
 msgstr "Suara"
 
+#. Translators: Name of the settings page about recording lives.
+msgid "Live recordings"
+msgstr "Rekaman live"
+
+#. Translators: Check box on the live recordings page of the settings.
+msgid "&Start recording when connected"
+msgstr "&Mulai merekam saat terhubung"
+
+#. Translators: Label of the recording format list.
+msgid "F&ormat"
+msgstr "F&ormat"
+
+#. Translators: Recording format: the video with its sound, in the 720p TikTok gives, as an MP4 file.
+msgid "MP4 (720p)"
+msgstr "MP4 (720p)"
+
+#. Translators: Recording format: the sound only, as an MP3 file of 192 kilobits per second.
+msgid "MP3 (192 kbps)"
+msgstr "MP3 (192 kbps)"
+
+#. Translators: Label of the folder the recordings go to.
+msgid "Recordings &folder"
+msgstr "&Folder rekaman"
+
+#. Translators: Title of the dialog choosing the folder for recordings.
+msgid "Select recordings folder"
+msgstr "Pilih folder rekaman"
+
+msgid "Start or stop recording the live"
+msgstr "Mulai atau hentikan rekaman live"
+
+#. Translators: Announced when recording is asked for while the add-on is not connected to a live.
+msgid "Not connected to a live"
+msgstr "Tidak terhubung ke live"
+
+#. Translators: Announced when the recording of the live starts.
+msgid "Recording started"
+msgstr "Rekaman dimulai"
+
+#. Translators: Announced when the recording of the live stops.
+msgid "Recording stopped"
+msgstr "Rekaman dihentikan"
+
+#. Translators: Announced when the recording of the live cannot start.
+msgid "Could not start recording"
+msgstr "Tidak dapat memulai rekaman"
+
+#. Translators: Asked before downloading FFmpeg, which recording needs. {size} is the download's size in megabytes.
+msgid "Recording needs FFmpeg, a free program of about {size} MB. Install it now?"
+msgstr "Rekaman memerlukan FFmpeg, program gratis berukuran sekitar {size} MB. Instal sekarang?"
+
+#. Translators: Title of the window shown while FFmpeg downloads.
+msgid "Downloading FFmpeg"
+msgstr "Mengunduh FFmpeg"
+
+#. Translators: Progress while FFmpeg downloads. {done} and {total} are megabytes.
+msgid "Downloaded {done} of {total} MB"
+msgstr "Terunduh {done} dari {total} MB"
+
+#. Translators: Announced when FFmpeg has been installed.
+msgid "FFmpeg is installed"
+msgstr "FFmpeg telah terinstal"
+
+#. Translators: Announced when FFmpeg could not be installed. {error} says why.
+msgid "Could not install FFmpeg: {error}"
+msgstr "Tidak dapat menginstal FFmpeg: {error}"
+
+#. Translators: Announced when a user reposts the live, showing it to their followers. {name} is the user's name.
+msgid "{name} reposted the live"
+msgstr "{name} memposting ulang live"
+
+#. Translators: Written to the events file and announced when someone joins the host's fan club. {name} is their name, {number} their place in the fan club.
+msgid "{name} became fan number {number}"
+msgstr "{name} menjadi penggemar nomor {number}"
+
+#. Translators: Announced when the live pauses, for example when the host leaves the TikTok app.
+msgid "The live is paused"
+msgstr "Live dijeda"
+
+#. Translators: Announced when a paused live goes on.
+msgid "The live has resumed"
+msgstr "Live dilanjutkan"
+
+#. Translators: Stats file line. {time} is hours and minutes since the live started, like 1:23.
+msgid "Duration: {time}"
+msgstr "Durasi: {time}"
+
+#. Translators: Stats file line. {count} is the number of comments.
+msgid "Comments: {count}"
+msgstr "Komentar: {count}"
+
+#. Translators: Stats file line. {count} is the number of shares and reposts.
+msgid "Shares: {count}"
+msgstr "Berbagi: {count}"
+
+#. Translators: Stats file line. {count} is the number of gifts.
+msgid "Gifts: {count}"
+msgstr "Hadiah: {count}"

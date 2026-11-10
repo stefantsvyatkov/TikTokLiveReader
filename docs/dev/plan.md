@@ -116,18 +116,38 @@ the user's wording for the catalogue, which the user maintains.
    speak, sound); `shares.txt` lines say what happened, a share with the
    existing "{name} shared the live" / "{name} сподели лайфа" (until now the
    line was the name only).
-   - "{name} reposted the live" / "{name} препостна лайфа"
+   - "{name} reposted the live" / "{name} препубликува лайфа"
 2. New fan club member (`RoomEvent`, key `pm_mt_fan_live_joined_comment`,
-   pieces: the user and the number; 12 in 5 lives): `events.txt` only, no
-   speech, sound or setting.
-   - "{name} became fan number {number} in the fan club" / "{name} стана фен
-     номер {number} във фен клуба"
+   pieces: the user and the number; 12 in 5 lives): at first `events.txt`
+   only; on 2026-11-09 the user asked for an event like the others, with its
+   check box in Events, Auto speak and Sounds (key `fan_club`, on by default
+   in all three, after Comments) and a sound of its own, but no file of its
+   own. The sound is chosen by the user from six candidates made from Kenney's
+   CC0 packs (Digital Audio, Interface Sounds, Music Jingles; kenney.nl,
+   downloaded 2026-11-09 through the browser, the site refuses curl): trimmed,
+   mono 22050 Hz 16 bit, the loudest 50 ms at -15 dBFS like the add-on's own
+   sounds. The user chose the second, Interface Sounds' confirmation_002, on
+   2026-11-10 and asked for a separate file no more (rare: events.txt keeps
+   them). The same day the user asked for a new gift sound, too like the share
+   sound (both 1.06 s): more CC0 packs were downloaded (Kenney's Casino, RPG,
+   UI and Sci-Fi; OpenGameArt's 512 Sound Effects, 100 and 50 and 80 CC0 SFX,
+   10 8bit coin sounds, GUI Sound Effects, two UI packs, Level up/Coin get and
+   14 single sounds, all CC0, in `artifacts/downloads`) and made the same way
+   into `...\TikTok Live Reader\sound-packs` in pCloud for the user to pick
+   from, with a folder of name-picked gift ideas. The user then kept the gift
+   sound and changed two others (2026-11-10): confirmation_002 became the
+   share sound (`share.wav`), and the fan club got Rise05 from wobbleboxx's
+   "Level up, power up, Coin get (13 Sounds)" on OpenGameArt (CC0), 2.16 s.
+   - "{name} became fan number {number}" / "{name} стана фен номер {number}"
+     (the user shortened it on 2026-11-09)
+   - check box "Fan club &members" / "&Членове на фен клуба"
+   - learning the sounds: "Fan club member" / "Член на фен клуба"
 3. Pause and resume (`ControlEvent` STREAM_PAUSED with source "app_pause" /
    STREAM_UNPAUSED; TikTokLive's `LivePauseEvent` / `LiveUnpauseEvent`; in 7
    lives, some several times a minute): always spoken, as "The live has
    ended" is, and in `events.txt`, each one.
    - "The live is paused" / "Лайфът е на пауза"
-   - "The live has resumed" / "Лайфът продължи"
+   - "The live has resumed" / "Лайфът продължава"
 4. Stats file, four lines after the five there, in their form. Duration is
    H:MM since the live started, from the room info's `create_time` fetched
    once on connecting (a TikTok request, not the sign server); the counts are
@@ -147,10 +167,12 @@ the user's wording for the catalogue, which the user maintains.
      - tab "Live recordings" / "Запис на лайфове"
      - check box "&Start recording when connected" / "&Започване на запис при
        свързване" (off by default)
-     - list "&Quality" / "&Качество": "Video (720p)" / "Видео (720p)"
-       (default) and "Audio only" / "Само звук": all TikTok gives a viewer
-       who is not logged in (see the trial below), so the original,
-       1080p, 540p and 360p first planned do not exist
+     - list "F&ormat" / "&Формат" (F is the folder's): "MP4 (720p)"
+       (default) and "MP3 (192 kbps)", the same in Bulgarian (the user's
+       names of 2026-11-09, first "&Quality" with "Video (720p)" and "Audio
+       only"): all TikTok gives a viewer who is not logged in (see the trial
+       below), so the original, 1080p, 540p and 360p first planned do not
+       exist; the settings keep the names "video" and "audio"
      - last, as the text files destination: "Recordings &folder" /
        "&Местоположение на записите", with the existing "&Browse..." /
        "&Преглед..." button and "Select recordings folder" / "Изберете

@@ -21,6 +21,7 @@ DEFAULT_RECORDING = {
 
 DEFAULT_EVENT_PREFS = {
 	"comments": True,
+	"fan_club": True,
 	"followers": True,
 	"gifts": True,
 	"likes": True,

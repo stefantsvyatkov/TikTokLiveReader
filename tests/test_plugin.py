@@ -43,9 +43,9 @@ def said(text):
 
 
 class PluginTest(unittest.TestCase):
-	def start(self, plugin, *frames, lines=None):
+	def start(self, plugin, *frames, lines=None, end="hold"):
 		"""Switch on with a held replay; wait until connected and ``lines`` comments are logged."""
-		self.replay = f.replaying(*frames, end="hold")
+		self.replay = f.replaying(*frames, end=end)
 		self.replay.__enter__()
 		self.addCleanup(self.stop, plugin)
 		plugin.script_toggleActive(None)
@@ -224,6 +224,40 @@ class Positions(PluginTest):
 		again.script_nextItem(None)
 		self.assertRegex(support.spoken[-1], r"\(3 of 3\)$")
 
+	def test_the_events_file_keeps_its_place_too(self):
+		# F41: the events file's line was not saved, so it started again at the first.
+		off = {"behavior": {"clear_on_start": False}}
+		plugin, log_dir = make_plugin(**off)
+		self.start(plugin, f.comment(alice, "one"), f.comment(bob, "two"), f.comment(alice, "three"), lines=3)
+		self.assertTrue(f.wait_until(lambda: len(self.read(plugin, "events.txt")) == 3))
+		plugin.script_nextFile(None)
+		plugin.script_nextItem(None)
+		plugin.script_nextItem(None)
+		self.stop(plugin)
+
+		f.write_settings(main={"username": "host", "text_files_destination": str(log_dir)}, **off)
+		again = G.GlobalPlugin()
+		self.start(again, lines=3)
+		again.script_nextFile(None)
+		again.script_nextItem(None)
+		self.assertRegex(support.spoken[-1], r"^Alice: three  .* \(3 of 3\)$")
+
+	def test_cleared_files_are_read_from_their_first_line(self):
+		# F41: the next session's navigation went on from the line the previous one had reached.
+		plugin, _ = make_plugin()
+		self.start(plugin, f.comment(alice, "one"), f.comment(bob, "two"), f.comment(alice, "three"), lines=3)
+		self.assertTrue(f.wait_until(lambda: len(self.read(plugin, "events.txt")) == 3))
+		plugin.script_nextFile(None)
+		plugin.script_lastItem(None)
+		plugin.script_nextFile(None)
+		plugin.script_prevFile(None)
+		self.stop(plugin)
+
+		self.start(plugin, f.comment(bob, "new"), f.comment(alice, "newer"), lines=2)
+		self.assertTrue(f.wait_until(lambda: len(self.read(plugin, "events.txt")) == 2))
+		plugin.script_nextItem(None)
+		self.assertRegex(support.spoken[-1], r"^Bob: new  .* \(1 of 2\)$")
+
 
 class Clearing(PluginTest):
 	def setUp(self):
@@ -355,6 +389,25 @@ class Recording(PluginTest):
 		self.assertIn(
 			"-c:a libmp3lame -b:a 192k -write_xing 0 -flush_packets 1", recording.read_text(encoding="utf-8")
 		)
+
+	def test_a_reconnection_keeps_the_recording_going(self):
+		# F40: a live of 2026-11-12 was cut into two files when the connection dropped once.
+		self.addCleanup(setattr, f.addon_session, "RETRY_PAUSE", f.addon_session.RETRY_PAUSE)
+		f.addon_session.RETRY_PAUSE = 0.1
+		plugin = self.plugin(auto_start=True)
+		self.start(plugin, 1.0, end="drop")
+		self.assertTrue(f.wait_until(said("Recording started")), support.spoken)
+		self.assertTrue(
+			f.wait_until(lambda: support.spoken.count("Connected to user: host") == 2), support.spoken
+		)
+		self.assertIn("Attempting to connect...", support.spoken)
+		time.sleep(0.5)
+		self.assertNotIn("Recording stopped", support.spoken)
+		self.assertEqual(support.spoken.count("Recording started"), 1)
+		self.assertTrue(plugin.recording.active)
+		plugin.script_toggleActive(None)
+		(recording,) = self.folder.iterdir()
+		self.assertEqual(recording.read_text(encoding="utf-8").splitlines()[-1], "done")
 
 	def test_a_stream_ffmpeg_cannot_open_is_said(self):
 		plugin = self.plugin()

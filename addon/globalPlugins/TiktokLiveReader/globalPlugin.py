@@ -39,7 +39,7 @@ NAV_GESTURES = {
 }
 
 
-TRACKED_KEYS = {"comments", "followers", "gifts", "likes", "visitors", "shares", "requests"}
+TRACKED_KEYS = {"comments", "events", "followers", "gifts", "likes", "visitors", "shares", "requests"}
 
 
 def _filename_key_map():
@@ -174,8 +174,8 @@ class GlobalPlugin(NVDA_GlobalPlugin):
 				self._start_recording()
 
 		def on_retry():
+			# FFmpeg reads the stream, not the connection: the recording goes on (F40).
 			self._connected = False
-			self.recording.stop()
 			ui.message(_("Attempting to connect..."))
 
 		def stop_session():
@@ -231,7 +231,10 @@ class GlobalPlugin(NVDA_GlobalPlugin):
 		self.active = not self.active
 		if self.active:
 			self._bind_nav()
-			if not self.settings.clear_on_start:
+			if self.settings.clear_on_start:
+				# The files are cleared on connecting, so is where navigation stopped (F41).
+				self.filePositions = {i: -1 for i in range(len(FILES))}
+			else:
 				self._load_positions_json()
 			self.index = self.filePositions.get(self.currentFileIndex, -1)
 			self._follow_auto_speak()
@@ -479,6 +482,8 @@ class GlobalPlugin(NVDA_GlobalPlugin):
 			parent=gui.mainFrame,
 			style=wx.PD_CAN_ABORT | wx.PD_AUTO_HIDE,
 		)
+		# wx centres it on its parent, NVDA's hidden main frame (F42).
+		progress.CentreOnScreen()
 		shown = [-1]
 
 		def update(percent, done_mb):

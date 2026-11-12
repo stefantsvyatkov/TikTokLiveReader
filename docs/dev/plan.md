@@ -161,8 +161,9 @@ the user's wording for the catalogue, which the user maintains.
    the host's camera and microphone with the app's filters; comments and gift
    animations are drawn by each viewer's app and are not in it (to check:
    lives with guests may be the combined picture). Recording works only while
-   the add-on is connected; it stops on switching off and when the live ends;
-   after a reconnection a new file starts.
+   the add-on is connected; it stops on switching off and when the live ends,
+   and goes on while the add-on reconnects (F40; until 2026-11-12 a
+   reconnection started a new file).
    - Settings tab, in this order:
      - tab "Live recordings" / "Запис на лайфове"
      - check box "&Start recording when connected" / "&Започване на запис при

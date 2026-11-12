@@ -465,6 +465,45 @@ def nvda_memory_mb():
 	return max(sizes, default=0) // 1024
 
 
+class MONITORINFO(ctypes.Structure):
+	_fields_ = [
+		("cbSize", wintypes.DWORD),
+		("rcMonitor", wintypes.RECT),
+		("rcWork", wintypes.RECT),
+		("dwFlags", wintypes.DWORD),
+	]
+
+
+user32.FindWindowW.restype = wintypes.HWND
+user32.FindWindowW.argtypes = [wintypes.LPCWSTR, wintypes.LPCWSTR]
+user32.GetWindowRect.argtypes = [wintypes.HWND, ctypes.POINTER(wintypes.RECT)]
+user32.MonitorFromWindow.restype = wintypes.HANDLE
+user32.MonitorFromWindow.argtypes = [wintypes.HWND, wintypes.DWORD]
+user32.GetMonitorInfoW.argtypes = [wintypes.HANDLE, ctypes.POINTER(MONITORINFO)]
+
+
+def offset_from_centre(title):
+	"""How far the middle of the window titled ``title`` is from the middle of its
+	screen's work area, (x, y) in pixels; None when there is no such window."""
+	hwnd = user32.FindWindowW(None, title)
+	if not hwnd:
+		return None
+	window = wintypes.RECT()
+	user32.GetWindowRect(hwnd, ctypes.byref(window))
+	info = MONITORINFO(cbSize=ctypes.sizeof(MONITORINFO))
+	user32.GetMonitorInfoW(user32.MonitorFromWindow(hwnd, 2), ctypes.byref(info))
+	work = info.rcWork
+	return (
+		(window.left + window.right - work.left - work.right) // 2,
+		(window.top + window.bottom - work.top - work.bottom) // 2,
+	)
+
+
+def check_centred(run, title, name):
+	offset = offset_from_centre(title)
+	run.check(name, offset is not None and max(map(abs, offset)) <= 40, f"{offset} from the middle")
+
+
 def replay_seconds():
 	path = os.environ.get("TIKTOK_REPLAY")
 	pace = float(os.environ.get("TIKTOK_REPLAY_PACE", "1"))
@@ -558,9 +597,11 @@ def scenario_recording(run):
 		run.press_and_hear("nvda+control+shift+t", r"^TikTok Live Reader On$", "switching on")
 		run.hear(r"^Connected to user: host$", "connected")
 		run.press_and_hear("nvda+shift+control+e", r"Recording needs FFmpeg", "asks to install FFmpeg")
+		check_centred(run, "TikTok Live Reader", "the question in the middle of the screen")
 		run.mark = len(run.log.speech())
 		press("enter")
 		run.hear(r"^Downloading FFmpeg dialog", "the progress dialog", timeout=30)
+		check_centred(run, "Downloading FFmpeg", "the progress dialog in the middle of the screen")
 		run.hear(r"^FFmpeg is installed$", "FFmpeg installed", timeout=240)
 		run.hear(r"^Recording started$", "recording started", timeout=30)
 		time.sleep(6)

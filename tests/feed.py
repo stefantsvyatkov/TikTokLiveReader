@@ -292,7 +292,10 @@ class _ReplayClient(TikTokLive.TikTokLiveClient):
 			async for event in self._parse_webcast_response(item):
 				self.emit(event.get_type(), event)
 			await self.wait_for_complete()
-		if session.end == "hold":
+		if session.end == "drop" and not session.dropped:
+			session.dropped = True
+			raise ConnectionError("replay dropped the connection once")
+		if session.end in ("hold", "drop"):
 			while not session.release.is_set():
 				await asyncio.sleep(0.02)
 		if session.end == "error":
@@ -326,8 +329,9 @@ class _RecordingSounds:
 
 @dataclass
 class Session:
-	"""``end``: "clean" (the stream is over), "error" (dropped connection) or
-	"hold" (stays connected until ``release`` is set)."""
+	"""``end``: "clean" (the stream is over), "error" (dropped connection),
+	"hold" (stays connected until ``release`` is set) or "drop" (the first
+	connection drops, the next holds)."""
 
 	frames: list
 	end: str = "clean"
@@ -339,6 +343,7 @@ class Session:
 	speech: list = field(default_factory=list)
 	room_info: dict = field(default_factory=dict)
 	room_data: dict = field(default_factory=dict)
+	dropped: bool = False
 
 
 class VirtualClock:

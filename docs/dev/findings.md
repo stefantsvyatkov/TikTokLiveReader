@@ -38,6 +38,16 @@ instead of 85 and leave no event loop unclosed.
   optional one; the add-on runs on TikTokLive 7.0.1.
 - F23 After a quick off/on, the old stats thread can keep running beside the
   new one (`_stop_event` is cleared again before it notices).
+- F40 Fixed on 2026-11-12: a reconnection cut the recording in two. On the
+  user's live of 2026-11-12 the connection dropped once, about 8 minutes in;
+  the add-on reconnected within seconds, but `on_retry` stopped FFmpeg and the
+  reconnection started a new file (01:19:10 to 01:27:23, then 01:27:30 to
+  02:58:36; 7 s missing). FFmpeg reads the stream from TikTok's servers, not
+  through the connection, so the recording now goes on while the add-on
+  reconnects; it stops on switching off, when the live ends and when the
+  retries give up. If FFmpeg ended by itself meanwhile, the reconnection still
+  starts a new file. `tests/feed.py`'s end "drop" drops a replayed connection
+  once.
 
 ## Events
 
@@ -228,6 +238,27 @@ are right.
   to decode is such an error (the type 18 link layer message before
   `_build_message_classes`). In 19 + 18 recorded lives no other library wrote
   to stderr.
+- F41 Fixed on 2026-11-12: with the text files cleared on start (the default),
+  switching on again kept, in memory, the line navigation had reached in the
+  previous session in each file left for another. The new session's files
+  start empty, so navigation said "No entries" until a file grew past that
+  line, then went on from there, in the middle of the file. On the user's live
+  of 2026-11-12, after watching another live the same night (117 lines in its
+  events.txt), the events file seemed to start somewhere near its beginning
+  and its order to change; the file itself was in order (116 lines, times
+  rising). Now every file starts again at its first line when the files are
+  cleared. With the files kept, the events file's line was not saved in
+  `tiktokLiveReader-positions.json` (`TRACKED_KEYS` lacked it), so after NVDA
+  restarted it started again at the first line; it is saved now. Ruled out:
+  the text files folder on pCloud Drive (the user's `P:`): writing and reading
+  a file there as the add-on does (490 lines in 150 s, 1400 reads) found every
+  read whole and in order.
+- F42 Fixed on 2026-11-12: the FFmpeg download's progress dialog
+  (`wx.GenericProgressDialog`, F39) opened away from the middle of the screen,
+  (-458, -169) px in the sandbox: wx centres it on its parent, NVDA's hidden
+  main frame. `CentreOnScreen()` after creating it, (-1, 0) px; the question
+  before it, NVDA's own message dialog, was already in the middle. The
+  recording scenario measures both from the middle of the work area.
 
 ## Not issues
 

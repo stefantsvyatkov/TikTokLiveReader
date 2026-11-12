@@ -191,7 +191,8 @@ The add-on connects as an anonymous viewer; asked for two features on
   of a live whose host notes when the puzzle came can settle it.
   Connecting with the host's session cookie might receive it, but the cookie
   gives full access to the account and goes to the sign server. The user
-  decided on 2026-10-14 not to make the feature.
+  decided on 2026-10-14 not to make the feature. On the user's own live of
+  2026-11-12 (1 h 42 min, streamed from TikTok LIVE Studio) no puzzle came.
 
 ## Moderation
 

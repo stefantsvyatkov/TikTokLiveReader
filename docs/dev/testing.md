@@ -154,7 +154,9 @@ s, NVDA's memory 150-161 MB before and 229-233 MB after, 0.50-0.64 s after
 the off key. Again on 2026-11-10 with the fan club check box, the Format list
 and the new fan club and share sounds: 414 steps, stress the same (22 of 22,
 median 0.13 s, 150-160 MB before and 230-239 MB after, 0.13-0.60 s after the
-off key).
+off key). On 2026-11-12 after F40-F42: 420 steps, the two dialogs within 1 px
+of the middle, stress 22 of 22 (median 0.13 s, 151-160 MB before and 226-241
+MB after, 0.13-0.50 s after the off key).
 
 ### Other add-ons
 
@@ -219,7 +221,8 @@ sticker comment (F31) and one anonymous join ("someone").
 
 `recording` (with `-Recording smoke.jsonl`) checks the live recordings page
 of the settings, then that NVDA+shift+control+e says "Not connected to a live"
-before switching on, asks to install FFmpeg, downloads it (the real GitHub
+before switching on, asks to install FFmpeg (the question and the progress
+dialog each within 40 px of the middle of the screen, F42), downloads it (the real GitHub
 release, so the sandbox needs its network; certifi's authorities, as a fresh
 Windows lacks GitHub's issuer) behind the progress dialog, says "Recording
 started", and after "Recording stopped" leaves one MP4 in the run's

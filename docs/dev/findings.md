@@ -242,12 +242,18 @@ are right.
   switching on again kept, in memory, the line navigation had reached in the
   previous session in each file left for another. The new session's files
   start empty, so navigation said "No entries" until a file grew past that
-  line, then went on from there, in the middle of the file. On the user's live
-  of 2026-11-12, after watching another live the same night (117 lines in its
-  events.txt), the events file seemed to start somewhere near its beginning
-  and its order to change; the file itself was in order (116 lines, times
-  rising). Now every file starts again at its first line when the files are
-  cleared. With the files kept, the events file's line was not saved in
+  line, then went on from there, in the middle of the file. Now every file
+  starts again at its first line when the files are cleared. Found while
+  looking into the user's report from the live of 2026-11-12, which it does
+  not explain: the first pause read fine (9 comments by then); after the
+  second, 15-20 minutes later, only Ctrl+Shift+Down brought early lines again
+  (Gergana's "Уникален си", line 8 of events.txt; Tony's greeting, line 21),
+  as if the place had jumped back. The files were in order and whole (116
+  lines, times rising, the stats counts matching). Only the add-on's keys and
+  switching on move the place: switching on (this fix), another file and back
+  (each keeps its own place; comments.txt also had exactly 9 lines then) and
+  Ctrl+Shift+Home. To be settled on the user's next live with NVDA's log at
+  input/output. With the files kept, the events file's line was not saved in
   `tiktokLiveReader-positions.json` (`TRACKED_KEYS` lacked it), so after NVDA
   restarted it started again at the first line; it is saved now. Ruled out:
   the text files folder on pCloud Drive (the user's `P:`): writing and reading

@@ -252,8 +252,15 @@ are right.
   lines, times rising, the stats counts matching). Only the add-on's keys and
   switching on move the place: switching on (this fix), another file and back
   (each keeps its own place; comments.txt also had exactly 9 lines then) and
-  Ctrl+Shift+Home. To be settled on the user's next live with NVDA's log at
-  input/output. With the files kept, the events file's line was not saved in
+  Ctrl+Shift+Home. His next live, 2026-11-14 (2 h 20 min), was watched with
+  NVDA's log at input/output and the files followed every 1.5 s: 267
+  navigation keys (189 Down, 40 Up, 2 End, 1 Home, 35 file switches), each
+  said the line it should and the next in turn, and no file changed anything
+  but its end; he heard no jump either. The log showed his way: while playing
+  he turns NVDA's speech off (NVDA+S), and twice pressed Ctrl+Shift+Right
+  before turning it on again, silently moving to Followers. A key pressed
+  unheard like that is the likeliest cause of the jump, but it stays unproven.
+  With the files kept, the events file's line was not saved in
   `tiktokLiveReader-positions.json` (`TRACKED_KEYS` lacked it), so after NVDA
   restarted it started again at the first line; it is saved now. Ruled out:
   the text files folder on pCloud Drive (the user's `P:`): writing and reading

@@ -229,18 +229,18 @@ def _write_stats_file():
 		lines = [
 			# Translators: Stats file lines. {count} represents the respective count.
 			_("Viewers: {count}").format(count=viewer_count),
-			_("Visitors: {count}").format(count=total_viewers),
-			_("Likes: {count}").format(count=total_likes),
-			_("Followers: {count}").format(count=total_followers),
-			_("Diamonds: {count}").format(count=total_diamonds),
 			# Translators: Stats file line. {time} is hours and minutes since the live started, like 1:23.
 			_("Duration: {time}").format(time=_duration()),
+			_("Visitors: {count}").format(count=total_viewers),
+			_("Followers: {count}").format(count=total_followers),
 			# Translators: Stats file line. {count} is the number of comments.
 			_("Comments: {count}").format(count=total_comments),
+			_("Likes: {count}").format(count=total_likes),
 			# Translators: Stats file line. {count} is the number of shares and reposts.
 			_("Shares: {count}").format(count=total_shares),
 			# Translators: Stats file line. {count} is the number of gifts.
 			_("Gifts: {count}").format(count=total_gifts),
+			_("Diamonds: {count}").format(count=total_diamonds),
 		]
 		store.write(store.STATS, "".join(line + "\n" for line in lines))
 	except OSError:

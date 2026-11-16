@@ -214,15 +214,30 @@ class ConnectionLifecycle(unittest.TestCase):
 			r.files["stats.txt"],
 			[
 				"Viewers: 0",
-				"Visitors: 0",
-				"Likes: 0",
-				"Followers: 0",
-				"Diamonds: 0",
 				"Duration: 0:00",
+				"Visitors: 0",
+				"Followers: 0",
 				"Comments: 0",
+				"Likes: 0",
 				"Shares: 0",
 				"Gifts: 0",
+				"Diamonds: 0",
 			],
+		)
+
+	def test_nothing_is_written_after_the_session_ended(self):
+		# F43: NVDA closing after the live wrote the stats and the top lists again.
+		r = f.run_session(f.gift(alice, "Rose", 1, 1))
+		for name in ("stats.txt", "top gifters.txt", "top likes.txt"):
+			(r.log_dir / name).unlink()
+		f.addon_session.disconnect()
+		self.assertEqual(
+			[
+				name
+				for name in ("stats.txt", "top gifters.txt", "top likes.txt")
+				if (r.log_dir / name).exists()
+			],
+			[],
 		)
 
 	def test_the_duration_counts_from_the_start_of_the_live(self):

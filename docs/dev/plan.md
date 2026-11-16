@@ -152,7 +152,9 @@ the user's wording for the catalogue, which the user maintains.
    H:MM since the live started, from the room info's `create_time` fetched
    once on connecting (a TikTok request, not the sign server); the counts are
    the add-on's own (the room info's like, comment and share counts are 0 in
-   the web API).
+   the web API). Since 2026-11-16, at the user's poll, the nine lines go
+   viewers, duration, visitors, followers, comments, likes, shares, gifts,
+   diamonds (F43).
    - "Duration: {time}" / "Продължителност: {time}"
    - "Comments: {count}" / "Коментари: {count}"
    - "Shares: {count}" / "Споделяния: {count}" (reposts included)

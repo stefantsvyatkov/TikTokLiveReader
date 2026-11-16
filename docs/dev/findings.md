@@ -272,6 +272,15 @@ are right.
   main frame. `CentreOnScreen()` after creating it, (-1, 0) px; the question
   before it, NVDA's own message dialog, was already in the middle. The
   recording scenario measures both from the middle of the work area.
+- F43 Fixed on 2026-11-16: closing NVDA after a live wrote stats.txt and the
+  top lists again: `session.disconnect()` wrote them also when nothing was
+  connected, the duration counted from the live's start to that moment. The
+  user switched the add-on off at 03:57 on 2026-11-14 and NVDA restarted at
+  04:43: "Duration: 3:07" for a live of 2:21 (the Backups copy was right).
+  Now they are written only when a run ends. At the same time, at the user's
+  poll, the stats lines go viewers, duration, visitors, followers, comments,
+  likes, shares, gifts, diamonds (before: duration sixth, gifts far from
+  diamonds).
 
 ## Not issues
 

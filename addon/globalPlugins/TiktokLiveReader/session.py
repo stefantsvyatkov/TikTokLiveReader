@@ -167,15 +167,17 @@ def disconnect():
 	global _current
 	with _lock:
 		run, _current = _current, None
-	if run is not None:
-		run.end()
 	# What is written below is not announced any more.
 	pipeline.connection_time = 0
-	# Written before the plugin archives the files: likes still being summed and
-	# the top lists, otherwise written only every 10 s (F11, F12).
-	pipeline.like_manager.flush_pending()
-	pipeline.write_top_files()
-	# Written again for the final duration, also when nothing else changed.
-	pipeline.update_stats_file(force=True)
+	# Nothing is written when nothing was connected: closing NVDA after a live
+	# wrote the stats again, its duration counted on to that moment (F43).
+	if run is not None:
+		run.end()
+		# Written before the plugin archives the files: likes still being summed and
+		# the top lists, otherwise written only every 10 s (F11, F12).
+		pipeline.like_manager.flush_pending()
+		pipeline.write_top_files()
+		# Written again for the final duration, also when nothing else changed.
+		pipeline.update_stats_file(force=True)
 	pipeline.like_manager.stop()
 	announcer.sound_manager.stop()

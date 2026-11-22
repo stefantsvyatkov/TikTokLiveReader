@@ -176,6 +176,13 @@ class ConnectionLifecycle(unittest.TestCase):
 		r = f.run_session(f.comment(alice, "x"), end="error")
 		self.assertEqual(r.callbacks, ["connected", "fail"])
 
+	def test_a_reconnection_that_finds_the_user_offline_reports_live_end(self):
+		# F44: the live ended while its connection was down.
+		self.addCleanup(setattr, f.addon_session, "RETRY_PAUSE", f.addon_session.RETRY_PAUSE)
+		f.addon_session.RETRY_PAUSE = 0.1
+		r = f.run_session(f.comment(alice, "x"), end="drop-offline", retry_count=3)
+		self.assertEqual(r.callbacks, ["connected", "retry", "live_end"])
+
 	def test_files_are_cleared_on_start(self):
 		first = f.run_session(f.comment(alice, "one"))
 		second = f.run_session(f.comment(bob, "two"), log_dir=first.log_dir)

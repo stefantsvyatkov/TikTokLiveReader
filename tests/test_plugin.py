@@ -122,6 +122,21 @@ class SwitchingOnAndOff(PluginTest):
 		self.assertFalse(plugin.active)
 		self.assertEqual(set(plugin.boundGestures), BASE_GESTURES)
 
+	def test_a_connection_closed_while_the_live_goes_on_connects_again(self):
+		# F44: on 2026-11-22 TikTok closed the connection cleanly while the live went on.
+		self.addCleanup(setattr, f.addon_session, "RETRY_PAUSE", f.addon_session.RETRY_PAUSE)
+		f.addon_session.RETRY_PAUSE = 0.1
+		plugin, _ = make_plugin()
+		with f.replaying(f.comment(alice, "x"), end="close"):
+			plugin.script_toggleActive(None)
+			self.assertTrue(
+				f.wait_until(lambda: support.spoken.count("Connected to user: host") == 2), support.spoken
+			)
+			self.assertIn("Attempting to connect...", support.spoken)
+			self.assertNotIn("The live has ended", support.spoken)
+			self.assertTrue(plugin.active)
+			plugin.script_toggleActive(None)
+
 	def test_failed_connection_switches_off(self):
 		plugin, _ = make_plugin(behavior={"retry_count": 1})
 		with f.replaying(end="error"):
@@ -408,6 +423,26 @@ class Recording(PluginTest):
 		plugin.script_toggleActive(None)
 		(recording,) = self.folder.iterdir()
 		self.assertEqual(recording.read_text(encoding="utf-8").splitlines()[-1], "done")
+
+	def test_a_recording_that_cannot_go_on_is_said(self):
+		# F45: FFmpeg ended by itself and could not be started again.
+		for name, value in (("WATCH", 0.05), ("RESTART_PAUSE", 0.05), ("RESTART_TRIES", 2)):
+			self.addCleanup(setattr, G.recorder, name, getattr(G.recorder, name))
+			setattr(G.recorder, name, value)
+		plugin, _log_dir = make_plugin(recording={"folder": str(self.folder)})
+		answers = ["https://cdn/cut.flv"]
+		plugin.recording = G.recorder.LiveRecording(
+			room_info=lambda username: room_info({"hd": answers.pop() if answers else "https://cdn/fail.flv"})
+		)
+		self.start(plugin)
+		plugin.script_toggleRecording(None)
+		self.assertTrue(f.wait_until(said("Recording started")), support.spoken)
+		self.assertTrue(f.wait_until(said("Recording stopped")), support.spoken)
+		self.assertFalse(plugin.recording.active)
+		self.assertTrue(plugin.active)
+		support.spoken.clear()
+		plugin.script_toggleRecording(None)
+		self.assertTrue(f.wait_until(said("Could not start recording")), support.spoken)
 
 	def test_a_stream_ffmpeg_cannot_open_is_said(self):
 		plugin = self.plugin()

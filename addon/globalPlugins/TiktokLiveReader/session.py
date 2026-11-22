@@ -92,7 +92,7 @@ def _runner(run, username, on_connect_cb, on_retry_cb, on_fail_cb, max_attempts=
 		live_ended = True
 
 	while run.active:
-		ended_cleanly = False
+		ended_cleanly = offline = False
 		try:
 			run.connection = tiktok_adapter.new_client(
 				username, classes, deliver, on_connected, on_stream_end
@@ -101,18 +101,21 @@ def _runner(run, username, on_connect_cb, on_retry_cb, on_fail_cb, max_attempts=
 				break
 			run.connection.run()
 			ended_cleanly = True
-		except Exception:
+		except Exception as error:
 			# Offline, a dropped connection, the signing server's limit: retried.
 			log.debugWarning(f"TikTok Live Reader: connection to {username} failed", exc_info=True)
-			ended_cleanly = False
+			offline = tiktok_adapter.is_offline(error)
 
 		if not run.active:
 			break
 
-		# The stream is over either when the library says so, or when the
-		# connection ended without error after we had been connected. Either
-		# signal alone is enough, so a missing LiveEndEvent cannot hide the ending.
-		if live_ended or (ended_cleanly and connected_once):
+		# The stream is over when the library says so. Without its LiveEndEvent a
+		# connection that ended cleanly, or a reconnection that found the user offline,
+		# ends it only when TikTok says the user is not live: TikTok closed a connection
+		# cleanly while the live went on (F44).
+		if live_ended or (
+			connected_once and (ended_cleanly or offline) and not _live(username, classes, offline)
+		):
 			report(on_live_end_cb)
 			break
 
@@ -123,6 +126,18 @@ def _runner(run, username, on_connect_cb, on_retry_cb, on_fail_cb, max_attempts=
 		else:
 			report(on_fail_cb)
 			break
+
+
+def _live(username, classes, offline):
+	"""Whether the live goes on after its connection ended: not when the library
+	found the user offline; when TikTok cannot tell, connecting again finds out."""
+	if offline:
+		return False
+	try:
+		return tiktok_adapter.is_live(username, classes)
+	except Exception:
+		log.debugWarning(f"TikTok Live Reader: is {username} live", exc_info=True)
+		return True
 
 
 def connect(username=None, on_connect=None, on_retry=None, on_fail=None, retry_count=3, on_live_end=None):

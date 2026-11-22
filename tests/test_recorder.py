@@ -5,6 +5,7 @@ import json
 import os
 import sys
 import tempfile
+import time
 import unittest
 from pathlib import Path
 
@@ -12,6 +13,15 @@ from . import support
 
 recorder = support.load("recorder")
 FAKE_FFMPEG = [sys.executable, str(Path(__file__).with_name("fake_ffmpeg.py"))]
+
+
+def wait_until(condition, timeout=10):
+	end = time.monotonic() + timeout
+	while time.monotonic() < end:
+		if condition():
+			return True
+		time.sleep(0.02)
+	return False
 
 
 def room_info(qualities=None, flv_pull_url=None):
@@ -89,6 +99,82 @@ class Process(unittest.TestCase):
 	def test_a_missing_ffmpeg_is_a_failure(self):
 		rec = recorder.Recorder(self.folder / "no-ffmpeg.exe")
 		self.assertFalse(rec.start("https://cdn/hd.flv", self.path, settle=0.5))
+
+
+class Joining(unittest.TestCase):
+	def setUp(self):
+		self.folder = Path(tempfile.mkdtemp(dir=support.ROOT))
+		self.first = self.folder / "2026-11-22 00-56-09 it's me.mp4"
+		self.files = [self.first, recorder.part_path(self.first, 2), recorder.part_path(self.first, 3)]
+		for number, path in enumerate(self.files, 1):
+			path.write_text(f"part {number}\n", encoding="utf-8")
+
+	def test_the_parts_are_joined_into_the_first(self):
+		self.assertTrue(recorder.join(FAKE_FFMPEG, self.files))
+		self.assertEqual([path.name for path in self.folder.iterdir()], [self.first.name])
+		self.assertEqual(self.first.read_text(encoding="utf-8"), "part 1\npart 2\npart 3\n")
+
+	def test_parts_ffmpeg_cannot_join_stay(self):
+		os.environ["FAKE_FFMPEG_JOIN_FAILS"] = "1"
+		try:
+			self.assertFalse(recorder.join(FAKE_FFMPEG, self.files))
+		finally:
+			del os.environ["FAKE_FFMPEG_JOIN_FAILS"]
+		self.assertEqual(sorted(self.folder.iterdir()), sorted(self.files))
+		self.assertEqual(self.first.read_text(encoding="utf-8"), "part 1\n")
+
+
+class StartingAgain(unittest.TestCase):
+	# F45: on 2026-11-22 TikTok cut the stream after 27 minutes; FFmpeg ended and the
+	# rest of the live, 2 h 13 min, was not recorded.
+	def setUp(self):
+		self.folder = Path(tempfile.mkdtemp(dir=support.ROOT))
+		ffmpeg = support.load("ffmpeg_setup")
+		self.addCleanup(setattr, ffmpeg, "executable", ffmpeg.executable)
+		ffmpeg.executable = lambda: FAKE_FFMPEG
+		for name, value in (("SETTLE", 0.3), ("WATCH", 0.05), ("RESTART_PAUSE", 0.05), ("RESTART_TRIES", 3)):
+			self.addCleanup(setattr, recorder, name, getattr(recorder, name))
+			setattr(recorder, name, value)
+
+	def recording(self, *addresses):
+		"""A recording whose room info gives these stream addresses in turn, the last from then on."""
+		answers = list(addresses)
+
+		def info(username):
+			address = answers.pop(0) if len(answers) > 1 else answers[0]
+			return room_info({"hd": address})
+
+		self.started, self.lost = [], []
+		live = recorder.LiveRecording(room_info=info)
+		live.start("host", "video", self.folder, self.started.append, lambda: self.lost.append(True))
+		self.assertTrue(wait_until(lambda: self.started), "not started")
+		return live
+
+	def test_ffmpeg_ending_by_itself_is_started_again_and_the_parts_joined(self):
+		live = self.recording("https://cdn/cut.flv", "https://cdn/hd.flv")
+		# The second part counts once FFmpeg has settled; one stopped before is dropped.
+		self.assertTrue(wait_until(lambda: len(live._parts.files) == 2), "no second part")
+		self.assertTrue(live.active)
+		self.assertTrue(live.stop())
+		self.assertTrue(wait_until(lambda: len(list(self.folder.iterdir())) == 1), "not joined")
+		(recording,) = self.folder.iterdir()
+		self.assertRegex(recording.name, r"^\d{4}-\d\d-\d\d \d\d-\d\d-\d\d host\.mp4$")
+		lines = recording.read_text(encoding="utf-8").splitlines()
+		self.assertEqual(
+			[line for line in lines if line in ("recording", "cut", "done")],
+			["recording", "cut", "recording", "done"],
+		)
+		self.assertIn("https://cdn/cut.flv", lines[1])
+		self.assertIn("https://cdn/hd.flv", lines[4])
+		self.assertEqual(self.lost, [])
+
+	def test_a_stream_that_cannot_be_opened_again_ends_the_recording(self):
+		live = self.recording("https://cdn/cut.flv", "https://cdn/fail.flv")
+		self.assertTrue(wait_until(lambda: self.lost), "not given up")
+		self.assertFalse(live.active)
+		self.assertFalse(live.stop())
+		(recording,) = self.folder.iterdir()
+		self.assertEqual(recording.read_text(encoding="utf-8").splitlines()[-1], "cut")
 
 
 if __name__ == "__main__":

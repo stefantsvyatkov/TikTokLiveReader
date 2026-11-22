@@ -217,6 +217,26 @@ def room_info(username):
 		return asyncio.run(fetch(TikTokLiveClient))
 
 
+def is_live(username, classes):
+	"""Whether ``username`` is live now: a TikTok request, not the sign server. Runs a
+	loop of its own, so call it from a worker thread; raises when it cannot tell."""
+
+	async def fetch(client_class):
+		client = client_class(unique_id=username)
+		try:
+			return bool(await client.is_live())
+		finally:
+			await client.web.close()
+
+	with library_scope():
+		return asyncio.run(fetch(classes["TikTokLiveClient"]))
+
+
+def is_offline(error):
+	"""Whether ``error`` is the library's saying the user is not live."""
+	return type(error).__name__ == "UserOfflineError"
+
+
 async def _live_start(client):
 	"""When the live started, from the room info, or else from the room id request
 	(an age restricted live has no room info without signing in): TikTok requests,

@@ -35,6 +35,7 @@ announcer = support.load("announcer")
 with adapter.library_scope():
 	import TikTokLive
 	from TikTokLive import proto
+	from TikTokLive.client.errors import UserOfflineError
 	from TikTokLive.events import ConnectEvent, proto_events
 	from TikTokLive.proto.custom_proto import ControlAction
 	from TikTokLiveProto.v3.webcast.model.message import linkcore
@@ -261,6 +262,8 @@ class _ReplayClient(TikTokLive.TikTokLiveClient):
 	async def connect(self, **kwargs):
 		session = self.session
 		session.threads.append(threading.current_thread())
+		if session.end == "drop-offline" and session.dropped:
+			raise UserOfflineError()
 		self._room_id = 1
 
 		async def room_info(*args, **kwargs):
@@ -274,6 +277,10 @@ class _ReplayClient(TikTokLive.TikTokLiveClient):
 		self._web.fetch_room_info = room_info
 		self._web.fetch_room_id_from_api.fetch_user_room_data = room_data
 		await self._replay(session)
+
+	async def is_live(self, unique_id=None):
+		# After a clean end, the live goes on only in "close".
+		return self.session.end == "close"
 
 	async def _replay(self, session):
 		recorded_connect = any(getattr(item, "is_first", False) for item in session.frames)
@@ -292,10 +299,13 @@ class _ReplayClient(TikTokLive.TikTokLiveClient):
 			async for event in self._parse_webcast_response(item):
 				self.emit(event.get_type(), event)
 			await self.wait_for_complete()
-		if session.end == "drop" and not session.dropped:
+		if session.end in ("drop", "drop-offline") and not session.dropped:
 			session.dropped = True
 			raise ConnectionError("replay dropped the connection once")
-		if session.end in ("hold", "drop"):
+		if session.end == "close" and not session.dropped:
+			session.dropped = True
+			return
+		if session.end in ("hold", "drop", "close"):
 			while not session.release.is_set():
 				await asyncio.sleep(0.02)
 		if session.end == "error":
@@ -330,8 +340,10 @@ class _RecordingSounds:
 @dataclass
 class Session:
 	"""``end``: "clean" (the stream is over), "error" (dropped connection),
-	"hold" (stays connected until ``release`` is set) or "drop" (the first
-	connection drops, the next holds)."""
+	"hold" (stays connected until ``release`` is set), "drop" (the first
+	connection drops, the next holds), "close" (the first connection ends
+	cleanly while the live goes on, the next holds) or "drop-offline" (the first
+	connection drops and connecting again finds the user offline)."""
 
 	frames: list
 	end: str = "clean"
@@ -506,6 +518,7 @@ def run_session(
 	clock=None,
 	room_info=None,
 	room_data=None,
+	retry_count=1,
 ):
 	"""Run one connection through the add-on's real thread, replaying ``frames``;
 	``room_info`` is what TikTok answers for the room, or the error it raises, and
@@ -546,7 +559,7 @@ def run_session(
 			on_retry=record("retry"),
 			on_fail=record("fail", last=True),
 			on_live_end=record("live_end", last=True),
-			retry_count=1,
+			retry_count=retry_count,
 		)
 		pauses = 0 if clock else sum(item for item in frames if isinstance(item, (int, float)))
 		if not finished.wait(timeout + pauses):

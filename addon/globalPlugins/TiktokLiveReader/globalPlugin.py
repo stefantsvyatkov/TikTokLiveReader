@@ -422,8 +422,18 @@ class GlobalPlugin(NVDA_GlobalPlugin):
 
 			wx.CallAfter(report)
 
+		def lost():
+			def report():
+				if self._connectionToken is not token or not self._recordingWanted:
+					return
+				self._recordingWanted = False
+				# Translators: Announced when the recording of the live stops.
+				ui.message(_("Recording stopped"))
+
+			wx.CallAfter(report)
+
 		self.recording.start(
-			self.settings.username, self.settings.record_quality, self.settings.recordings_folder, done
+			self.settings.username, self.settings.record_quality, self.settings.recordings_folder, done, lost
 		)
 
 	def _stop_recording(self):

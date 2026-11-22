@@ -46,8 +46,43 @@ instead of 85 and leave no event loop unclosed.
   through the connection, so the recording now goes on while the add-on
   reconnects; it stops on switching off, when the live ends and when the
   retries give up. If FFmpeg ended by itself meanwhile, the reconnection still
-  starts a new file. `tests/feed.py`'s end "drop" drops a replayed connection
-  once.
+  started a new file; since F45 the recording starts FFmpeg again itself.
+  `tests/feed.py`'s end "drop" drops a replayed connection once.
+- F44 Fixed on 2026-11-22: a connection TikTok closed cleanly was taken for the
+  live's end. On the user's live of 2026-11-22 the add-on said "The live has
+  ended" at 03:36:34, 2 h 40 min in, stopped the recording and archived the
+  files, while the live went on (TikTok LIVE Studio's clock ran on; the
+  recorder's own connection, made the same minute, got every message through
+  to 04:20). No LiveEndEvent came and nothing at all in the messages around
+  03:36; the library's `connect()` simply returned. The user switched on again
+  at 03:51 and the cleared files started empty; 15 minutes went unfollowed.
+  Without a LiveEndEvent, a clean end now asks TikTok whether the user is live
+  (`tiktok_adapter.is_live`, the library's `is_live()`, a web request, not the
+  sign server): live, it connects again as after a dropped connection
+  ("Attempting to connect...", then "Connected to user"), keeping the run, the
+  files, navigation and the recording; not live, the live has ended as before.
+  When TikTok cannot tell, connecting again finds out: a reconnection that
+  finds the user offline (`UserOfflineError`) after the run had been connected
+  is the live's end too, not "Connection unsuccessful". `tests/feed.py`'s ends
+  "close" and "drop-offline" replay both.
+- F45 Fixed on 2026-11-22: FFmpeg ended by itself and the add-on did not
+  notice. On the same live the first video holds 27 minutes, 00:56 to 01:23:33,
+  of the 2 h 40 min the add-on believed it recorded ("Recording stopped" came
+  only with F44's false end). Its error went with the next start's log; the
+  second recording ended the same way at the live's real end, "Error during
+  demuxing: I/O error", exit code 0 (no warning in NVDA's log either time).
+  Nothing in the live's messages around 01:23. `recorder.LiveRecording` now
+  looks at FFmpeg every second; when it ended by itself it takes the room info
+  again (a fresh stream address) and starts FFmpeg into a part of its own
+  (`<name> (2).mp4`), at once and then every 10 s, six tries. When the
+  recording stops the parts are joined into the first file by FFmpeg's concat
+  demuxer, copied, not encoded, in a thread of its own; the others go. When
+  FFmpeg cannot be started again (the live has ended), the recording ends and
+  says "Recording stopped". Checked with real FFmpeg on the host: a stream
+  served by FFmpeg, killed 8 s in and served again, gave one MP4 of 21.4 s and
+  one MP3 of 20.9 s. Left as it is: when NVDA closes during a join, FFmpeg
+  finishes `<name> (joined).mp4` but nothing replaces the first file with it,
+  so the parts, the joined copy and `(parts).txt` stay; nothing is lost.
 
 ## Events
 
@@ -260,6 +295,8 @@ are right.
   he turns NVDA's speech off (NVDA+S), and twice pressed Ctrl+Shift+Right
   before turning it on again, silently moving to Followers. A key pressed
   unheard like that is the likeliest cause of the jump, but it stays unproven.
+  Watched the same way on 2026-11-22 (3 h 24 min, about 410 navigation keys):
+  every key right again; F44-F46 were found then.
   With the files kept, the events file's line was not saved in
   `tiktokLiveReader-positions.json` (`TRACKED_KEYS` lacked it), so after NVDA
   restarted it started again at the first line; it is saved now. Ruled out:
@@ -281,6 +318,18 @@ are right.
   poll, the stats lines go viewers, duration, visitors, followers, comments,
   likes, shares, gifts, diamonds (before: duration sixth, gifts far from
   diamonds).
+- F46 Not fixed, at the user's word: pCloud Drive sometimes shows an older
+  copy of a file just written. On 2026-11-22, with the text files in
+  `P:\Documents\TikTok live`, the file watcher saw six times, 5 to 45 s after a
+  line was written, the file without its last line; five times the line came
+  back by itself, once the add-on wrote its next line in that moment and it took
+  the lost line's place ("nz_randomm: 616 likes 01:02:14" is missing from
+  events.txt and still in likes.txt). Appending seeks to the end Windows
+  reports, which is the older copy's. The add-on's own reads saw the older
+  copy too: "1 of 10" for a moment where the file had 11 lines. Not seen on
+  2026-11-14, nor in F41's test. Asked whether the add-on should guard against
+  it (rewriting a file whole when it is shorter than what was written), the
+  user would rather not keep the files in a synchronised folder.
 
 ## Not issues
 

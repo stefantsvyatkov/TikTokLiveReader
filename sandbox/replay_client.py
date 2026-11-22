@@ -82,6 +82,10 @@ class TikTokLiveClient(_LiveClient):
 		self._replay_stopped = False
 		await self._replay()
 
+	async def is_live(self, *args, **kwargs):
+		# Asked when a connection ends without LiveEndEvent (F44): over after "end".
+		return _control() != "end"
+
 	async def disconnect(self, *args, **kwargs):
 		# As the real client: connect() returns once disconnected.
 		self._replay_stopped = True

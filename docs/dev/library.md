@@ -232,3 +232,7 @@ its full info and `age_restricted: {"restricted": false, ...}`.
   info of at most one key, which TikTok also sends for offline users and when
   many requests come at once (31 offline users and one ordinary live in a
   scan of the 272 through the library). 1.8 never asked for the room info.
+- 2026-11-26, the user could not record ziki_music: TikTok answered the room
+  info with 4003110 and `{"prompts": ""}`, and `/api-live/user/room/` gave
+  `status` 2 with an empty `liveRoom` (no title, `startTime` 0, no
+  `streamData`), so this time Duration counted from connecting as well.
